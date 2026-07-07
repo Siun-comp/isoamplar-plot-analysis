@@ -14,6 +14,7 @@ Browser-based amplification fluorescence plot analysis tool for IsoAmplar/LAMP r
 - Optional individual markers: none, circle, triangle, rect.
 - User-controlled legend/export order.
 - PNG/JPEG export, PNG clipboard copy, and conditional plotted-data CSV export.
+- Browser tab, bookmark, Apple touch, and PWA/taskbar icons.
 
 ## Privacy
 
@@ -37,3 +38,5 @@ npm run test:e2e
 ## Deployment
 
 The repository includes a GitHub Actions workflow that builds the app and deploys `dist/` to GitHub Pages on pushes to `main`.
+
+Public app: https://siun-comp.github.io/isoamplar-plot-analysis/

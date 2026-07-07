@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">IsoAmplar icon option B</title>
+  <desc id="desc">The IA initials integrated with a minimal amplification trace.</desc>
+  <defs>
+    <linearGradient id="b-bg" x1="64" y1="64" x2="448" y2="448" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#10213a"/>
+      <stop offset="1" stop-color="#0e6976"/>
+    </linearGradient>
+    <linearGradient id="b-accent" x1="118" y1="344" x2="404" y2="162" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f2b84b"/>
+      <stop offset="1" stop-color="#66c2df"/>
+    </linearGradient>
+    <filter id="b-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#071323" flood-opacity="0.24"/>
+    </filter>
+  </defs>
+  <rect x="48" y="48" width="416" height="416" rx="108" fill="url(#b-bg)" filter="url(#b-shadow)"/>
+  <path d="M147 150V362" fill="none" stroke="#ffffff" stroke-width="40" stroke-linecap="round"/>
+  <path d="M247 362L323 150L399 362" fill="none" stroke="#ffffff" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M278 286H368" fill="none" stroke="#ffffff" stroke-width="32" stroke-linecap="round"/>
+  <path d="M114 334C152 336 185 335 210 324C235 313 249 287 260 256C273 219 292 187 328 174C349 166 375 164 404 165" fill="none" stroke="url(#b-accent)" stroke-width="20" stroke-linecap="round"/>
+  <path d="M118 316H390" fill="none" stroke="#f2b84b" stroke-width="10" stroke-linecap="round" stroke-dasharray="18 18" opacity="0.92"/>
+</svg>

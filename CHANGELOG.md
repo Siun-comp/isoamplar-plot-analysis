@@ -78,6 +78,8 @@ Update this file when user visible behavior, documentation baseline, release rea
 - Added individual curve marker options: none, circle, triangle, and rect.
 - Added regression tests for stable default colors, default no-marker chart rendering, marker symbol mapping, editable P1 scale behavior, developer credit, and fixed chart viewport height.
 - Added append Excel upload so an additional `.xls`/`.xlsx` first worksheet can be added to the current analysis without replacing existing data.
+- Added Option A app icon assets for browser tabs, bookmarks, Apple touch icons, and PWA/taskbar install surfaces.
+- Added icon option source previews under `docs/icon_options/` for future visual review.
 - Added unique rekeying for appended curves to avoid `curveId` collisions across files.
 - Added grouping-aware curve labels so reagent mode displays `reagent / specimen` and specimen mode displays `specimen / reagent` in selection, chart legend, legend order, and plotted CSV.
 - Added sticky desktop chart preview behavior while long side panels/page content scrolls.

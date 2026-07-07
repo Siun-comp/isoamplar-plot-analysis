@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IsoAmplar Icon Options</title>
+    <style>
+      :root {
+        color: #172033;
+        background: #eef2f7;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 32px;
+      }
+
+      main {
+        max-width: 1120px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        margin: 0 0 6px;
+        font-size: 26px;
+      }
+
+      p {
+        margin: 0;
+        color: #536174;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+        margin-top: 24px;
+      }
+
+      .card {
+        border: 1px solid #d8dee8;
+        border-radius: 8px;
+        background: #ffffff;
+        padding: 18px;
+      }
+
+      .card h2 {
+        margin: 0 0 10px;
+        font-size: 16px;
+      }
+
+      .stage {
+        display: grid;
+        place-items: center;
+        min-height: 236px;
+        border: 1px solid #e4e9f1;
+        border-radius: 8px;
+        background:
+          linear-gradient(45deg, #f8fafc 25%, transparent 25%),
+          linear-gradient(-45deg, #f8fafc 25%, transparent 25%),
+          linear-gradient(45deg, transparent 75%, #f8fafc 75%),
+          linear-gradient(-45deg, transparent 75%, #f8fafc 75%);
+        background-color: #ffffff;
+        background-position:
+          0 0,
+          0 12px,
+          12px -12px,
+          -12px 0;
+        background-size: 24px 24px;
+      }
+
+      .stage img {
+        width: 160px;
+        height: 160px;
+      }
+
+      .sizes {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 14px;
+        padding: 12px;
+        border-radius: 8px;
+        background: #f8fafc;
+      }
+
+      .sizes img {
+        flex: 0 0 auto;
+      }
+
+      .note {
+        margin-top: 12px;
+      }
+
+      .dark-strip {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-top: 14px;
+        border-radius: 8px;
+        padding: 12px;
+        background: #172033;
+      }
+
+      .dark-strip span {
+        color: #d7deea;
+        font-size: 13px;
+      }
+
+      @media (max-width: 860px) {
+        body {
+          padding: 18px;
+        }
+
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>IsoAmplar Plot Analysis - Icon Options</h1>
+      <p>SVG candidates for favicon, browser tab, bookmark, and future PWA icons.</p>
+
+      <section class="grid" aria-label="Icon options">
+        <article class="card">
+          <h2>Option A - Curve Focus</h2>
+          <div class="stage">
+            <img src="./isoamplar-icon-option-a.svg" alt="Option A icon" />
+          </div>
+          <div class="sizes">
+            <img src="./isoamplar-icon-option-a.svg" alt="" width="16" height="16" />
+            <img src="./isoamplar-icon-option-a.svg" alt="" width="32" height="32" />
+            <img src="./isoamplar-icon-option-a.svg" alt="" width="48" height="48" />
+            <img src="./isoamplar-icon-option-a.svg" alt="" width="64" height="64" />
+          </div>
+          <div class="dark-strip">
+            <img src="./isoamplar-icon-option-a.svg" alt="" width="40" height="40" />
+            <span>Best when the chart itself should be the main signal.</span>
+          </div>
+          <p class="note">Cleanest favicon candidate. It keeps the amplification curve and threshold readable at small sizes.</p>
+        </article>
+
+        <article class="card">
+          <h2>Option B - IA Mark</h2>
+          <div class="stage">
+            <img src="./isoamplar-icon-option-b.svg" alt="Option B icon" />
+          </div>
+          <div class="sizes">
+            <img src="./isoamplar-icon-option-b.svg" alt="" width="16" height="16" />
+            <img src="./isoamplar-icon-option-b.svg" alt="" width="32" height="32" />
+            <img src="./isoamplar-icon-option-b.svg" alt="" width="48" height="48" />
+            <img src="./isoamplar-icon-option-b.svg" alt="" width="64" height="64" />
+          </div>
+          <div class="dark-strip">
+            <img src="./isoamplar-icon-option-b.svg" alt="" width="40" height="40" />
+            <span>Best when the product name should feel more brand-like.</span>
+          </div>
+          <p class="note">More logo-oriented. It reads well in a taskbar, but the curve is secondary to the IA identity.</p>
+        </article>
+
+        <article class="card">
+          <h2>Option C - Cartridge Motif</h2>
+          <div class="stage">
+            <img src="./isoamplar-icon-option-c.svg" alt="Option C icon" />
+          </div>
+          <div class="sizes">
+            <img src="./isoamplar-icon-option-c.svg" alt="" width="16" height="16" />
+            <img src="./isoamplar-icon-option-c.svg" alt="" width="32" height="32" />
+            <img src="./isoamplar-icon-option-c.svg" alt="" width="48" height="48" />
+            <img src="./isoamplar-icon-option-c.svg" alt="" width="64" height="64" />
+          </div>
+          <div class="dark-strip">
+            <img src="./isoamplar-icon-option-c.svg" alt="" width="40" height="40" />
+            <span>Best when the 1-sample / 8-reagent workflow should be visible.</span>
+          </div>
+          <p class="note">Most domain-specific. It is useful for the app identity, but denser than A at 16px.</p>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

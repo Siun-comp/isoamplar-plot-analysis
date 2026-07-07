@@ -10,7 +10,7 @@ Active
 2026-07-08
 
 ## Compression-Safe Summary
-- IsoAmplar Plot Analysis MVP implementation has progressed through Phase 8 plus the 2026-07-08 UI/analysis refinement passes.
+- IsoAmplar Plot Analysis MVP implementation has progressed through Phase 8 plus the 2026-07-08 UI/analysis refinement and GitHub Pages deployment passes.
 - Stack: React + Vite + TypeScript, SheetJS/xlsx, Apache ECharts, Zustand + Immer, `@tanstack/react-virtual`, Vitest + Testing Library, Playwright.
 - MVP input: `.xls` / `.xlsx` upload only, first worksheet only. CSV, paste/manual entry, app-side data editing, and sheet picker are deferred.
 - Parser preserves raw fluorescence values; no smoothing, normalization, baseline correction, log transform, averaging, or Ct/Cq calculation is applied.
@@ -20,16 +20,17 @@ Active
 - X/Y Auto, Fixed, and user-editable P1/P2 scale presets are implemented. P1/P2 have no invented default min/max values and become selectable only after valid numeric bounds are entered.
 - Style controls include specimen/reagent group color with picker and HEX input, line type, stable default colors based on original data/group order, individual curve overrides, marker options, built-in presets, one-step preset undo, and user legend/export order.
 - Export supports PNG/JPEG downloads, PNG clipboard copy with fallback message, and plotted-data CSV only for current rectangular common-X chart projections.
-- GitHub Pages asset base is configured as `./` by default. Actual GitHub deployment has not been performed.
+- GitHub Pages asset base is configured as `./` by default. The public GitHub Pages deployment is active at `https://siun-comp.github.io/isoamplar-plot-analysis/`.
+- Browser tab/bookmark/PWA icon assets use the selected Option A amplification-curve icon.
 
 ## Current Goal
-MVP implementation and the requested IsoAmplar refinement passes are complete locally. Next work should focus on manual validation with the real workbook, clipboard verification, and GitHub Pages deployment.
+MVP implementation, requested IsoAmplar refinement passes, public GitHub Pages deployment, and selected app icon application are complete. Next work should focus on manual validation with the real workbook and clipboard verification in the deployed browser origin.
 
 ## Current Milestone
 M8 - MVP release preparation complete locally, with post-MVP UI refinement applied.
 
 ## Last Completed Step
-Completed the 2026-07-08 refinements: app rename to IsoAmplar Plot Analysis, developer credit, fixed/sticky plot viewport, stable default color assignment, editable P1/P2 scale presets, Fixed auto-bound display/copy, marker override options, append Excel upload, grouping-aware curve labels, tree row banding, and compact settings/export sizing.
+Completed the 2026-07-08 refinements: app rename to IsoAmplar Plot Analysis, developer credit, fixed/sticky plot viewport, stable default color assignment, editable P1/P2 scale presets, Fixed auto-bound display/copy, marker override options, append Excel upload, grouping-aware curve labels, tree row banding, compact settings/export sizing, public GitHub deployment, and Option A app icon application.
 
 ## Implemented
 - Documentation baseline: `AGENTS.md`, `DEVELOPMENT_STATE.md`, `DECISIONS.md`, `CHANGELOG.md`, and docs `01` through `08`.
@@ -82,6 +83,14 @@ Completed the 2026-07-08 refinements: app rename to IsoAmplar Plot Analysis, dev
   - plotted-data CSV with `YYMMDD_plotN_data.csv` when common-X rectangular output is safe
   - failed export attempts do not consume `plotN`
 - Browser-local processing only; no backend or remote upload.
+- Public app icon assets:
+  - `public/favicon.svg`
+  - `public/favicon-16.png`
+  - `public/favicon-32.png`
+  - `public/apple-touch-icon.png`
+  - `public/icon-192.png`
+  - `public/icon-512.png`
+  - `public/manifest.webmanifest`
 
 ## Key Decisions
 - `D013`: accepted stack.
@@ -103,6 +112,7 @@ Completed the 2026-07-08 refinements: app rename to IsoAmplar Plot Analysis, dev
 - `npm run build`: passed.
 - `npm run test:e2e`: passed, 2 Chromium Playwright tests.
 - `npm audit --omit=dev`: 0 vulnerabilities.
+- GitHub Pages deployment: active at `https://siun-comp.github.io/isoamplar-plot-analysis/`.
 - Playwright checks include upload-first smoke, generated `.xlsx` upload, append `.xlsx` import, reagent-first collapsed state, search bulk select, chart canvas visibility, nonwhite pixel count, chart viewport height stability after settings expansion, and sticky chart panel behavior.
 - Visual screenshots:
   - `docs/gui_mockups/screenshots/phase8_mvp_desktop.png`
@@ -111,13 +121,11 @@ Completed the 2026-07-08 refinements: app rename to IsoAmplar Plot Analysis, dev
   - `docs/gui_mockups/screenshots/isoamplar_append_sticky_refinement.png`
 
 ## Known Gaps
-- Actual GitHub Pages deployment has not been performed.
 - Clipboard image copy has not been manually verified in Chrome/Edge on the final deployment origin.
 - Static fixture files and expected normalized JSON snapshots are still not checked in; tests currently generate workbook fixtures.
 - Real `C:\Users\siunj\Desktop\graph_TEST.xlsx` has been inspected read-only but has not yet been uploaded through the finished UI in this session.
 - Performance budgets for max file size, row count, specimen count, imported curve count, and rendered curve count remain undecided.
 - P1/P2 scale presets are user-editable per analysis session but are not persisted after app reload/import reset.
-- Git repository is not initialized.
 
 ## Important Links
 - Project root: `H:\Vibe Cording\Graph`
