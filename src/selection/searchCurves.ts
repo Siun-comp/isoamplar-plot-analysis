@@ -1,4 +1,4 @@
-import type { PcrDataset } from "../data/types";
+import type { PcrDataset, SelectionFilter } from "../data/types";
 import { formatCurveLabel } from "../data/curveLabels";
 
 export function getMatchedCurveIds(dataset: PcrDataset, query: string) {
@@ -22,6 +22,25 @@ export function getMatchedCurveIds(dataset: PcrDataset, query: string) {
           curve.source.sheetName
         ].some((value) => normalizeSearchText(value).includes(normalizedQuery))
       )
+      .map((curve) => curve.curveId)
+  );
+}
+
+export function getFilteredCurveIds(
+  dataset: PcrDataset,
+  matchedCurveIds: Set<string>,
+  selectedCurveIds: Set<string>,
+  filter: SelectionFilter
+) {
+  return new Set(
+    dataset.curves
+      .filter((curve) => matchedCurveIds.has(curve.curveId))
+      .filter((curve) => {
+        if (filter === "selected") return selectedCurveIds.has(curve.curveId);
+        if (filter === "unselected") return !selectedCurveIds.has(curve.curveId);
+        if (filter === "warning") return curve.warnings.length > 0;
+        return true;
+      })
       .map((curve) => curve.curveId)
   );
 }

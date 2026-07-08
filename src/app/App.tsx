@@ -1,4 +1,5 @@
 import { ChartPanel } from "../ui/ChartPanel";
+import { AnalysisTabs } from "../ui/AnalysisTabs";
 import { DataImportPanel } from "../ui/DataImportPanel";
 import { DataSelectionPanel } from "../ui/DataSelectionPanel";
 import { SettingsPanel } from "../ui/SettingsPanel";
@@ -6,6 +7,7 @@ import { useAppStore } from "./appStore";
 
 export function App() {
   const groupingMode = useAppStore((state) => state.selection?.groupingMode ?? "reagent");
+  const activeAnalysisId = useAppStore((state) => state.activeAnalysisId);
   const groupingLabel = groupingMode === "reagent" ? "시약별" : "검체별";
 
   return (
@@ -19,9 +21,16 @@ export function App() {
         <span className="phase-badge">MVP implementation</span>
       </header>
 
+      <AnalysisTabs />
+
       <DataImportPanel />
 
-      <section className="workspace" aria-label="IsoAmplar plot analysis workspace">
+      <section
+        id="analysis-workspace"
+        className="workspace"
+        role="tabpanel"
+        aria-labelledby={`analysis-tab-${activeAnalysisId}`}
+      >
         <aside className="panel selection-panel" aria-labelledby="selection-title">
           <div className="panel-header">
             <h2 id="selection-title">데이터 선택</h2>

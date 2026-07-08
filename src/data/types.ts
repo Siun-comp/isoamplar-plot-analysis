@@ -57,20 +57,57 @@ export type CurveStyleOverride = {
   markerType?: MarkerType;
   lineWidth?: number;
   visible?: boolean;
+  source?: CurveStyleOverrideSource;
+  fieldSources?: Partial<Record<CurveStyleField, CurveStyleOverrideSource>>;
 };
 
+export type CurveStyleOverrideSource = "custom" | "preset";
+export type CurveStyleField = "displayName" | "color" | "lineType" | "markerType" | "lineWidth" | "visible";
 export type LineType = "solid" | "dashed" | "dotted";
 export type MarkerType = "none" | "circle" | "triangle" | "rect";
 
 export type StyleGroupingTarget = "specimen" | "reagent";
+export type StyleFieldOrigin = "override" | "group" | "default";
 
 export type StyleRules = {
   colorBy: StyleGroupingTarget;
   lineTypeBy: StyleGroupingTarget;
+  markerBy: StyleGroupingTarget;
   specimenColors: Record<string, string>;
   reagentColors: Record<string, string>;
   specimenLineTypes: Record<string, LineType>;
   reagentLineTypes: Record<string, LineType>;
+  specimenMarkerTypes: Record<string, MarkerType>;
+  reagentMarkerTypes: Record<string, MarkerType>;
+};
+
+export type ResolvedCurveStyle = {
+  displayName: string;
+  color: string;
+  lineType: LineType;
+  markerType: MarkerType;
+  lineWidth: number;
+  visible: boolean;
+  source?: CurveStyleOverrideSource;
+  sources: Partial<Record<CurveStyleField, CurveStyleOverrideSource>>;
+  origins: {
+    displayName: StyleFieldOrigin;
+    color: StyleFieldOrigin;
+    lineType: StyleFieldOrigin;
+    markerType: StyleFieldOrigin;
+    lineWidth: StyleFieldOrigin;
+    visible: StyleFieldOrigin;
+  };
+};
+
+export type ImageExportLayout = "plotOnly" | "plotWithLegend" | "legendOnly";
+
+export type LegendSettings = {
+  previewVisible: boolean;
+};
+
+export type ExportSettings = {
+  imageLayout: ImageExportLayout;
 };
 
 export type Curve = {
@@ -111,6 +148,7 @@ export type PcrDataset = {
 };
 
 export type GroupingMode = "reagent" | "specimen";
+export type SelectionFilter = "all" | "selected" | "unselected" | "warning";
 
 export type CheckState = "checked" | "unchecked" | "mixed";
 

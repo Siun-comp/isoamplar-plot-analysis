@@ -16,6 +16,9 @@ IsoAmplar Plot Analysis MVP를 GitHub Pages 또는 동등한 정적 호스팅에
 - ECharts 기반 amplification line chart preview.
 - Side panel 확장과 무관하게 고정 높이를 유지하는 plot preview.
 - Desktop scroll에서 sticky로 따라오는 plot preview.
+- Plot을 가리지 않는 고정 hover readout.
+- 20개 초과 표시 curve 경고와 검색 결과만 유지/전체 선택 해제/구분 프리셋 보조 액션.
+- Custom preview legend 표시/숨김과 plot-only, plot+legend, legend-only image export layout.
 - X/Y auto/fixed scale, 사용자 입력형 P1/P2 scale preset.
 - Fixed scale 편집 보조용 현재 Auto range 표시와 Auto값 적용 버튼.
 - 검체/시약 그룹 스타일, 개별 curve 스타일 override.
@@ -34,15 +37,18 @@ IsoAmplar Plot Analysis MVP를 GitHub Pages 또는 동등한 정적 호스팅에
 - `npm audit --omit=dev`
 
 ## 현재 검증 결과
-- Vitest: 37 tests passed.
-- Playwright Chromium: 2 tests passed.
+- Vitest: 97 tests passed.
+- Playwright Chromium: 3 tests passed.
 - Production build: passed.
 - Production build emits lazy chunks for SheetJS and ECharts/export code.
 - Production dependency audit: 0 vulnerabilities.
+- `git diff --check`: passed, with CRLF replacement warnings only.
 - Desktop screenshot: `docs/gui_mockups/screenshots/phase8_mvp_desktop.png`
 - Mobile screenshot: `docs/gui_mockups/screenshots/phase8_mvp_mobile.png`
 - Refinement screenshot: `docs/gui_mockups/screenshots/isoamplar_refinement_desktop.png`
 - Append/sticky refinement screenshot: `docs/gui_mockups/screenshots/isoamplar_append_sticky_refinement.png`
+- R12 hover/warning desktop screenshot: `docs/gui_mockups/screenshots/phase-r12_hover_warning_desktop.png`
+- R12 hover/warning mobile screenshot: `docs/gui_mockups/screenshots/phase-r12_hover_warning_mobile.png`
 
 ## 수동 확인 필요
 - 실제 `graph_TEST.xlsx` 업로드 후 검체/시약 라벨과 curve 수가 예상과 맞는지 확인.

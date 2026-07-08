@@ -1,5 +1,14 @@
 import { formatCurveLabel } from "../data/curveLabels";
-import type { Curve, CurveStyleOverride, GroupingMode, LineType, StyleRules } from "../data/types";
+import type {
+  Curve,
+  CurveStyleOverride,
+  GroupingMode,
+  LineType,
+  MarkerType,
+  ResolvedCurveStyle,
+  StyleFieldOrigin,
+  StyleRules
+} from "../data/types";
 
 export const defaultChartColors = [
   "#0b6fa4",
@@ -20,10 +29,13 @@ export function createDefaultStyleRules(): StyleRules {
   return {
     colorBy: "reagent",
     lineTypeBy: "specimen",
+    markerBy: "reagent",
     specimenColors: {},
     reagentColors: {},
     specimenLineTypes: {},
-    reagentLineTypes: {}
+    reagentLineTypes: {},
+    specimenMarkerTypes: {},
+    reagentMarkerTypes: {}
   };
 }
 
@@ -34,22 +46,38 @@ export function resolveCurveStyle(args: {
   labelMode?: GroupingMode;
   styleRules: StyleRules;
   override?: CurveStyleOverride;
-}) {
+}): ResolvedCurveStyle {
   const { curve, index, fallbackColorIndex, labelMode, styleRules, override } = args;
   const colorGroupId = styleRules.colorBy === "specimen" ? curve.specimenId : curve.reagentId;
   const colorRules = styleRules.colorBy === "specimen" ? styleRules.specimenColors : styleRules.reagentColors;
   const lineTypeGroupId = styleRules.lineTypeBy === "specimen" ? curve.specimenId : curve.reagentId;
   const lineTypeRules =
     styleRules.lineTypeBy === "specimen" ? styleRules.specimenLineTypes : styleRules.reagentLineTypes;
+  const markerTypeGroupId = styleRules.markerBy === "specimen" ? curve.specimenId : curve.reagentId;
+  const markerTypeRules =
+    styleRules.markerBy === "specimen" ? styleRules.specimenMarkerTypes : styleRules.reagentMarkerTypes;
   const defaultColorIndex = fallbackColorIndex ?? index;
+  const groupColor = colorRules[colorGroupId];
+  const groupLineType = lineTypeRules[lineTypeGroupId];
+  const groupMarkerType = markerTypeRules[markerTypeGroupId];
 
   return {
     displayName: override?.displayName || formatCurveLabel(curve, labelMode),
-    color: override?.color || colorRules[colorGroupId] || defaultChartColors[defaultColorIndex % defaultChartColors.length],
-    lineType: override?.lineType || lineTypeRules[lineTypeGroupId] || "solid",
-    markerType: override?.markerType ?? "none",
+    color: override?.color || groupColor || defaultChartColors[defaultColorIndex % defaultChartColors.length],
+    lineType: override?.lineType || groupLineType || "solid",
+    markerType: override?.markerType ?? groupMarkerType ?? "none",
     lineWidth: override?.lineWidth ?? 2.25,
-    visible: override?.visible ?? true
+    visible: override?.visible ?? true,
+    source: override?.source,
+    sources: override?.fieldSources ?? {},
+    origins: {
+      displayName: getOverrideOrigin(override?.displayName),
+      color: getRuleOrigin(override?.color, groupColor),
+      lineType: getRuleOrigin(override?.lineType, groupLineType),
+      markerType: getRuleOrigin(override?.markerType, groupMarkerType),
+      lineWidth: getOverrideOrigin(override?.lineWidth),
+      visible: getOverrideOrigin(override?.visible)
+    }
   };
 }
 
@@ -73,7 +101,9 @@ export function createPresetOverrides(args: {
           {
             color: specimenColorMap[curve.specimenId],
             lineType: reagentLineMap[curve.reagentId],
-            markerType: "none"
+            markerType: "none",
+            source: "preset",
+            fieldSources: createPresetFieldSources()
           }
         ];
       }
@@ -84,7 +114,9 @@ export function createPresetOverrides(args: {
           {
             color: reagentColorMap[curve.reagentId],
             lineType: specimenLineMap[curve.specimenId],
-            markerType: "none"
+            markerType: "none",
+            source: "preset",
+            fieldSources: createPresetFieldSources()
           }
         ];
       }
@@ -94,11 +126,21 @@ export function createPresetOverrides(args: {
         {
           color: reagentColorMap[curve.reagentId],
           lineType: "solid",
-          markerType: "none"
+          markerType: "none",
+          source: "preset",
+          fieldSources: createPresetFieldSources()
         }
       ];
     })
   );
+}
+
+function createPresetFieldSources() {
+  return {
+    color: "preset",
+    lineType: "preset",
+    markerType: "preset"
+  } as const;
 }
 
 export type BuiltInStylePresetId = "reagentColorSolid" | "specimenColorReagentLine" | "reagentColorSpecimenLine";
@@ -126,4 +168,17 @@ function createEntityStyleMap<T extends string>(
   });
 
   return map;
+}
+
+function getRuleOrigin<T extends string | number | boolean | undefined>(
+  overrideValue: T | undefined,
+  groupValue: T | undefined
+): StyleFieldOrigin {
+  if (overrideValue !== undefined) return "override";
+  if (groupValue !== undefined) return "group";
+  return "default";
+}
+
+function getOverrideOrigin(value: string | number | boolean | MarkerType | undefined): StyleFieldOrigin {
+  return value !== undefined ? "override" : "default";
 }

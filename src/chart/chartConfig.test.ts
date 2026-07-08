@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createDefaultChartScale, hasVisibleCurveWarning } from "./chartScale";
 import { buildPcrChartOption } from "./chartConfig";
+import { createDefaultStyleRules } from "./chartStyle";
 import { createOneSpecimenEightReagentDataset, createTwentyOnePlusCurveDataset } from "../data/sampleData";
 
 describe("PCR chart configuration", () => {
@@ -18,7 +19,10 @@ describe("PCR chart configuration", () => {
     expect(option.animation).toBe(false);
     expect(option.xAxis.minorSplitLine.show).toBe(false);
     expect(option.yAxis.minorSplitLine.show).toBe(false);
+    expect(option.tooltip.show).toBe(false);
+    expect(option.legend.show).toBe(false);
     expect(option.series).toHaveLength(2);
+    expect(result.legendItems).toHaveLength(2);
     expect(option.series.every((series: any) => series.connectNulls === false)).toBe(true);
     expect(option.series.every((series: any) => series.showSymbol === false)).toBe(true);
     expect(option.series.every((series: any) => series.symbol === "none")).toBe(true);
@@ -110,6 +114,27 @@ describe("PCR chart configuration", () => {
     expect(option.series[0].name).toBe("A1 / 검체 1");
   });
 
+  it("keeps the built-in ECharts legend hidden while exposing custom legend items", () => {
+    const dataset = createOneSpecimenEightReagentDataset();
+    const result = buildPcrChartOption({
+      dataset,
+      selectedCurveIds: new Set([dataset.curves[0].curveId]),
+      scale: createDefaultChartScale()
+    });
+    const option = result.option as Record<string, any>;
+
+    expect(option.legend.show).toBe(false);
+    expect(option.series).toHaveLength(1);
+    expect(result.legendItems).toEqual([
+      expect.objectContaining({
+        curveId: dataset.curves[0].curveId,
+        label: "검체 1 / A1",
+        lineType: "solid",
+        markerType: "none"
+      })
+    ]);
+  });
+
   it.each(["circle", "triangle", "rect"] as const)("maps %s marker overrides to ECharts symbols", (markerType) => {
     const dataset = createOneSpecimenEightReagentDataset();
     const curve = dataset.curves[0];
@@ -125,6 +150,28 @@ describe("PCR chart configuration", () => {
 
     expect(option.series[0].showSymbol).toBe(true);
     expect(option.series[0].symbol).toBe(markerType);
+  });
+
+  it("applies group marker rules to chart series when no curve override exists", () => {
+    const dataset = createOneSpecimenEightReagentDataset();
+    const curve = dataset.curves[0];
+    const styleRules = createDefaultStyleRules();
+    styleRules.markerBy = "reagent";
+    styleRules.reagentMarkerTypes[curve.reagentId] = "triangle";
+
+    const result = buildPcrChartOption({
+      dataset,
+      selectedCurveIds: new Set([curve.curveId]),
+      scale: createDefaultChartScale(),
+      styleRules
+    });
+    const option = result.option as Record<string, any>;
+
+    expect(option.series[0]).toMatchObject({
+      showSymbol: true,
+      symbol: "triangle",
+      symbolSize: 6
+    });
   });
 
   it("reports invalid fixed scales and leaves chart axes on auto", () => {

@@ -17,6 +17,7 @@ Product / Engineering / Agent
 - MVP input is Excel upload only: `.xls` and `.xlsx`, first worksheet only, no in-app data editing. Additional Excel files may be appended to the current analysis.
 - CSV import, pasted input, manual entry, generic spreadsheet charting, SVG/PDF export, and transparent background are future candidates, not MVP.
 - Must-have baseline covers Excel parsing, reagent-first selection, clean amplification line charting, fixed axes, user-editable P1/P2 scale presets, stable styling, PNG/JPEG export, clipboard fallback, and GitHub Pages.
+- Post-MVP refinement scope adds internal analysis tabs, Analysis XLSX restore files, custom legend rendering, plot/legend export layouts, explicit style origin display, hover readout, and large-list usability.
 - Each Must requirement should map to at least one `AC-*` item.
 - Implementation details belong in decisions or source code, not requirement text.
 - Open questions must remain explicit rather than hidden in assumptions.
@@ -29,14 +30,33 @@ Update this file whenever a feature is added, removed, reprioritized, or behavio
 - Should: important but can be deferred if MVP needs to shrink.
 - Could: useful future enhancement.
 
-## Primary User Workflow
+## Primary User Workflows
+
+Source Excel analysis:
+
 1. Open the web page.
-2. Upload an Excel workbook.
+2. Upload an original `.xls` or `.xlsx` workbook.
 3. Review the detected PCR structure from the first worksheet: row 1 specimen, row 2 reagent, row 3 onward fluorescence.
 4. Select curves by reagent-first or specimen-first grouping.
 5. Configure fixed/preset X/Y scales, styles, legend order, and export settings.
-6. Preview the PCR amplification line chart.
-7. Download PNG/JPEG or copy the chart output where supported.
+6. Preview the amplification line chart.
+7. Download PNG/JPEG, copy the chart output where supported, or export plotted-data CSV when the current chart is rectangular.
+
+Analysis resume:
+
+1. Export an Analysis XLSX restore file containing the full imported dataset and current settings.
+2. Later, open the Analysis XLSX file in the web app.
+3. Continue analysis with unselected curves, warnings, scale, style, legend/export settings, and order restored.
+
+Multi-analysis workflow:
+
+1. Open a new analysis tab.
+2. Load another original Excel workbook or Analysis XLSX.
+3. Rename tabs with analysis names and switch tabs to compare separate analysis states.
+
+Deferred report workflow:
+
+- Report/Plotted XLSX with current plotted data plus a static chart image is deferred. It is separate from Analysis XLSX and should not be implemented unless later prioritized.
 
 ## Requirements
 
@@ -46,18 +66,23 @@ Update this file whenever a feature is added, removed, reprioritized, or behavio
 | FR-002 | Could | As a user, I may later want CSV import. | CSV import is deferred beyond MVP. | TBD | Do not implement for MVP unless the user reopens scope. |
 | FR-003 | Could | As a user, I may later want pasted or manual data input. | Pasted table input, manual entry, and in-app data editing are deferred beyond MVP. | AC-PCR-017 | Corrections happen in the source file followed by reupload. |
 | FR-004 | Must | As a user, I want to review detected PCR structure. | The app shall detect and display row 1 specimens, row 2 reagents, row 3+ fluorescence values, generated cycle values, and import warnings. | AC-001, AC-002, AC-PCR-001, AC-PCR-019 | Similar names warn only; no auto-merge, rename, or correction UI. |
-| FR-005 | Must | As a user, I want to select analysis curves. | The app shall support reagent-first selection by default, optional specimen-first grouping, search, global search bulk actions, selected/unselected filters, collapsed groups, and grouped-row readability styling. | AC-004, AC-PCR-003, AC-PCR-004, AC-PCR-005, AC-PCR-018, AC-PCR-025 | Search bulk actions apply to all matched curves, not only visible rows. Curve labels follow the active grouping mode. |
+| FR-005 | Must | As a user, I want to select analysis curves. | The app shall support reagent-first selection by default, optional specimen-first grouping, search, global search bulk actions, selected/unselected filters, collapsed groups, grouped-row readability styling, and simplified single-curve subgroup rows. | AC-004, AC-PCR-003, AC-PCR-004, AC-PCR-005, AC-PCR-018, AC-PCR-025, AC-PCR-026 | Search bulk actions apply to all matched curves, not only visible rows. Curve labels follow the active grouping mode. |
 | FR-006 | Must | As a user, I want to generate amplification plots. | The app shall render selected curves as clean amplification line charts using generated cycles as X values unless later configured otherwise. | AC-006, AC-PCR-006, AC-PCR-012, AC-PCR-023, AC-PCR-024, AC-PCR-025 | No automatic smoothing, normalization, Ct/Cq, averaging, or log transform. Visual style should be polished and readable, not decorative or dense. The preview plot viewport should not stretch when side panels expand and should stay visible during desktop page scrolling. |
 | FR-007 | Could | As a user, I may later want layout or batch arrangement. | Multi-chart layout, batch output, and graph boards are deferred beyond the single-chart MVP. | TBD | Revisit after the single-chart PCR workflow is stable. |
-| FR-008 | Must | As a user, I want to configure legends and styles. | The app shall support legend visibility/mode, current-order legend/export ordering, group style rules, stable default colors, color picker and HEX color input, individual curve overrides, optional markers, and preset overwrite semantics. | AC-006, AC-PCR-008, AC-PCR-009, AC-PCR-020, AC-PCR-024, AC-PCR-025 | Built-in presets only for MVP unless later approved. Default curves are solid lines without markers. |
+| FR-008 | Must | As a user, I want to configure legends and styles. | The app shall support custom legend visibility/mode, current-order legend/export ordering, group style rules, stable default colors, color picker and HEX color input, individual curve overrides, optional markers, style origin display, scoped reset actions, and preset overwrite semantics. | AC-006, AC-PCR-008, AC-PCR-009, AC-PCR-020, AC-PCR-024, AC-PCR-025, AC-PCR-027, AC-PCR-028, AC-PCR-029, AC-PCR-030, AC-PCR-032, AC-PCR-041, AC-PCR-042 | Built-in presets only unless later approved. Default curves are solid lines without markers. Group and individual style settings can enable markers. Custom legend samples must match actual line and marker styles. |
 | FR-009 | Must | As a user, I want fixed X-axis scales. | The app shall allow automatic, user fixed, or user-defined P1/P2 X-axis min/max values. | AC-007, AC-PCR-024 | Invalid bounds must be rejected. Fixed mode should show current Auto bounds as editing aid. |
 | FR-010 | Must | As a user, I want fixed Y-axis scales. | The app shall allow automatic, user fixed, or user-defined P1/P2 Y-axis min/max values. | AC-008, AC-PCR-024 | Fixed bounds should persist across filtering and redraws. P1/P2 values are user-entered, not invented defaults. |
-| FR-011 | Must | As a user, I want to download chart images. | The app shall export the current chart as PNG and JPEG with white background and filename `YYMMDD_plotN.ext`. | AC-009, AC-PCR-010 | Example on 2026-07-07: `260707_plot1.png`. Transparent background is out of MVP. |
+| FR-011 | Must | As a user, I want to download chart images. | The app shall export the current chart as PNG and JPEG with white background and filename `YYMMDD_plotN.ext`. | AC-009, AC-PCR-010, AC-PCR-031, AC-PCR-041 | Example on 2026-07-07: `260707_plot1.png`. Transparent background is out of MVP. |
 | FR-012 | Must | As a user, I want to copy charts to the clipboard. | The app shall copy the current chart image to the clipboard where supported and provide a fallback when unsupported. | AC-010 | Clipboard image copy requires browser support, HTTPS, and user gesture. |
 | FR-013 | Must | As a user, I want the app hosted from GitHub. | The app shall work as a static GitHub Pages deployment without required backend services. | AC-011 | Asset paths must work under a repository base path. |
 | FR-014 | Should | As a user, I want understandable errors. | The app shall show actionable errors for invalid input, invalid mappings, export failure, and clipboard failure. | AC-012 | Error copy should be concise and user oriented. |
 | FR-015 | Could | As a user, I want reusable chart configurations. | The app may allow downloading or reloading chart configuration JSON. | TBD | Future scope unless user prioritizes it. |
 | FR-016 | Should | As a user, I may want exported plotted data. | The app should export currently plotted data as CSV only when the current chart state is simple and rectangular enough for reliable output. | AC-PCR-021, AC-PCR-022 | Disable with a clear reason when the chart state is not safely exportable. |
+| FR-017 | Must | As a user, I want to continue a large analysis later. | The app shall export and import an Analysis XLSX restore file containing the full imported normalized dataset, source metadata, warnings, selected/unselected state, grouping/collapse state, order, scale/P1/P2, style rules, individual overrides, legend/export settings, analysis name, and export counter. | AC-PCR-033, AC-PCR-034, AC-PCR-036, AC-PCR-037, AC-PCR-041 | Analysis XLSX is a web-app project/session file, not a native editable Excel chart workbook. Hidden restore JSON is authoritative; visible sheets are for review. |
+| FR-018 | Must | As a user, I want to work on multiple analyses in one browser window. | The app shall support internal analysis tabs, with independent dataset, selection, search/filter/collapse, scale, style, legend/export order, export counter, and analysis name per tab. | AC-PCR-035, AC-PCR-036 | Dirty tab close/replace confirmation details remain a product decision; until decided, data-loss actions must be blocked. |
+| FR-019 | Must | As a user, I want export outputs that do not obscure the plot. | The app shall support preview legend visibility, export legend inclusion, and image export layout modes: Plot only, Plot + Legend, and Legend only. | AC-PCR-030, AC-PCR-031, AC-PCR-041 | Default should show the preview legend outside the plot and include legend in image export. |
+| FR-020 | Should | As a user, I want the interface to remain usable with many curves. | The app should provide searchable or virtualized large style/legend lists, a fixed hover/readout area, assistance actions when more than 20 curves are visible, and keyboard-accessible controls where feasible. | AC-PCR-012, AC-PCR-038, AC-PCR-039, AC-PCR-040, AC-PCR-043 | Warnings and assistance must not block preview/export by default. |
+| FR-021 | Could | As a user, I may later want a report-style Excel workbook. | Report/Plotted XLSX with current plotted data and a static chart image is deferred. | TBD | This is not Analysis XLSX. Native editable Excel chart generation is excluded unless a future decision reopens it. |
 
 ## Confirmed Chart Type
 - Amplification fluorescence line chart for IsoAmplar analysis.
@@ -73,6 +98,7 @@ Candidate configurable fields:
 - Default visual theme
 - Legend visibility
 - Legend position
+- Export layout: Plot only, Plot + Legend, Legend only
 - Series display name
 - Series color
 - Chart width and height
@@ -91,7 +117,7 @@ The fixed scale behavior must remain stable after filtering, data remapping, and
 - Sparse major grid lines only by default; dense minor grid lines are off by default.
 - Axis, title, and legend typography should be readable and modern without becoming overly austere.
 - Lines should have balanced width and distinguishable colors/line styles.
-- Default lines should have no point markers; markers are individual curve options only.
+- Default lines should have no point markers; group and individual style settings can enable markers.
 - PNG/JPEG export should match the preview's visual style.
 - Reference images are style direction only. Do not hardcode reference-specific title text, axis labels, axis ranges, threshold/reference line, marker shapes, colors, legend labels, curve count, or data values.
 
@@ -105,11 +131,14 @@ If future features require remote storage or sharing, they must be explicitly ap
 - Should advanced filters beyond search and selected/unselected state be global, per chart, or both?
 - Should chart/style presets be saved in a future version?
 - Should chart configuration JSON be downloadable?
+- Should dirty analysis tabs show a modal, inline warning, or another confirmation pattern before close/replace?
+- Should internal analysis tabs have a hard cap or warning-only memory policy?
 
 ## MVP Implementation Status - 2026-07-08
 - Implemented: `.xls` / `.xlsx` upload, append upload, first worksheet only, row 1 specimen / row 2 reagent / row 3+ fluorescence parsing, generated cycle X values, warning-only similar names, missing-header warnings, and no source-data editing.
 - Implemented: reagent-first default selection, specimen-first alternate view, grouping-aware curve labels, all groups collapsed after import, curveId-based selection, search/filter bulk actions across collapsed groups, grouped row banding, and virtualized major-group tree rendering in browser.
-- Implemented: ECharts amplification line chart preview with white background, sparse major grid, no minor grid, fixed/sticky plot preview, stable default colors, default no-marker solid lines, fixed/auto/user-defined P1/P2 X/Y scales, >20 visible-curve warning, group/individual style controls, built-in style presets with one-step undo, and user legend/export order.
-- Implemented: PNG/JPEG image export with white background, PNG clipboard copy with fallback message, and plotted-data CSV export when selected curves share a rectangular X axis.
-- Not finalized: persistence for P1/P2, style presets, or chart configuration across app reloads.
-- Deferred: CSV import, paste/manual input, in-app data editing, sheet picker, saved custom presets, chart configuration JSON import/export, multi-chart/batch layout, SVG/PDF export, and transparent background export.
+- Implemented: ECharts amplification line chart preview with white background, sparse major grid, no minor grid, fixed/sticky plot preview, plot-safe fixed hover readout, stable default colors, default no-marker solid lines, fixed/auto/user-defined P1/P2 X/Y scales, >20 visible-curve warning with assistance actions, group/individual style controls, group marker style UI, built-in style presets with one-step undo, style origin badges, field/curve/selected/all/group reset controls, searchable large selected-curve style lists, and user legend/export order.
+- Implemented: custom preview legend outside the plot, preview legend visibility control, Plot only / Plot + Legend / Legend only image export layout, PNG/JPEG image export with white background, PNG clipboard copy with fallback message, and plotted-data CSV export when selected curves share a rectangular X axis.
+- Implemented: internal analysis tabs with per-tab state, and Analysis XLSX restore files containing the full imported dataset plus analysis settings.
+- Not finalized: dirty tab close/replace confirmation UX, internal tab count policy, and reusable custom preset persistence.
+- Deferred: CSV import, paste/manual input, in-app data editing, sheet picker, saved custom presets, chart configuration JSON import/export, multi-chart/batch layout, SVG/PDF export, transparent background export, Report/Plotted XLSX with static chart image, and native editable Excel chart generation.

@@ -1,23 +1,45 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import type { AxisId, AxisScaleState, ScaleMode, ScalePresetId } from "../chart/chartScale";
 import { getAxisAutoDomain, isScalePresetConfigured } from "../chart/chartScale";
 import { builtInStylePresets, defaultChartColors } from "../chart/chartStyle";
 import { buildPcrChartOption } from "../chart/chartConfig";
-import { copyPngBlobToClipboard, downloadBlob, exportChartImageBlob } from "../chart/exportChart";
+import { buildChartProjection } from "../chart/chartProjection";
+import { copyPngBlobToClipboard, downloadBlob, exportChartLayoutImageBlob } from "../chart/exportChart";
 import type { ImageExportType } from "../chart/exportFilenames";
 import { createImageExportFileName, createPlottedDataFileName } from "../chart/exportFilenames";
 import { createPlottedDataCsv } from "../chart/plottedDataExport";
 import { useAppStore } from "../app/appStore";
-import { formatCurveLabel } from "../data/curveLabels";
-import type { Curve, CurveStyleOverride, GroupingMode, LineType, MarkerType, StyleGroupingTarget } from "../data/types";
+import { createAnalysisState } from "../analysis/analysisState";
+import { createAnalysisWorkbookFileName, exportAnalysisWorkbookBlob } from "../analysis/analysisWorkbook";
+import { formatCurveLabel, formatCurveSourceSuffix } from "../data/curveLabels";
+import type {
+  Curve,
+  CurveStyleField,
+  CurveStyleOverride,
+  GroupingMode,
+  LineType,
+  MarkerType,
+  ResolvedCurveStyle,
+  StyleGroupingTarget
+} from "../data/types";
 
 export function SettingsPanel() {
   const chartScale = useAppStore((state) => state.chartScale);
+  const activeAnalysisId = useAppStore((state) => state.activeAnalysisId);
+  const analysisName = useAppStore((state) => state.analysisName);
   const dataset = useAppStore((state) => state.dataset);
   const selection = useAppStore((state) => state.selection);
+  const searchQuery = useAppStore((state) => state.searchQuery);
+  const selectionFilter = useAppStore((state) => state.selectionFilter);
   const styleRules = useAppStore((state) => state.styleRules);
   const curveOverrides = useAppStore((state) => state.curveOverrides);
+  const legendSettings = useAppStore((state) => state.legendSettings);
+  const exportSettings = useAppStore((state) => state.exportSettings);
   const exportCounter = useAppStore((state) => state.exportCounter);
+  const importFileName = useAppStore((state) => state.importFileName);
+  const sourceFiles = useAppStore((state) => state.sourceFiles);
+  const dirty = useAppStore((state) => state.dirty);
   const exportMessage = useAppStore((state) => state.exportMessage);
   const lastPresetMessage = useAppStore((state) => state.lastPresetMessage);
   const canUndoPreset = useAppStore((state) => Boolean(state.lastPresetUndo));
@@ -27,14 +49,34 @@ export function SettingsPanel() {
   const setStyleGroupingTarget = useAppStore((state) => state.setStyleGroupingTarget);
   const setGroupColor = useAppStore((state) => state.setGroupColor);
   const setGroupLineType = useAppStore((state) => state.setGroupLineType);
+  const setGroupMarkerType = useAppStore((state) => state.setGroupMarkerType);
+  const resetGroupStyle = useAppStore((state) => state.resetGroupStyle);
   const setCurveOverride = useAppStore((state) => state.setCurveOverride);
+  const resetCurveOverrideField = useAppStore((state) => state.resetCurveOverrideField);
+  const resetCurveOverride = useAppStore((state) => state.resetCurveOverride);
+  const resetSelectedCurveOverrides = useAppStore((state) => state.resetSelectedCurveOverrides);
+  const resetAllCurveOverrides = useAppStore((state) => state.resetAllCurveOverrides);
+  const setLegendPreviewVisible = useAppStore((state) => state.setLegendPreviewVisible);
+  const setExportImageLayout = useAppStore((state) => state.setExportImageLayout);
   const applyStylePreset = useAppStore((state) => state.applyStylePreset);
   const undoLastPreset = useAppStore((state) => state.undoLastPreset);
   const moveCurveOrder = useAppStore((state) => state.moveCurveOrder);
   const markExportSuccess = useAppStore((state) => state.markExportSuccess);
+  const markAnalysisSaveSuccess = useAppStore((state) => state.markAnalysisSaveSuccess);
   const setExportMessage = useAppStore((state) => state.setExportMessage);
   const labelMode = selection?.groupingMode ?? "reagent";
-  const selectedCurves = getSelectedCurves(dataset, selection?.selectedCurveIds ?? new Set<string>(), selection?.orderedCurveIds);
+  const selectedCurveIds = selection?.selectedCurveIds ?? new Set<string>();
+  const orderedCurveIds = selection?.orderedCurveIds;
+  const chartProjection = buildChartProjection({
+    dataset,
+    selectedCurveIds,
+    orderedCurveIds,
+    scale: chartScale,
+    labelMode,
+    styleRules,
+    curveOverrides
+  });
+  const selectedCurves = chartProjection.visibleCurves;
   const xAutoDomain = getAxisAutoDomain("x", selectedCurves);
   const yAutoDomain = getAxisAutoDomain("y", selectedCurves);
   const specimenDefaultColors = createDefaultEntityColorMap(dataset?.specimens ?? []);
@@ -66,6 +108,12 @@ export function SettingsPanel() {
       <details>
         <summary>Style</summary>
         <section className="style-settings">
+          <div className="style-summary" aria-label="현재 스타일 기준">
+            <strong>현재 기준</strong>
+            <span>색상 {formatGroupingTarget(styleRules.colorBy)}</span>
+            <span>선 {formatGroupingTarget(styleRules.lineTypeBy)}</span>
+            <span>마커 {formatGroupingTarget(styleRules.markerBy)}</span>
+          </div>
           <div className="style-target-grid">
             <label>
               색상 기준
@@ -87,6 +135,16 @@ export function SettingsPanel() {
                 <option value="specimen">검체별</option>
               </select>
             </label>
+            <label>
+              마커 기준
+              <select
+                value={styleRules.markerBy}
+                onChange={(event) => setStyleGroupingTarget("markerBy", event.currentTarget.value as StyleGroupingTarget)}
+              >
+                <option value="reagent">시약별</option>
+                <option value="specimen">검체별</option>
+              </select>
+            </label>
           </div>
 
           <GroupStyleEditor
@@ -96,8 +154,11 @@ export function SettingsPanel() {
             colorRules={styleRules.specimenColors}
             defaultColors={specimenDefaultColors}
             lineRules={styleRules.specimenLineTypes}
+            markerRules={styleRules.specimenMarkerTypes}
             onColorChange={setGroupColor}
             onLineTypeChange={setGroupLineType}
+            onMarkerTypeChange={setGroupMarkerType}
+            onResetGroup={resetGroupStyle}
           />
           <GroupStyleEditor
             title="시약 스타일"
@@ -106,8 +167,11 @@ export function SettingsPanel() {
             colorRules={styleRules.reagentColors}
             defaultColors={reagentDefaultColors}
             lineRules={styleRules.reagentLineTypes}
+            markerRules={styleRules.reagentMarkerTypes}
             onColorChange={setGroupColor}
             onLineTypeChange={setGroupLineType}
+            onMarkerTypeChange={setGroupMarkerType}
+            onResetGroup={resetGroupStyle}
           />
 
           <div className="preset-row">
@@ -136,28 +200,52 @@ export function SettingsPanel() {
             specimenDefaultColors={specimenDefaultColors}
             reagentDefaultColors={reagentDefaultColors}
             overrides={curveOverrides}
+            resolvedStyles={chartProjection.resolvedStyles}
             onOverride={setCurveOverride}
+            onResetField={resetCurveOverrideField}
+            onResetCurve={resetCurveOverride}
+            onResetSelected={resetSelectedCurveOverrides}
+            onResetAll={resetAllCurveOverrides}
           />
         </section>
       </details>
       <details>
         <summary>Legend Order</summary>
-        <LegendOrderEditor curves={selectedCurves} labelMode={labelMode} onMove={moveCurveOrder} />
+        <LegendOrderEditor
+          curves={selectedCurves}
+          labelMode={labelMode}
+          legendSettings={legendSettings}
+          exportSettings={exportSettings}
+          onPreviewLegendChange={setLegendPreviewVisible}
+          onExportLayoutChange={setExportImageLayout}
+          onMove={moveCurveOrder}
+        />
       </details>
       <details>
         <summary>Export</summary>
         <ExportControls
           dataset={dataset}
+          activeAnalysisId={activeAnalysisId}
+          analysisName={analysisName}
+          selection={selection}
           selectedCurves={selectedCurves}
-          selectedCurveIds={selection?.selectedCurveIds ?? new Set<string>()}
-          orderedCurveIds={selection?.orderedCurveIds}
+          selectedCurveIds={selectedCurveIds}
+          orderedCurveIds={orderedCurveIds}
+          searchQuery={searchQuery}
+          selectionFilter={selectionFilter}
           chartScale={chartScale}
           labelMode={labelMode}
           styleRules={styleRules}
           curveOverrides={curveOverrides}
+          legendSettings={legendSettings}
+          exportSettings={exportSettings}
           exportCounter={exportCounter}
           exportMessage={exportMessage}
+          importFileName={importFileName}
+          sourceFiles={sourceFiles}
+          dirty={dirty}
           markExportSuccess={markExportSuccess}
+          markAnalysisSaveSuccess={markAnalysisSaveSuccess}
           setExportMessage={setExportMessage}
         />
       </details>
@@ -167,34 +255,57 @@ export function SettingsPanel() {
 
 function ExportControls({
   dataset,
+  activeAnalysisId,
+  analysisName,
+  selection,
   selectedCurves,
   selectedCurveIds,
   orderedCurveIds,
+  searchQuery,
+  selectionFilter,
   chartScale,
   labelMode,
   styleRules,
   curveOverrides,
+  legendSettings,
+  exportSettings,
   exportCounter,
   exportMessage,
+  importFileName,
+  sourceFiles,
+  dirty,
   markExportSuccess,
+  markAnalysisSaveSuccess,
   setExportMessage
 }: {
   dataset: ReturnType<typeof useAppStore.getState>["dataset"];
+  activeAnalysisId: string;
+  analysisName: string;
+  selection: ReturnType<typeof useAppStore.getState>["selection"];
   selectedCurves: Curve[];
   selectedCurveIds: Set<string>;
   orderedCurveIds?: string[];
+  searchQuery: string;
+  selectionFilter: ReturnType<typeof useAppStore.getState>["selectionFilter"];
   chartScale: ReturnType<typeof useAppStore.getState>["chartScale"];
   labelMode: GroupingMode;
   styleRules: ReturnType<typeof useAppStore.getState>["styleRules"];
   curveOverrides: ReturnType<typeof useAppStore.getState>["curveOverrides"];
+  legendSettings: ReturnType<typeof useAppStore.getState>["legendSettings"];
+  exportSettings: ReturnType<typeof useAppStore.getState>["exportSettings"];
   exportCounter: number;
   exportMessage: string | null;
+  importFileName: string | null;
+  sourceFiles: ReturnType<typeof useAppStore.getState>["sourceFiles"];
+  dirty: boolean;
   markExportSuccess: (message: string) => void;
+  markAnalysisSaveSuccess: (message: string) => void;
   setExportMessage: (message: string | null) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const csvResult = createPlottedDataCsv({ curves: selectedCurves, labelMode, styleRules, curveOverrides });
   const disabled = selectedCurves.length === 0 || busy;
+  const analysisExportDisabled = !dataset || !selection || busy;
 
   async function exportImage(type: ImageExportType) {
     if (!dataset) return;
@@ -210,7 +321,12 @@ function ExportControls({
         styleRules,
         curveOverrides
       });
-      const blob = await exportChartImageBlob({ option: chart.option, type });
+      const blob = await exportChartLayoutImageBlob({
+        option: chart.option,
+        type,
+        layout: exportSettings.imageLayout,
+        legendItems: chart.legendItems
+      });
       const fileName = createImageExportFileName(exportCounter, type);
       downloadBlob(blob, fileName);
       markExportSuccess(`Saved ${fileName}.`);
@@ -235,7 +351,12 @@ function ExportControls({
         styleRules,
         curveOverrides
       });
-      const blob = await exportChartImageBlob({ option: chart.option, type: "png" });
+      const blob = await exportChartLayoutImageBlob({
+        option: chart.option,
+        type: "png",
+        layout: exportSettings.imageLayout,
+        legendItems: chart.legendItems
+      });
       await copyPngBlobToClipboard(blob);
       setExportMessage("Copied PNG image to clipboard.");
     } catch (error) {
@@ -257,6 +378,40 @@ function ExportControls({
     markExportSuccess(`Saved ${fileName}.`);
   }
 
+  async function exportAnalysisXlsx() {
+    if (!dataset || !selection) return;
+    setBusy(true);
+    setExportMessage(null);
+    try {
+      const nextExportCounter = exportCounter + 1;
+      const analysisState = createAnalysisState({
+        analysisId: activeAnalysisId,
+        analysisName,
+        dataset,
+        selection,
+        searchQuery,
+        selectionFilter,
+        chartScale,
+        styleRules,
+        curveOverrides,
+        legendSettings,
+        exportSettings,
+        exportCounter: nextExportCounter,
+        importFileName,
+        sourceFiles,
+        dirty
+      });
+      const blob = await exportAnalysisWorkbookBlob(analysisState);
+      const fileName = createAnalysisWorkbookFileName(exportCounter);
+      downloadBlob(blob, fileName);
+      markAnalysisSaveSuccess(`Saved ${fileName}.`);
+    } catch (error) {
+      setExportMessage(error instanceof Error ? error.message : "Analysis XLSX export failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section className="export-controls">
       <p>다음 파일 번호: plot{exportCounter}</p>
@@ -272,11 +427,27 @@ function ExportControls({
       <button type="button" disabled={busy || !csvResult.ok} onClick={exportCsv}>
         Plotted CSV
       </button>
+      <button type="button" disabled={analysisExportDisabled} onClick={() => void exportAnalysisXlsx()}>
+        Analysis XLSX
+      </button>
       {!csvResult.ok && <p>{csvResult.reason}</p>}
       {exportMessage && <p className="export-message">{exportMessage}</p>}
     </section>
   );
 }
+
+const lineTypeOptions: Array<{ value: LineType; label: string }> = [
+  { value: "solid", label: "실선" },
+  { value: "dashed", label: "점선" },
+  { value: "dotted", label: "도트" }
+];
+
+const markerTypeOptions: Array<{ value: MarkerType; label: string }> = [
+  { value: "none", label: "없음" },
+  { value: "circle", label: "원형" },
+  { value: "triangle", label: "세모" },
+  { value: "rect", label: "네모" }
+];
 
 function GroupStyleEditor({
   title,
@@ -285,8 +456,11 @@ function GroupStyleEditor({
   colorRules,
   defaultColors,
   lineRules,
+  markerRules,
   onColorChange,
-  onLineTypeChange
+  onLineTypeChange,
+  onMarkerTypeChange,
+  onResetGroup
 }: {
   title: string;
   target: StyleGroupingTarget;
@@ -294,41 +468,89 @@ function GroupStyleEditor({
   colorRules: Record<string, string>;
   defaultColors: Record<string, string>;
   lineRules: Record<string, LineType>;
+  markerRules: Record<string, MarkerType>;
   onColorChange: (target: StyleGroupingTarget, entityId: string, color: string) => void;
   onLineTypeChange: (target: StyleGroupingTarget, entityId: string, lineType: LineType) => void;
+  onMarkerTypeChange: (target: StyleGroupingTarget, entityId: string, markerType: MarkerType) => void;
+  onResetGroup: (target: StyleGroupingTarget, entityId: string) => void;
 }) {
-  const visibleEntities = entities.slice(0, 16);
+  const [query, setQuery] = useState("");
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleEntities = normalizedQuery
+    ? entities.filter((entity) => entity.label.toLowerCase().includes(normalizedQuery))
+    : entities;
 
   return (
     <section className="group-style-editor" aria-label={title}>
-      <strong>{title}</strong>
-      {visibleEntities.length === 0 && <p>데이터 업로드 후 설정할 수 있습니다.</p>}
-      {visibleEntities.map((entity) => (
-        <div className="style-row" key={entity.id}>
-          <span title={entity.label}>{entity.label || "Empty label"}</span>
-          <input
-            type="color"
-            aria-label={`${entity.label} color`}
-            value={colorRules[entity.id] ?? defaultColors[entity.id] ?? defaultChartColors[0]}
-            onChange={(event) => onColorChange(target, entity.id, event.currentTarget.value)}
-          />
-          <HexColorInput
-            label={`${entity.label} hex color`}
-            value={colorRules[entity.id] ?? defaultColors[entity.id] ?? defaultChartColors[0]}
-            onCommit={(color) => onColorChange(target, entity.id, color)}
-          />
-          <select
-            aria-label={`${entity.label} line type`}
-            value={lineRules[entity.id] ?? "solid"}
-            onChange={(event) => onLineTypeChange(target, entity.id, event.currentTarget.value as LineType)}
-          >
-            <option value="solid">실선</option>
-            <option value="dashed">점선</option>
-            <option value="dotted">도트</option>
-          </select>
+      <div className="style-section-heading">
+        <strong>{title}</strong>
+        <span>{entities.length}개</span>
+      </div>
+      {entities.length > 12 && (
+        <input
+          className="style-search"
+          type="search"
+          aria-label={`${title} 검색`}
+          placeholder="검색"
+          value={query}
+          onChange={(event) => setQuery(event.currentTarget.value)}
+        />
+      )}
+      <div className="style-table-scroll group-style-scroll">
+        <div className="style-row style-row-header" aria-hidden="true">
+          <span>그룹</span>
+          <span>색상</span>
+          <span>HEX</span>
+          <span>선</span>
+          <span>마커</span>
+          <span>초기화</span>
         </div>
-      ))}
-      {entities.length > visibleEntities.length && <p>{entities.length - visibleEntities.length}개 항목은 검색/선택 범위 축소 후 조정합니다.</p>}
+        <div className="style-row-list">
+          {visibleEntities.length === 0 && <p>표시할 그룹이 없습니다.</p>}
+          {visibleEntities.map((entity) => (
+            <div className="style-row" key={entity.id}>
+              <span title={entity.label}>{entity.label || "Empty label"}</span>
+              <input
+                type="color"
+                aria-label={`${entity.label} color`}
+                value={colorRules[entity.id] ?? defaultColors[entity.id] ?? defaultChartColors[0]}
+                onChange={(event) => onColorChange(target, entity.id, event.currentTarget.value)}
+              />
+              <HexColorInput
+                label={`${entity.label} hex color`}
+                value={colorRules[entity.id] ?? defaultColors[entity.id] ?? defaultChartColors[0]}
+                onCommit={(color) => onColorChange(target, entity.id, color)}
+              />
+              <select
+                aria-label={`${entity.label} line type`}
+                value={lineRules[entity.id] ?? "solid"}
+                onChange={(event) => onLineTypeChange(target, entity.id, event.currentTarget.value as LineType)}
+              >
+                {lineTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label={`${entity.label} marker type`}
+                value={markerRules[entity.id] ?? "none"}
+                onChange={(event) => onMarkerTypeChange(target, entity.id, event.currentTarget.value as MarkerType)}
+              >
+                {markerTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <button type="button" className="compact-button" onClick={() => onResetGroup(target, entity.id)}>
+                Reset
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+      {entities.length > 0 && visibleEntities.length !== entities.length && <p>{visibleEntities.length} / {entities.length}개 그룹 표시</p>}
     </section>
   );
 }
@@ -340,7 +562,12 @@ function IndividualCurveEditor({
   specimenDefaultColors,
   reagentDefaultColors,
   overrides,
-  onOverride
+  resolvedStyles,
+  onOverride,
+  onResetField,
+  onResetCurve,
+  onResetSelected,
+  onResetAll
 }: {
   curves: Curve[];
   labelMode: GroupingMode;
@@ -348,57 +575,200 @@ function IndividualCurveEditor({
   specimenDefaultColors: Record<string, string>;
   reagentDefaultColors: Record<string, string>;
   overrides: Record<string, CurveStyleOverride>;
+  resolvedStyles: Map<string, ResolvedCurveStyle>;
   onOverride: (curveId: string, override: CurveStyleOverride) => void;
+  onResetField: (curveId: string, field: CurveStyleField) => void;
+  onResetCurve: (curveId: string) => void;
+  onResetSelected: () => void;
+  onResetAll: () => void;
 }) {
-  const visibleCurves = curves.slice(0, 30);
+  const [query, setQuery] = useState("");
+  const normalizedQuery = query.trim().toLowerCase();
+  const labelCounts = createCurveLabelCounts(curves, labelMode);
+  const visibleCurves = normalizedQuery
+    ? curves.filter((curve) => {
+        const label = formatCurveLabel(curve, labelMode);
+        const resolvedStyle = resolvedStyles.get(curve.curveId);
+        return [label, formatCurveSourceSuffix(curve), resolvedStyle?.displayName ?? ""]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedQuery);
+      })
+    : curves;
 
   return (
     <section className="individual-editor" aria-label="개별 curve 스타일">
-      <strong>개별 curve</strong>
-      {visibleCurves.length === 0 && <p>선택된 curve가 없습니다.</p>}
-      {visibleCurves.map((curve) => (
-        <div className="individual-row" key={curve.curveId}>
-          <input
-            type="text"
-            aria-label={`${formatCurveLabel(curve, labelMode)} legend name`}
-            value={overrides[curve.curveId]?.displayName ?? ""}
-            placeholder={formatCurveLabel(curve, labelMode)}
-            onChange={(event) => onOverride(curve.curveId, { displayName: event.currentTarget.value || undefined })}
-          />
-          <input
-            type="color"
-            aria-label={`${formatCurveLabel(curve, labelMode)} color`}
-            value={overrides[curve.curveId]?.color ?? getCurveDefaultColor(curve, styleRules, specimenDefaultColors, reagentDefaultColors)}
-            onChange={(event) => onOverride(curve.curveId, { color: event.currentTarget.value })}
-          />
-          <HexColorInput
-            label={`${formatCurveLabel(curve, labelMode)} hex color`}
-            value={overrides[curve.curveId]?.color ?? getCurveDefaultColor(curve, styleRules, specimenDefaultColors, reagentDefaultColors)}
-            onCommit={(color) => onOverride(curve.curveId, { color })}
-          />
-          <select
-            aria-label={`${formatCurveLabel(curve, labelMode)} line type`}
-            value={overrides[curve.curveId]?.lineType ?? getCurveDefaultLineType(curve, styleRules)}
-            onChange={(event) => onOverride(curve.curveId, { lineType: event.currentTarget.value as LineType })}
-          >
-            <option value="solid">실선</option>
-            <option value="dashed">점선</option>
-            <option value="dotted">도트</option>
-          </select>
-          <select
-            aria-label={`${formatCurveLabel(curve, labelMode)} marker type`}
-            value={overrides[curve.curveId]?.markerType ?? "none"}
-            onChange={(event) => onOverride(curve.curveId, { markerType: event.currentTarget.value as MarkerType })}
-          >
-            <option value="none">없음</option>
-            <option value="circle">원형</option>
-            <option value="triangle">세모</option>
-            <option value="rect">네모</option>
-          </select>
+      <div className="style-section-heading">
+        <strong>개별 스타일</strong>
+        <span>{curves.length}개 선택</span>
+      </div>
+      <div className="individual-actions">
+        <input
+          className="style-search"
+          type="search"
+          aria-label="개별 스타일 검색"
+          placeholder="선택 curve 검색"
+          value={query}
+          onChange={(event) => setQuery(event.currentTarget.value)}
+        />
+        <button type="button" className="compact-button" disabled={curves.length === 0} onClick={onResetSelected}>
+          선택 초기화
+        </button>
+        <button type="button" className="compact-button" disabled={Object.keys(overrides).length === 0} onClick={onResetAll}>
+          전체 초기화
+        </button>
+      </div>
+      <div className="style-table-scroll individual-style-scroll">
+        <div className="individual-row individual-row-header" aria-hidden="true">
+          <span>Curve</span>
+          <span>범례명</span>
+          <span>색상</span>
+          <span>HEX</span>
+          <span>선</span>
+          <span>마커</span>
+          <span>상태</span>
+          <span>초기화</span>
         </div>
-      ))}
-      {curves.length > visibleCurves.length && <p>{curves.length - visibleCurves.length}개 선택 curve는 현재 목록에서 생략되었습니다.</p>}
+        <div className="individual-row-list">
+          {visibleCurves.length === 0 && <p>선택된 curve가 없습니다.</p>}
+          {visibleCurves.map((curve) => {
+            const label = formatCurveLabel(curve, labelMode);
+            const sourceSuffix = formatCurveSourceSuffix(curve);
+            const controlLabel = createCurveControlLabel(label, sourceSuffix, labelCounts);
+            const override = overrides[curve.curveId];
+            const resolvedStyle = resolvedStyles.get(curve.curveId);
+            const status = getCurveOverrideStatus(override);
+            const colorValue =
+              resolvedStyle?.color ?? getCurveDefaultColor(curve, styleRules, specimenDefaultColors, reagentDefaultColors);
+            const lineValue = resolvedStyle?.lineType ?? getCurveDefaultLineType(curve, styleRules);
+            const markerValue = resolvedStyle?.markerType ?? getCurveDefaultMarkerType(curve, styleRules);
+            const displayPlaceholder = resolvedStyle?.displayName ?? label;
+
+            return (
+              <div className="individual-row" key={curve.curveId}>
+              <span className="curve-label" title={label}>
+                {label}
+                <small>{sourceSuffix}</small>
+              </span>
+                <StyleFieldCell>
+                  <input
+                    type="text"
+                    aria-label={`${controlLabel} legend name`}
+                    value={override?.displayName ?? ""}
+                    placeholder={displayPlaceholder}
+                    onChange={(event) => {
+                      const value = event.currentTarget.value;
+                      if (value.trim() === "") {
+                        onResetField(curve.curveId, "displayName");
+                      } else {
+                        onOverride(curve.curveId, { displayName: value });
+                      }
+                    }}
+                  />
+                  <FieldOriginBadge style={resolvedStyle} field="displayName" />
+                  <FieldResetButton
+                    label={`${controlLabel} legend name reset`}
+                    disabled={override?.displayName === undefined}
+                    onClick={() => onResetField(curve.curveId, "displayName")}
+                  />
+                </StyleFieldCell>
+                <input
+                  type="color"
+                  aria-label={`${controlLabel} color`}
+                  value={colorValue}
+                  onChange={(event) => onOverride(curve.curveId, { color: event.currentTarget.value })}
+                />
+                <StyleFieldCell>
+                  <HexColorInput
+                    label={`${controlLabel} hex color`}
+                    value={colorValue}
+                    onCommit={(color) => onOverride(curve.curveId, { color })}
+                  />
+                  <FieldOriginBadge style={resolvedStyle} field="color" />
+                  <FieldResetButton
+                    label={`${controlLabel} color reset`}
+                    disabled={override?.color === undefined}
+                    onClick={() => onResetField(curve.curveId, "color")}
+                  />
+                </StyleFieldCell>
+                <StyleFieldCell>
+                  <select
+                    aria-label={`${controlLabel} line type`}
+                    value={lineValue}
+                    onChange={(event) => onOverride(curve.curveId, { lineType: event.currentTarget.value as LineType })}
+                  >
+                    {lineTypeOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <FieldOriginBadge style={resolvedStyle} field="lineType" />
+                  <FieldResetButton
+                    label={`${controlLabel} line type reset`}
+                    disabled={override?.lineType === undefined}
+                    onClick={() => onResetField(curve.curveId, "lineType")}
+                  />
+                </StyleFieldCell>
+                <StyleFieldCell>
+                  <select
+                    aria-label={`${controlLabel} marker type`}
+                    value={markerValue}
+                    onChange={(event) => onOverride(curve.curveId, { markerType: event.currentTarget.value as MarkerType })}
+                  >
+                    {markerTypeOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <FieldOriginBadge style={resolvedStyle} field="markerType" />
+                  <FieldResetButton
+                    label={`${controlLabel} marker type reset`}
+                    disabled={override?.markerType === undefined}
+                    onClick={() => onResetField(curve.curveId, "markerType")}
+                  />
+                </StyleFieldCell>
+                <span className={`style-status style-status-${status.kind}`}>{status.label}</span>
+                <button
+                  type="button"
+                  className="compact-button"
+                  aria-label={`${controlLabel} style reset`}
+                  disabled={!override}
+                  onClick={() => onResetCurve(curve.curveId)}
+                >
+                  Reset
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      {curves.length > 0 && visibleCurves.length !== curves.length && <p>{visibleCurves.length} / {curves.length}개 curve 표시</p>}
     </section>
+  );
+}
+
+function StyleFieldCell({ children }: { children: ReactNode }) {
+  return <span className="style-field-cell">{children}</span>;
+}
+
+function FieldOriginBadge({ style, field }: { style: ResolvedCurveStyle | undefined; field: CurveStyleField }) {
+  const source = style?.sources[field];
+  if (source === "custom") {
+    return <span className="field-origin field-origin-custom">Custom</span>;
+  }
+  if (source === "preset") {
+    return <span className="field-origin field-origin-preset">Preset</span>;
+  }
+  return <span className="field-origin field-origin-base">기준</span>;
+}
+
+function FieldResetButton({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {
+  return (
+    <button type="button" className="field-reset-button" aria-label={label} title="기준값으로 복귀" disabled={disabled} onClick={onClick}>
+      ↺
+    </button>
   );
 }
 
@@ -451,42 +821,88 @@ function HexColorInput({
 function LegendOrderEditor({
   curves,
   labelMode,
+  legendSettings,
+  exportSettings,
+  onPreviewLegendChange,
+  onExportLayoutChange,
   onMove
 }: {
   curves: Curve[];
   labelMode: GroupingMode;
+  legendSettings: ReturnType<typeof useAppStore.getState>["legendSettings"];
+  exportSettings: ReturnType<typeof useAppStore.getState>["exportSettings"];
+  onPreviewLegendChange: (visible: boolean) => void;
+  onExportLayoutChange: ReturnType<typeof useAppStore.getState>["setExportImageLayout"];
   onMove: (curveId: string, direction: "up" | "down") => void;
 }) {
+  const labelCounts = createCurveLabelCounts(curves, labelMode);
+
   return (
     <div className="legend-order-list">
+      <div className="legend-controls">
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            aria-label="Preview 범례 표시"
+            checked={legendSettings.previewVisible}
+            onChange={(event) => onPreviewLegendChange(event.currentTarget.checked)}
+          />
+          Preview 범례 표시
+        </label>
+        <label>
+          이미지 Export 구성
+          <select
+            aria-label="Image export layout"
+            value={exportSettings.imageLayout}
+            onChange={(event) => onExportLayoutChange(event.currentTarget.value as ReturnType<typeof useAppStore.getState>["exportSettings"]["imageLayout"])}
+          >
+            <option value="plotOnly">Plot only</option>
+            <option value="plotWithLegend">Plot + Legend</option>
+            <option value="legendOnly">Legend only</option>
+          </select>
+        </label>
+      </div>
       {curves.length === 0 && <p>선택된 curve가 없습니다.</p>}
-      {curves.map((curve, index) => (
+      {curves.map((curve, index) => {
+        const label = formatCurveLabel(curve, labelMode);
+        const sourceSuffix = formatCurveSourceSuffix(curve);
+        const controlLabel = createCurveControlLabel(label, sourceSuffix, labelCounts);
+
+        return (
         <div className="legend-order-row" key={curve.curveId}>
-          <span>{formatCurveLabel(curve, labelMode)}</span>
-          <button type="button" aria-label={`${formatCurveLabel(curve, labelMode)} move up`} disabled={index === 0} onClick={() => onMove(curve.curveId, "up")}>
+          <span title={sourceSuffix}>
+            {label}
+            <small>{sourceSuffix}</small>
+          </span>
+          <button type="button" aria-label={`${controlLabel} move up`} disabled={index === 0} onClick={() => onMove(curve.curveId, "up")}>
             ↑
           </button>
           <button
             type="button"
-            aria-label={`${formatCurveLabel(curve, labelMode)} move down`}
+            aria-label={`${controlLabel} move down`}
             disabled={index === curves.length - 1}
             onClick={() => onMove(curve.curveId, "down")}
           >
             ↓
           </button>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
-function getSelectedCurves(dataset: ReturnType<typeof useAppStore.getState>["dataset"], selectedCurveIds: Set<string>, orderedCurveIds?: string[]) {
-  if (!dataset) return [];
-  const curvesById = new Map(dataset.curves.map((curve) => [curve.curveId, curve]));
-  return (orderedCurveIds ?? dataset.orderedCurveIds)
-    .filter((curveId) => selectedCurveIds.has(curveId))
-    .map((curveId) => curvesById.get(curveId))
-    .filter((curve): curve is Curve => Boolean(curve));
+function createCurveLabelCounts(curves: Curve[], labelMode: GroupingMode) {
+  const counts = new Map<string, number>();
+  curves.forEach((curve) => {
+    const label = formatCurveLabel(curve, labelMode);
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  });
+  return counts;
+}
+
+function createCurveControlLabel(label: string, sourceSuffix: string, labelCounts: Map<string, number>) {
+  return (labelCounts.get(label) ?? 0) > 1 ? `${label} ${sourceSuffix}` : label;
 }
 
 function createDefaultEntityColorMap(entities: Array<{ id: string }>) {
@@ -512,6 +928,35 @@ function getCurveDefaultLineType(curve: Curve, styleRules: ReturnType<typeof use
   }
 
   return styleRules.reagentLineTypes[curve.reagentId] ?? "solid";
+}
+
+function getCurveDefaultMarkerType(curve: Curve, styleRules: ReturnType<typeof useAppStore.getState>["styleRules"]): MarkerType {
+  if (styleRules.markerBy === "specimen") {
+    return styleRules.specimenMarkerTypes[curve.specimenId] ?? "none";
+  }
+
+  return styleRules.reagentMarkerTypes[curve.reagentId] ?? "none";
+}
+
+function getCurveOverrideStatus(override: CurveStyleOverride | undefined) {
+  const sources = Object.values(override?.fieldSources ?? {});
+  if (sources.length === 0) {
+    return { kind: "base", label: "기준값" };
+  }
+
+  const hasCustom = sources.includes("custom");
+  const hasPreset = sources.includes("preset");
+  if (hasCustom && hasPreset) {
+    return { kind: "mixed", label: "Custom/Preset" };
+  }
+  if (hasCustom) {
+    return { kind: "custom", label: "Custom" };
+  }
+  return { kind: "preset", label: "Preset" };
+}
+
+function formatGroupingTarget(target: StyleGroupingTarget) {
+  return target === "reagent" ? "시약별" : "검체별";
 }
 
 function normalizeHexColor(value: string) {

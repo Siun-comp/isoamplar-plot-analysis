@@ -1,10 +1,10 @@
 import { useDeferredValue, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import type { SelectionFilter } from "../app/appStore";
+import type { SelectionFilter } from "../data/types";
 import { useAppStore } from "../app/appStore";
-import type { GroupingMode, PcrDataset } from "../data/types";
+import type { GroupingMode } from "../data/types";
 import { buildSelectionTree } from "../selection/buildTrees";
-import { getMatchedCurveIds } from "../selection/searchCurves";
+import { getFilteredCurveIds, getMatchedCurveIds } from "../selection/searchCurves";
 import { IndeterminateCheckbox } from "./IndeterminateCheckbox";
 import { SegmentedControl } from "./SegmentedControl";
 
@@ -141,30 +141,9 @@ export function DataSelectionPanel() {
                   <span className="count-badge">{group.selectedCount}/{group.totalCount}</span>
                 </div>
                 {!group.collapsed &&
-                  group.subgroups.map((subgroup) => (
-                    <div className="tree-subgroup" key={subgroup.groupId}>
-                      <div className="tree-row subgroup-row">
-                        <IndeterminateCheckbox
-                          checkState={subgroup.checkState}
-                          label={`${subgroup.label} 선택`}
-                          onChange={(checked) => setCurvesSelected(subgroup.curveIds, checked)}
-                        />
-                        <span>{subgroup.label}</span>
-                        <span className="count-badge">{subgroup.selectedCount}/{subgroup.totalCount}</span>
-                      </div>
-                      {subgroup.curves.map((curve) => (
-                        <label className="tree-row curve-row" key={curve.curveId}>
-                          <input
-                            type="checkbox"
-                            checked={curve.selected}
-                            onChange={() => toggleCurve(curve.curveId)}
-                          />
-                          <span>{curve.label}</span>
-                          {curve.warningCount > 0 && <span className="warning-dot" aria-label="warning">!</span>}
-                        </label>
-                      ))}
-                    </div>
-                  ))}
+                  group.subgroups.map((subgroup) =>
+                    renderSubgroupRows({ subgroup, setCurvesSelected, toggleCurve })
+                  )}
               </section>
             ))}
           </div>
@@ -198,30 +177,9 @@ export function DataSelectionPanel() {
                     <span className="count-badge">{group.selectedCount}/{group.totalCount}</span>
                   </div>
                   {!group.collapsed &&
-                    group.subgroups.map((subgroup) => (
-                      <div className="tree-subgroup" key={subgroup.groupId}>
-                        <div className="tree-row subgroup-row">
-                          <IndeterminateCheckbox
-                            checkState={subgroup.checkState}
-                            label={`${subgroup.label} 선택`}
-                            onChange={(checked) => setCurvesSelected(subgroup.curveIds, checked)}
-                          />
-                          <span>{subgroup.label}</span>
-                          <span className="count-badge">{subgroup.selectedCount}/{subgroup.totalCount}</span>
-                        </div>
-                        {subgroup.curves.map((curve) => (
-                          <label className="tree-row curve-row" key={curve.curveId}>
-                            <input
-                              type="checkbox"
-                              checked={curve.selected}
-                              onChange={() => toggleCurve(curve.curveId)}
-                            />
-                            <span>{curve.label}</span>
-                            {curve.warningCount > 0 && <span className="warning-dot" aria-label="warning">!</span>}
-                          </label>
-                        ))}
-                      </div>
-                    ))}
+                    group.subgroups.map((subgroup) =>
+                      renderSubgroupRows({ subgroup, setCurvesSelected, toggleCurve })
+                    )}
                 </section>
               );
             })}
@@ -232,27 +190,67 @@ export function DataSelectionPanel() {
   );
 }
 
-function getFilteredCurveIds(
-  dataset: PcrDataset,
-  matchedCurveIds: Set<string>,
-  selectedCurveIds: Set<string>,
-  filter: SelectionFilter
-) {
-  return new Set(
-    dataset.curves
-      .filter((curve) => matchedCurveIds.has(curve.curveId))
-      .filter((curve) => {
-        if (filter === "selected") return selectedCurveIds.has(curve.curveId);
-        if (filter === "unselected") return !selectedCurveIds.has(curve.curveId);
-        if (filter === "warning") return curve.warnings.length > 0;
-        return true;
-      })
-      .map((curve) => curve.curveId)
+type TreeSubgroup = ReturnType<typeof buildSelectionTree>[number]["subgroups"][number];
+
+function renderSubgroupRows({
+  subgroup,
+  setCurvesSelected,
+  toggleCurve
+}: {
+  subgroup: TreeSubgroup;
+  setCurvesSelected: (curveIds: Iterable<string>, selected: boolean) => void;
+  toggleCurve: (curveId: string) => void;
+}) {
+  if (subgroup.curves.length === 1) {
+    const curve = subgroup.curves[0];
+    return (
+      <label className="tree-row single-curve-row" key={subgroup.groupId}>
+        <input
+          type="checkbox"
+          checked={curve.selected}
+          onChange={() => toggleCurve(curve.curveId)}
+        />
+        <span>{createSingleCurveRowLabel(subgroup.label, curve.label)}</span>
+        {curve.warningCount > 0 && <span className="warning-dot" aria-label="warning">!</span>}
+      </label>
+    );
+  }
+
+  return (
+    <div className="tree-subgroup" key={subgroup.groupId}>
+      <div className="tree-row subgroup-row">
+        <IndeterminateCheckbox
+          checkState={subgroup.checkState}
+          label={`${subgroup.label} 선택`}
+          onChange={(checked) => setCurvesSelected(subgroup.curveIds, checked)}
+        />
+        <span>{subgroup.label}</span>
+        <span className="count-badge">{subgroup.selectedCount}/{subgroup.totalCount}</span>
+      </div>
+      {subgroup.curves.map((curve) => (
+        <label className="tree-row curve-row" key={curve.curveId}>
+          <input
+            type="checkbox"
+            checked={curve.selected}
+            onChange={() => toggleCurve(curve.curveId)}
+          />
+          <span>{curve.label}</span>
+          {curve.warningCount > 0 && <span className="warning-dot" aria-label="warning">!</span>}
+        </label>
+      ))}
+    </div>
   );
+}
+
+function createSingleCurveRowLabel(subgroupLabel: string, curveLabel: string) {
+  return curveLabel.includes(subgroupLabel) ? curveLabel : `${subgroupLabel} / ${curveLabel}`;
 }
 
 function estimateGroupHeight(group: ReturnType<typeof buildSelectionTree>[number]) {
   if (!group || group.collapsed) return 48;
-  const curveRows = group.subgroups.reduce((count, subgroup) => count + subgroup.curves.length, 0);
-  return 48 + group.subgroups.length * 36 + curveRows * 34;
+  const visibleRows = group.subgroups.reduce((count, subgroup) => {
+    if (subgroup.curves.length === 1) return count + 1;
+    return count + 1 + subgroup.curves.length;
+  }, 0);
+  return 48 + visibleRows * 34;
 }

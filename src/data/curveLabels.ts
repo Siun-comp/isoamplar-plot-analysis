@@ -10,5 +10,7 @@ export function formatCurveLabel(curve: Curve, groupingMode: GroupingMode = "spe
 }
 
 export function formatCurveSourceSuffix(curve: Curve) {
-  return `${curve.source.fileName}:${curve.source.columnLetter}`;
+  const appendedFileMatch = curve.curveId.match(/^file(\d+)_/u);
+  const appendedFileSuffix = appendedFileMatch ? ` [file${appendedFileMatch[1]}]` : "";
+  return `${curve.source.fileName}:${curve.source.columnLetter}${appendedFileSuffix}`;
 }

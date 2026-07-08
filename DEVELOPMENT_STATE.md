@@ -10,7 +10,7 @@ Active
 2026-07-08
 
 ## Compression-Safe Summary
-- IsoAmplar Plot Analysis MVP implementation has progressed through Phase 8 plus the 2026-07-08 UI/analysis refinement and GitHub Pages deployment passes.
+- IsoAmplar Plot Analysis MVP implementation has progressed through Phase 8 plus the 2026-07-08 UI/analysis refinement, GitHub Pages deployment, app icon, and staged UX refinement planning passes.
 - Stack: React + Vite + TypeScript, SheetJS/xlsx, Apache ECharts, Zustand + Immer, `@tanstack/react-virtual`, Vitest + Testing Library, Playwright.
 - MVP input: `.xls` / `.xlsx` upload only, first worksheet only. CSV, paste/manual entry, app-side data editing, and sheet picker are deferred.
 - Parser preserves raw fluorescence values; no smoothing, normalization, baseline correction, log transform, averaging, or Ct/Cq calculation is applied.
@@ -18,19 +18,20 @@ Active
 - Search/display-filter bulk actions apply across the full dataset, including collapsed groups.
 - Chart preview uses ECharts with white background, sparse major grid, no minor grid, animation off, `connectNulls: false`, and a fixed preview viewport height that does not stretch with side-panel expansion. On desktop the chart panel is sticky while the page scrolls.
 - X/Y Auto, Fixed, and user-editable P1/P2 scale presets are implemented. P1/P2 have no invented default min/max values and become selectable only after valid numeric bounds are entered.
-- Style controls include specimen/reagent group color with picker and HEX input, line type, stable default colors based on original data/group order, individual curve overrides, marker options, built-in presets, one-step preset undo, and user legend/export order.
+- Style controls include specimen/reagent group color with picker and HEX input, line type, group marker state model, stable default colors based on original data/group order, individual curve overrides, marker options, built-in presets, one-step preset undo, and user legend/export order.
 - Export supports PNG/JPEG downloads, PNG clipboard copy with fallback message, and plotted-data CSV only for current rectangular common-X chart projections.
 - GitHub Pages asset base is configured as `./` by default. The public GitHub Pages deployment is active at `https://siun-comp.github.io/isoamplar-plot-analysis/`.
 - Browser tab/bookmark/PWA icon assets use the selected Option A amplification-curve icon.
+- The current implementation plan is `docs/09_UX_REFINEMENT_IMPLEMENTATION_PLAN_KR.md`. Phases R0 through R12 are complete; Phase R13 final regression/release audit is next.
 
 ## Current Goal
-MVP implementation, requested IsoAmplar refinement passes, public GitHub Pages deployment, and selected app icon application are complete. Next work should focus on manual validation with the real workbook and clipboard verification in the deployed browser origin.
+Phase R13 of `docs/09_UX_REFINEMENT_IMPLEMENTATION_PLAN_KR.md` is next: complete final regression, release audit, deployment smoke, and documentation closure for the R0-R12 refinement set.
 
 ## Current Milestone
 M8 - MVP release preparation complete locally, with post-MVP UI refinement applied.
 
 ## Last Completed Step
-Completed the 2026-07-08 refinements: app rename to IsoAmplar Plot Analysis, developer credit, fixed/sticky plot viewport, stable default color assignment, editable P1/P2 scale presets, Fixed auto-bound display/copy, marker override options, append Excel upload, grouping-aware curve labels, tree row banding, compact settings/export sizing, public GitHub deployment, and Option A app icon application.
+Completed Phase R12 hover/readout, over-20 curve helper actions, and accessibility/performance refinements. Tooltip display is disabled so the plot is not covered; fixed readout updates from ECharts series hover plus a nearest-point canvas fallback. The over-20 warning now offers current-search-only selection reduction, full deselect, and style preset assistance with local undo. Expert review follow-up fixed the original search-helper mismatch, stale readout clearing, and missing browser hover smoke coverage.
 
 ## Implemented
 - Documentation baseline: `AGENTS.md`, `DEVELOPMENT_STATE.md`, `DECISIONS.md`, `CHANGELOG.md`, and docs `01` through `08`.
@@ -91,6 +92,152 @@ Completed the 2026-07-08 refinements: app rename to IsoAmplar Plot Analysis, dev
   - `public/icon-192.png`
   - `public/icon-512.png`
   - `public/manifest.webmanifest`
+- UX refinement planning:
+  - `docs/09_UX_REFINEMENT_IMPLEMENTATION_PLAN_KR.md`
+  - Covers AnalysisState serialization, internal analysis tabs, Analysis XLSX export/import, redundant selection checkbox removal, style/override hierarchy, group marker rules, custom legend rendering, plot/legend export layouts, legend/style order parity, Analysis XLSX/tabs regression, hover readout, and large-list usability.
+- Phase R1 AnalysisState serialization:
+  - `src/analysis/analysisState.ts`
+  - `src/analysis/analysisState.test.ts`
+  - `AnalysisState` stores dataset, selection, search/filter, chart scale, style rules, curve overrides, export counter, import filename, source summaries, and dirty flag.
+  - Serialized Analysis XLSX payload excludes transient UI fields, runtime `analysisId`, and dirty state.
+  - Restore validates schema version, dataset shape, curve IDs, x/y lengths, selection/order integrity, scale state, style rules, curve overrides, and source file summaries before casting.
+  - Restore can accept a caller-provided tab-local ID and otherwise generates one; dirty starts as `false`.
+- Phase R2 internal analysis tabs state model:
+  - `src/app/appStore.ts`
+  - `src/app/appStore.test.ts`
+  - Workspace state includes `activeAnalysisId`, `analysisOrder`, `analyses`, and `analysisSequence`.
+  - Existing UI selectors (`dataset`, `selection`, `chartScale`, `styleRules`, `curveOverrides`, `exportCounter`, etc.) remain as the active-analysis facade.
+  - New actions include `createAnalysis`, `switchAnalysis`, `renameAnalysis`, and `closeAnalysis`.
+  - Dirty close and dirty replace are blocked until the exact confirmation UX is finalized.
+  - Async import/append captures the originating tab ID and cannot overwrite whichever tab is active when parsing finishes.
+- Phase R3 visible analysis tabs:
+  - `src/ui/AnalysisTabs.tsx`
+  - `src/app/App.tsx`
+  - `src/styles.css`
+  - `tests/e2e/app.spec.ts`
+  - Tabs are displayed above file input controls so imports target the visible active analysis.
+  - New analysis, switch, rename, dirty indicator, active clean close, dirty close blocking, and arrow-key tab switching are implemented.
+  - Close/replace confirmation UX remains undecided; current behavior blocks dirty close/replace rather than silently losing data.
+- Phase R4 Analysis XLSX export/import:
+  - `src/analysis/analysisWorkbook.ts`
+  - `src/analysis/analysisWorkbook.test.ts`
+  - `src/app/appStore.ts`
+  - `src/app/appStore.test.ts`
+  - `src/ui/SettingsPanel.tsx`
+  - `src/app/App.test.tsx`
+  - Analysis XLSX export writes README, Settings, ImportedData, Warnings, and hidden `_IsoAmplarAnalysis` sheets.
+  - Hidden restore JSON is authoritative and contains full imported dataset, unselected curves, warnings, selection/order, scale, style rules, curve overrides, source files, analysis name, and export counter.
+  - Serialized restore payload excludes runtime `analysisId`, dirty state, import/export progress, messages, hover/clipboard state, and preset undo stack.
+  - Analysis XLSX import validates schema, dataset shape, selection/order integrity, chunk count/index continuity, and source/style/scale state before restoring.
+  - `파일 선택` with Analysis XLSX restores the clean active tab when safe; dirty active tabs are blocked.
+  - `추가 선택` with Analysis XLSX opens a new independent internal analysis tab instead of merging into the active dataset.
+  - Ordinary `.xlsx` workbooks with review-like sheet names are still parsed as source Excel unless they contain the explicit IsoAmplar restore marker.
+  - Async import/append routing stays tied to the tab where the action started, including empty-tab add-select imports.
+- Phase R5 selection tree simplification:
+  - `src/ui/DataSelectionPanel.tsx`
+  - `src/styles.css`
+  - `src/app/App.test.tsx`
+  - `tests/e2e/app.spec.ts`
+  - Single-curve subgroups are displayed as one checkbox row, removing the previous subgroup checkbox plus child checkbox duplication.
+  - Multi-curve subgroups retain subgroup tri-state checkbox behavior and child curve checkboxes.
+  - Subgroup and child checkbox actions still use `curveId` and subgroup `curveIds`; no selection identity changed.
+  - Virtualized row height estimation accounts for merged single-curve rows.
+- Phase R6 style state/model cleanup:
+  - `src/data/types.ts`
+  - `src/chart/chartStyle.ts`
+  - `src/chart/chartProjection.ts`
+  - `src/chart/chartConfig.ts`
+  - `src/analysis/analysisState.ts`
+  - `src/app/appStore.ts`
+  - `src/ui/SettingsPanel.tsx`
+  - `StyleRules` now includes `markerBy`, `specimenMarkerTypes`, and `reagentMarkerTypes`.
+  - `resolveCurveStyle` returns resolved color, line type, marker type, line width, visibility, override source, and per-field origin.
+  - `CurveStyleOverride.fieldSources` distinguishes custom and preset source per style field for future UI origin display, while `source` remains as a legacy/summary hint.
+  - Store actions now include `setGroupMarkerType`, `resetCurveOverride`, `resetSelectedCurveOverrides`, and `resetAllCurveOverrides`.
+  - Store actions also include `setLegendPreviewVisible` and `setExportImageLayout`; preview legend visibility is connected to chart options, while full custom legend/export rendering remains later-phase work.
+  - Preset apply/undo remains one-step and scoped; append import clears pending preset undo snapshots to avoid stale restoration after dataset shape changes.
+  - `legendSettings` and `exportSettings` are part of AnalysisState and Analysis XLSX payloads, with defaults applied when restoring older payloads.
+  - Same-schema restore migration fills missing marker rule defaults for older Analysis XLSX payloads created before Phase R6.
+  - `buildChartProjection` centralizes visible curve order, resolved styles, unique chart names, and scale issue calculation for chart-facing outputs.
+- Phase R7 Style UI restructuring:
+  - `src/ui/SettingsPanel.tsx`
+  - `src/styles.css`
+  - `src/app/appStore.ts`
+  - `src/app/App.test.tsx`
+  - `src/app/appStore.test.ts`
+  - `tests/e2e/app.spec.ts`
+  - Style accordion now shows a current basis summary for color, line, and marker grouping.
+  - Basis controls now include `색상 기준`, `선 기준`, and `마커 기준`.
+  - Specimen and reagent group style tables now include color picker, HEX input, line type, marker type, and group reset.
+  - Individual style rows now show curve identity, legend name, color, HEX, line, marker, row status, curve reset, and field-level reset buttons.
+  - Field badges show `기준`, `Custom`, or `Preset` per editable field; mixed rows show `Custom/Preset`.
+  - Selected-curve style rows are searchable and no longer hard-slice after 30 selected curves.
+  - Style table headers and rows share the same scroll container to avoid horizontal alignment drift in narrow panels.
+- Phase R8 custom legend and legend controls:
+  - `src/ui/CustomLegend.tsx`
+  - `src/ui/CustomLegend.test.tsx`
+  - `src/ui/ChartPanel.tsx`
+  - `src/chart/chartProjection.ts`
+  - `src/chart/chartConfig.ts`
+  - `src/ui/SettingsPanel.tsx`
+  - `src/styles.css`
+  - ECharts built-in legend is hidden so it cannot overlap the plot canvas.
+  - `buildChartProjection` now produces `LegendItem[]` from the same visible-curve order and resolved styles used by the chart.
+  - Custom preview legend renders outside the plot with SVG line samples for solid/dashed/dotted and marker samples for none/circle/triangle/rect.
+  - Preview legend visibility can be toggled independently from selected curves.
+  - Export layout state can be selected as Plot only / Plot + Legend / Legend only; image composition is implemented in Phase R9.
+  - Custom legend order follows the current user legend/export order.
+- Phase R9 export layout expansion:
+  - `src/chart/exportChart.ts`
+  - `src/chart/exportChart.test.ts`
+  - `src/ui/SettingsPanel.tsx`
+  - `tests/e2e/app.spec.ts`
+  - PNG/JPEG downloads and clipboard PNG use the selected export layout.
+  - `plotOnly` exports only the chart image with built-in ECharts legend hidden.
+  - `plotWithLegend` creates chart and custom legend images separately, then composites them vertically on a white canvas.
+  - `legendOnly` exports the custom legend image for the current selected/order/style projection.
+  - Composite JPEG avoids double JPEG compression by using PNG intermediate images and encoding only the final canvas as JPEG.
+  - Empty or non-image data URLs and zero-size blobs are treated as export failures so `plotN` is not consumed by invalid images.
+- Phase R10 legend order/style editor consistency:
+  - `src/ui/SettingsPanel.tsx`
+  - `src/styles.css`
+  - `src/app/appStore.test.ts`
+  - `src/app/App.test.tsx`
+  - Individual Style rows and Legend Order rows show source suffixes such as `file.xlsx:A` to distinguish duplicate labels.
+  - Style override edits remain keyed by `curveId`; legend order moves only change `orderedCurveIds`.
+  - Legend order moves use the previous/next selected curve, so unselected curves between selected entries do not make a move appear inert.
+  - Duplicate-label style control names include source suffixes where needed, and individual style search can match source suffixes.
+  - Tests cover style overrides surviving order changes, selected-order movement with unselected curves in between, style row order parity, and duplicate-label style edits targeting the correct curve ID.
+- Phase R11 Analysis XLSX/tab regression and Report XLSX deferral:
+  - `src/analysis/analysisWorkbook.test.ts`
+  - `src/app/appStore.test.ts`
+  - `src/app/App.test.tsx`
+  - `docs/03_INPUT_OUTPUT_SPEC_EN.md`
+  - `docs/04_TEST_PLAN_ACCEPTANCE_EN.md`
+  - Analysis XLSX workbook roundtrip now explicitly covers group style marker/color/line rules, curve override field source metadata, preview legend visibility, image export layout, and export counter.
+  - App store Analysis XLSX helper and routing tests now preserve latest legend/export settings and export counter through active-tab restore and add-select new-tab open.
+  - Pending replace/restore results are blocked if the target tab becomes dirty while the file is still being read.
+  - Successful Analysis XLSX saves advance the saved counter and mark the analysis clean so close/replace blocking reflects the saved state.
+  - Repeated same-file append imports add a `fileN` source suffix for visible duplicate-label disambiguation.
+  - Analysis XLSX detection requires the explicit restore marker; the reserved sheet name alone falls back to ordinary workbook routing unless the README restore marker is present.
+  - A dependency guard asserts that native editable chart/report workbook libraries such as `exceljs`, `xlsx-populate`, `xlsx-js-style`, and `office-chart` are not introduced.
+  - Report/Plotted XLSX remains deferred and documented as separate from Analysis XLSX.
+- Phase R12 hover/readout and large-curve assistance:
+  - `src/chart/ChartView.tsx`
+  - `src/chart/ChartView.test.ts`
+  - `src/chart/chartConfig.ts`
+  - `src/ui/ChartPanel.tsx`
+  - `src/selection/searchCurves.ts`
+  - `src/ui/DataSelectionPanel.tsx`
+  - `src/app/App.test.tsx`
+  - `tests/e2e/app.spec.ts`
+  - Chart tooltip rendering is disabled; hover information is shown in a fixed chart-panel readout below the canvas.
+  - The readout supports direct ECharts series hover and a canvas nearest-point fallback so no-marker line charts remain inspectable.
+  - Readout state is transient and clears when the visible chart projection, labels, or resolved style fingerprint changes.
+  - The >20 visible-curve warning keeps preview/export enabled and adds actions for current-search-only selection reduction, full selection clearing, and visual style preset assistance.
+  - The warning preset action uses existing one-step preset undo and exposes a local `프리셋 Undo` button after application.
+  - Search matching/filtering is shared between the selection panel and chart warning helper actions.
+  - Playwright now uses a 45-cycle generated workbook fixture so browser hover smoke reflects realistic amplification curves.
 
 ## Key Decisions
 - `D013`: accepted stack.
@@ -106,26 +253,74 @@ Completed the 2026-07-08 refinements: app rename to IsoAmplar Plot Analysis, dev
 - `D023`: product identity is IsoAmplar Plot Analysis with developer credit Jang Si Un.
 - `D024`: 2026-07-08 chart refinement rules for fixed viewport height, stable colors, editable P1/P2 presets, and no default markers.
 - `D025`: append upload identity, sticky chart, grouping-aware labels, tree banding, and compact settings/export sizing.
+- `D026`: native editable Excel chart generation excluded; Analysis XLSX stores full imported dataset plus settings for analysis continuity without automatic localStorage persistence.
+- `D027`: internal analysis tabs are accepted for multiple simultaneous analyses, with independent per-tab AnalysisState.
+- `D028`: use app-controlled custom legends and separate legend/chart/export states.
+- `D029`: style origin and reset semantics are explicit; group marker styles are supported.
 
 ## Verification Status
-- `npm run test`: passed, 37 Vitest tests.
-- `npm run build`: passed.
-- `npm run test:e2e`: passed, 2 Chromium Playwright tests.
+- Phase R1 `git diff --check`: passed, with CRLF replacement warnings only.
+- Phase R1 `npm run test`: passed, 45 Vitest tests.
+- Phase R1 `npm run build`: passed.
+- Phase R1 `npm run test:e2e`: passed, 2 Chromium Playwright tests.
+- Phase R2 `npm run test`: passed, 52 Vitest tests.
+- Phase R2 `npm run build`: passed.
+- Phase R2 `npm run test:e2e`: passed, 2 Chromium Playwright tests.
+- Phase R2 `git diff --check`: passed, with CRLF replacement warnings only.
+- Phase R3 `npm run test`: passed, 53 Vitest tests.
+- Phase R3 `npm run build`: passed.
+- Phase R3 `npm run test:e2e`: passed, 3 Chromium Playwright tests.
+- Phase R4 `npm run test`: passed, 65 Vitest tests.
+- Phase R4 `npm run build`: passed.
+- Phase R4 `npm run test:e2e`: passed, 3 Chromium Playwright tests.
+- Phase R4 `git diff --check`: passed, with CRLF replacement warnings only.
+- Phase R5 `npm run test`: passed, 67 Vitest tests.
+- Phase R5 `npm run build`: passed.
+- Phase R5 `npm run test:e2e`: passed, 3 Chromium Playwright tests.
+- Phase R5 `git diff --check`: passed, with CRLF replacement warnings only.
+- Phase R6 `npm run test`: passed, 76 Vitest tests.
+- Phase R6 `npm run build`: passed.
+- Phase R6 `npm run test:e2e`: passed, 3 Chromium Playwright tests.
+- Phase R7 `npm run test`: passed, 80 Vitest tests.
+- Phase R7 `npm run build`: passed.
+- Phase R7 `npm run test:e2e`: passed, 3 Chromium Playwright tests.
+- Phase R8 `npm run test`: passed, 82 Vitest tests.
+- Phase R8 `npm run build`: passed.
+- Phase R8 `npm run test:e2e`: passed, 3 Chromium Playwright tests.
+- Phase R9 `npm run test`: passed, 85 Vitest tests.
+- Phase R9 `npm run build`: passed.
+- Phase R9 `npm run test:e2e`: passed, 3 Chromium Playwright tests.
+- Phase R10 `npm run test`: passed, 87 Vitest tests.
+- Phase R10 `npm run build`: passed.
+- Phase R10 `npm run test:e2e`: passed, 3 Chromium Playwright tests.
+- Phase R11 `npm run test`: passed, 94 Vitest tests.
+- Phase R11 `npm run build`: passed.
+- Phase R11 `npm run test:e2e`: passed, 3 Chromium Playwright tests.
+- Phase R11 `git diff --check`: passed, with CRLF replacement warnings only.
+- Phase R12 focused `npm run test -- --run src/app/App.test.tsx src/chart/ChartView.test.ts src/chart/chartConfig.test.ts`: passed, 32 Vitest tests.
+- Phase R12 full `npm run test`: passed, 97 Vitest tests.
+- Phase R12 `npm run build`: passed.
+- Phase R12 `npm run test:e2e`: passed, 3 Chromium Playwright tests, including fixed readout hover smoke.
+- Phase R12 `git diff --check`: passed, with CRLF replacement warnings only.
 - `npm audit --omit=dev`: 0 vulnerabilities.
 - GitHub Pages deployment: active at `https://siun-comp.github.io/isoamplar-plot-analysis/`.
-- Playwright checks include upload-first smoke, generated `.xlsx` upload, append `.xlsx` import, reagent-first collapsed state, search bulk select, chart canvas visibility, nonwhite pixel count, chart viewport height stability after settings expansion, and sticky chart panel behavior.
+- Playwright checks include upload-first smoke, generated `.xlsx` upload, append `.xlsx` import, reagent-first collapsed state, virtualized single-curve selection row, search bulk select, Style-panel marker basis/group marker smoke, fixed hover readout smoke, chart canvas visibility, nonwhite pixel count, chart viewport height stability after settings expansion, and sticky chart panel behavior.
 - Visual screenshots:
   - `docs/gui_mockups/screenshots/phase8_mvp_desktop.png`
   - `docs/gui_mockups/screenshots/phase8_mvp_mobile.png`
   - `docs/gui_mockups/screenshots/isoamplar_refinement_desktop.png`
   - `docs/gui_mockups/screenshots/isoamplar_append_sticky_refinement.png`
+  - `docs/gui_mockups/screenshots/phase-r12_hover_warning_desktop.png`
+  - `docs/gui_mockups/screenshots/phase-r12_hover_warning_mobile.png`
 
 ## Known Gaps
 - Clipboard image copy has not been manually verified in Chrome/Edge on the final deployment origin.
 - Static fixture files and expected normalized JSON snapshots are still not checked in; tests currently generate workbook fixtures.
 - Real `C:\Users\siunj\Desktop\graph_TEST.xlsx` has been inspected read-only but has not yet been uploaded through the finished UI in this session.
 - Performance budgets for max file size, row count, specimen count, imported curve count, and rendered curve count remain undecided.
-- P1/P2 scale presets are user-editable per analysis session but are not persisted after app reload/import reset.
+- P1/P2 scale presets are user-editable per analysis session and represented in AnalysisState; they can be preserved through explicit Analysis XLSX export/import but not automatic browser-session persistence.
+- Analysis XLSX currently stores restore JSON and visible review sheets, but it does not include a native editable Excel chart or a static chart image workbook.
+- Dirty tab close/replace confirmation behavior and tab-count warning/hard-cap policy remain undecided.
 
 ## Important Links
 - Project root: `H:\Vibe Cording\Graph`
@@ -138,6 +333,6 @@ Completed the 2026-07-08 refinements: app rename to IsoAmplar Plot Analysis, dev
 - Local dev server: `http://127.0.0.1:5173/`
 
 ## Next 3 Tasks
-1. Manually upload `C:\Users\siunj\Desktop\graph_TEST.xlsx` in the UI, append another workbook if available, and compare labels, curve count, warnings, chart, scale presets, marker options, and export output.
-2. Verify clipboard PNG copy in Chrome/Edge under local preview and later GitHub Pages.
-3. Decide whether P1/P2 presets, style presets, and chart configuration should be saved/reloaded across sessions.
+1. Start Phase R13 final audit against `docs/09_UX_REFINEMENT_IMPLEMENTATION_PLAN_KR.md` R0-R12 acceptance criteria.
+2. Run full `npm run test`, `npm run build`, `npm run test:e2e`, `git diff --check`, and release checklist review.
+3. Verify GitHub Pages/public deployment readiness and update final release documentation.
