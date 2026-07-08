@@ -35,6 +35,7 @@ IsoAmplar Plot Analysis MVP를 GitHub Pages 또는 동등한 정적 호스팅에
 - `npm run build`
 - `npm run test:e2e`
 - `npm audit --omit=dev`
+- Note: GitHub Actions Pages deploy currently gates `npm run test` and `npm run build`; `test:e2e` and `npm audit --omit=dev` are local release checks unless the workflow is later expanded.
 
 ## 현재 검증 결과
 - Vitest: 97 tests passed.
@@ -43,8 +44,8 @@ IsoAmplar Plot Analysis MVP를 GitHub Pages 또는 동등한 정적 호스팅에
 - Production build emits lazy chunks for SheetJS and ECharts/export code.
 - Production dependency audit: 0 vulnerabilities.
 - `git diff --check`: passed, with CRLF replacement warnings only.
-- GitHub Actions Pages deploy: passed for the R13 pushed `main` build.
-- Public URL smoke: passed at `https://siun-comp.github.io/isoamplar-plot-analysis/` for HTTP 200, app icon assets, Excel upload, chart render, custom legend, and Export controls.
+- GitHub Actions Pages deploy: passed for the R13 pushed `main` build. Actions gate covers `npm run test` and `npm run build`.
+- Public URL technical smoke: passed at `https://siun-comp.github.io/isoamplar-plot-analysis/` for HTTP 200, app icon assets, generated `.xlsx` Excel upload, chart render, custom legend, and Export controls.
 - Desktop screenshot: `docs/gui_mockups/screenshots/phase8_mvp_desktop.png`
 - Mobile screenshot: `docs/gui_mockups/screenshots/phase8_mvp_mobile.png`
 - Refinement screenshot: `docs/gui_mockups/screenshots/isoamplar_refinement_desktop.png`
@@ -53,13 +54,13 @@ IsoAmplar Plot Analysis MVP를 GitHub Pages 또는 동등한 정적 호스팅에
 - R12 hover/warning mobile screenshot: `docs/gui_mockups/screenshots/phase-r12_hover_warning_mobile.png`
 
 ## 수동 확인 필요
-- 실제 `graph_TEST.xlsx` 업로드 후 검체/시약 라벨과 curve 수가 예상과 맞는지 확인.
+- 실제 `graph_TEST.xlsx` 업로드 후 검체/시약 라벨과 curve 수가 예상과 맞는지 확인. 생성 fixture 기반 공개 URL 기술 smoke는 완료되었지만, 실제 분석 파일의 도메인 판단은 별도 수동 확인이 필요하다.
 - 추가 파일 append 후 기존 선택/scale/style/order가 유지되는지 확인.
 - Chrome 또는 Edge에서 PNG clipboard copy가 동작하는지 확인.
 - PNG/JPEG 다운로드 이미지가 preview와 같은 scale/style/order를 반영하는지 확인.
 - P1/P2 scale preset을 실제 분석 범위로 입력했을 때 원하는 비교 흐름에 맞는지 확인.
 - Marker 옵션이 필요한 실제 curve만 표시하도록 분석 관점에서 확인.
-- GitHub Pages 실제 URL에서 asset 경로가 정상인지 확인.
+- GitHub Pages 실제 URL에서 asset 경로는 기술 smoke로 확인됨. 사용자 환경에서 캐시/브라우저별 표시 이상이 있으면 별도 확인한다.
 - 큰 파일의 체감 성능 확인.
 
 ## 사용자 결정 대기

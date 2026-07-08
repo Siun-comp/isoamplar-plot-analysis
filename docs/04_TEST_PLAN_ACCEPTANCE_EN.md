@@ -282,9 +282,10 @@ Create or collect fixture datasets for:
 - The selected test stack is installed and configured for unit/component/Playwright smoke tests.
 - Static checked-in sample fixture files do not exist yet; generated workbook fixtures are used in Vitest and Playwright tests.
 - PCR-specific expected normalized JSON snapshots do not exist yet.
-- Browser checks have been performed with Playwright: upload-first smoke, generated `.xlsx` upload, appended `.xlsx` upload, collapsed reagent-first selection, internal analysis tab switching, fixed hover readout smoke, chart canvas nonblank pixel check, fixed chart viewport height after settings expansion, and sticky chart panel behavior.
+- Browser checks have been performed with Playwright: upload-first smoke, generated `.xlsx` upload, appended `.xlsx` upload, collapsed reagent-first selection, internal analysis tab switching, fixed hover readout smoke, chart canvas nonblank pixel check, fixed chart viewport height after settings expansion, sticky chart panel behavior, and public URL technical smoke with generated `.xlsx` upload.
 - Clipboard behavior has not been manually verified in Chrome/Edge under the final deployment origin.
-- GitHub Pages deployment behavior was verified on 2026-07-08 through the Pages workflow and public URL smoke.
+- GitHub Pages deployment behavior was verified on 2026-07-08 through the Pages workflow and public URL technical smoke with generated `.xlsx` data.
+- GitHub Actions Pages deploy currently runs `npm run test` and `npm run build`; `npm run test:e2e` and `npm audit --omit=dev` are local release checks unless the workflow is expanded later.
 - Performance budgets for file size, specimen count, imported curve count, and rendered curve count have not been finalized.
 - P1/P2 presets are editable per analysis session and can be preserved through explicit Analysis XLSX export/import, but automatic browser-session persistence is not provided.
 - Analysis XLSX export/import is implemented for full-dataset restore files; native editable Excel charts and report-style chart-image XLSX output remain deferred.

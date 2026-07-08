@@ -170,6 +170,7 @@ Update this file when user visible behavior, documentation baseline, release rea
 - Updated chart tooltip behavior so ECharts tooltip display is disabled in favor of the fixed readout.
 - Updated Playwright generated workbook fixtures from two-point curves to realistic 45-cycle amplification curves for hover/readout verification.
 - Updated release checklist and test plan to mark GitHub Pages deployment behavior verified.
+- Clarified release evidence boundaries: generated `.xlsx` public URL smoke is complete, real `graph_TEST.xlsx` remains manual domain validation, and e2e/audit are local release checks outside the current Pages workflow gate.
 
 ### Fixed
 - Fixed chart preview height stretching with expanded left/right panel content.

@@ -303,8 +303,9 @@ Completed Phase R13 final regression/release audit. The R0-R13 refinement set is
 - Phase R12 `npm run test:e2e`: passed, 3 Chromium Playwright tests, including fixed readout hover smoke.
 - Phase R12 `git diff --check`: passed, with CRLF replacement warnings only.
 - Phase R13 `npm audit --omit=dev`: passed, 0 vulnerabilities.
-- Phase R13 GitHub Actions Pages deploy: passed for pushed `main`.
-- Phase R13 public URL smoke: passed at `https://siun-comp.github.io/isoamplar-plot-analysis/` for HTTP 200, `favicon.svg`, `manifest.webmanifest`, Excel upload, chart canvas render, custom legend, and Export controls.
+- Phase R13 GitHub Actions Pages deploy: passed for pushed `main`; the workflow gate runs `npm run test` and `npm run build`.
+- Phase R13 public URL technical smoke: passed at `https://siun-comp.github.io/isoamplar-plot-analysis/` for HTTP 200, `favicon.svg`, `manifest.webmanifest`, generated `.xlsx` Excel upload, chart canvas render, custom legend, and Export controls.
+- Phase R13 local-only release checks: `npm run test:e2e`, `npm audit --omit=dev`, and public URL smoke were run locally rather than as required Pages workflow gates.
 - `npm audit --omit=dev`: 0 vulnerabilities.
 - GitHub Pages deployment: active at `https://siun-comp.github.io/isoamplar-plot-analysis/`.
 - Playwright checks include upload-first smoke, generated `.xlsx` upload, append `.xlsx` import, reagent-first collapsed state, virtualized single-curve selection row, search bulk select, Style-panel marker basis/group marker smoke, fixed hover readout smoke, chart canvas visibility, nonwhite pixel count, chart viewport height stability after settings expansion, and sticky chart panel behavior.
@@ -319,7 +320,7 @@ Completed Phase R13 final regression/release audit. The R0-R13 refinement set is
 ## Known Gaps
 - Clipboard image copy has not been manually verified in Chrome/Edge on the final deployment origin.
 - Static fixture files and expected normalized JSON snapshots are still not checked in; tests currently generate workbook fixtures.
-- Real `C:\Users\siunj\Desktop\graph_TEST.xlsx` has been inspected read-only but has not yet been uploaded through the finished UI in this session.
+- Public URL technical smoke used generated `.xlsx` workbooks. Real `C:\Users\siunj\Desktop\graph_TEST.xlsx` has been inspected read-only but has not yet been uploaded through the finished UI in this session; final domain judgement for real labels/curve counts remains a user/manual validation item.
 - Performance budgets for max file size, row count, specimen count, imported curve count, and rendered curve count remain undecided.
 - P1/P2 scale presets are user-editable per analysis session and represented in AnalysisState; they can be preserved through explicit Analysis XLSX export/import but not automatic browser-session persistence.
 - Analysis XLSX currently stores restore JSON and visible review sheets, but it does not include a native editable Excel chart or a static chart image workbook.
