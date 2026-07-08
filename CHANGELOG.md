@@ -118,6 +118,7 @@ Update this file when user visible behavior, documentation baseline, release rea
 - Added >20 visible-curve helper actions for keeping only current search matches selected, clearing all visible selections, applying a distinguishing style preset, and locally undoing that preset.
 - Added R12 coverage for hover payload extraction, browser hover readout smoke, and >20 helper actions.
 - Added R12 desktop/mobile screenshots at `docs/gui_mockups/screenshots/phase-r12_hover_warning_desktop.png` and `docs/gui_mockups/screenshots/phase-r12_hover_warning_mobile.png`.
+- Added R13 release verification notes for full local regression, dependency audit, GitHub Pages deploy, and public URL smoke.
 
 ### Changed
 - Replaced default replicate/series/exclude/restore-style wording in the active GUI baseline with individual curve and selected/unselected terminology.
@@ -168,6 +169,7 @@ Update this file when user visible behavior, documentation baseline, release rea
 - Updated Analysis XLSX detection so the hidden restore sheet name alone is not enough; the explicit restore marker is required.
 - Updated chart tooltip behavior so ECharts tooltip display is disabled in favor of the fixed readout.
 - Updated Playwright generated workbook fixtures from two-point curves to realistic 45-cycle amplification curves for hover/readout verification.
+- Updated release checklist and test plan to mark GitHub Pages deployment behavior verified.
 
 ### Fixed
 - Fixed chart preview height stretching with expanded left/right panel content.

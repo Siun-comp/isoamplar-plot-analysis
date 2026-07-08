@@ -22,16 +22,16 @@ Active
 - Export supports PNG/JPEG downloads, PNG clipboard copy with fallback message, and plotted-data CSV only for current rectangular common-X chart projections.
 - GitHub Pages asset base is configured as `./` by default. The public GitHub Pages deployment is active at `https://siun-comp.github.io/isoamplar-plot-analysis/`.
 - Browser tab/bookmark/PWA icon assets use the selected Option A amplification-curve icon.
-- The current implementation plan is `docs/09_UX_REFINEMENT_IMPLEMENTATION_PLAN_KR.md`. Phases R0 through R12 are complete; Phase R13 final regression/release audit is next.
+- The current implementation plan is `docs/09_UX_REFINEMENT_IMPLEMENTATION_PLAN_KR.md`. Phases R0 through R13 are complete.
 
 ## Current Goal
-Phase R13 of `docs/09_UX_REFINEMENT_IMPLEMENTATION_PLAN_KR.md` is next: complete final regression, release audit, deployment smoke, and documentation closure for the R0-R12 refinement set.
+Phase R13 of `docs/09_UX_REFINEMENT_IMPLEMENTATION_PLAN_KR.md` is complete: final regression, release audit, GitHub Pages deployment, and public URL smoke have been performed for the R0-R12 refinement set.
 
 ## Current Milestone
 M8 - MVP release preparation complete locally, with post-MVP UI refinement applied.
 
 ## Last Completed Step
-Completed Phase R12 hover/readout, over-20 curve helper actions, and accessibility/performance refinements. Tooltip display is disabled so the plot is not covered; fixed readout updates from ECharts series hover plus a nearest-point canvas fallback. The over-20 warning now offers current-search-only selection reduction, full deselect, and style preset assistance with local undo. Expert review follow-up fixed the original search-helper mismatch, stale readout clearing, and missing browser hover smoke coverage.
+Completed Phase R13 final regression/release audit. The R0-R13 refinement set is committed, pushed to `main`, deployed through GitHub Actions Pages, and smoke-tested at the public GitHub Pages URL for HTTP 200, app icon assets, Excel upload, chart rendering, custom legend, and Export controls.
 
 ## Implemented
 - Documentation baseline: `AGENTS.md`, `DEVELOPMENT_STATE.md`, `DECISIONS.md`, `CHANGELOG.md`, and docs `01` through `08`.
@@ -302,6 +302,9 @@ Completed Phase R12 hover/readout, over-20 curve helper actions, and accessibili
 - Phase R12 `npm run build`: passed.
 - Phase R12 `npm run test:e2e`: passed, 3 Chromium Playwright tests, including fixed readout hover smoke.
 - Phase R12 `git diff --check`: passed, with CRLF replacement warnings only.
+- Phase R13 `npm audit --omit=dev`: passed, 0 vulnerabilities.
+- Phase R13 GitHub Actions Pages deploy: passed for pushed `main`.
+- Phase R13 public URL smoke: passed at `https://siun-comp.github.io/isoamplar-plot-analysis/` for HTTP 200, `favicon.svg`, `manifest.webmanifest`, Excel upload, chart canvas render, custom legend, and Export controls.
 - `npm audit --omit=dev`: 0 vulnerabilities.
 - GitHub Pages deployment: active at `https://siun-comp.github.io/isoamplar-plot-analysis/`.
 - Playwright checks include upload-first smoke, generated `.xlsx` upload, append `.xlsx` import, reagent-first collapsed state, virtualized single-curve selection row, search bulk select, Style-panel marker basis/group marker smoke, fixed hover readout smoke, chart canvas visibility, nonwhite pixel count, chart viewport height stability after settings expansion, and sticky chart panel behavior.
@@ -333,6 +336,6 @@ Completed Phase R12 hover/readout, over-20 curve helper actions, and accessibili
 - Local dev server: `http://127.0.0.1:5173/`
 
 ## Next 3 Tasks
-1. Start Phase R13 final audit against `docs/09_UX_REFINEMENT_IMPLEMENTATION_PLAN_KR.md` R0-R12 acceptance criteria.
-2. Run full `npm run test`, `npm run build`, `npm run test:e2e`, `git diff --check`, and release checklist review.
-3. Verify GitHub Pages/public deployment readiness and update final release documentation.
+1. Manually validate the real `C:\Users\siunj\Desktop\graph_TEST.xlsx` in the deployed app when the user is ready.
+2. Manually verify clipboard image copy in Chrome/Edge on the final deployment origin.
+3. Decide dirty tab close/replace confirmation UX and internal tab-count warning policy before making destructive tab actions more permissive.

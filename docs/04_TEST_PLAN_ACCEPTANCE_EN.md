@@ -284,7 +284,7 @@ Create or collect fixture datasets for:
 - PCR-specific expected normalized JSON snapshots do not exist yet.
 - Browser checks have been performed with Playwright: upload-first smoke, generated `.xlsx` upload, appended `.xlsx` upload, collapsed reagent-first selection, internal analysis tab switching, fixed hover readout smoke, chart canvas nonblank pixel check, fixed chart viewport height after settings expansion, and sticky chart panel behavior.
 - Clipboard behavior has not been manually verified in Chrome/Edge under the final deployment origin.
-- GitHub Pages deployment behavior has not been verified.
+- GitHub Pages deployment behavior was verified on 2026-07-08 through the Pages workflow and public URL smoke.
 - Performance budgets for file size, specimen count, imported curve count, and rendered curve count have not been finalized.
 - P1/P2 presets are editable per analysis session and can be preserved through explicit Analysis XLSX export/import, but automatic browser-session persistence is not provided.
 - Analysis XLSX export/import is implemented for full-dataset restore files; native editable Excel charts and report-style chart-image XLSX output remain deferred.
