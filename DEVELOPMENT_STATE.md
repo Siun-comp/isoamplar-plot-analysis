@@ -26,13 +26,13 @@ Active
 - The latest direct refinement pass adds app-controlled curve hover highlighting, custom-legend hover/focus highlighting, marker-preserving hover behavior, analysis-name-based export filenames, balanced Y-axis spacing, dedicated legend-only clipboard PNG copy, compact group style controls, and native style popover closing.
 
 ## Current Goal
-Direct post-release usability fixes after Phase R13: balanced chart Y-axis spacing, legend-only clipboard copy, compact group style controls with visible group names, native style popover closing, and updated regression coverage/docs.
+Ready for real-use validation on GitHub Pages after the final pre-use style popover and deployment documentation pass.
 
 ## Current Milestone
 M8 - MVP release preparation complete locally, with post-MVP UI refinement applied.
 
 ## Last Completed Step
-Completed local verification for reduced chart left whitespace, visible group-style labels, compact color/line/reset controls, and native style popovers that close on outside click, Escape, or opening another popover. Commit/deploy is now requested.
+Committed and pushed the final pre-use style popover correction, verified the GitHub Pages deploy workflow, and passed public URL smoke with generated `.xlsx` upload, visible chart/legend, and Escape/outside-click popover closing.
 
 ## Latest Changed Files
 - `src/chart/chartConfig.ts`
@@ -347,6 +347,8 @@ Completed local verification for reduced chart left whitespace, visible group-st
 - Final pre-use Escape follow-up `npm run build`: passed.
 - Final pre-use Escape follow-up `npm run test:e2e`: passed, 3 Chromium Playwright tests.
 - Final pre-use native popover local Playwright smoke: passed at `http://127.0.0.1:5173/` using a generated `.xlsx`; style line/marker popover count was 1 after open, 0 after Escape, and 0 after outside click.
+- Final pre-use style popover commit `32c9d56` GitHub Actions Pages deploy: passed for run `28963240680`; the workflow gate ran `npm run test` and `npm run build`.
+- Final pre-use style popover public URL smoke: passed at `https://siun-comp.github.io/isoamplar-plot-analysis/` with latest app asset `index-Ct78MOGl.js`, generated `.xlsx` upload, explicit displayed-curve selection, nonblank chart canvas (`3586` sampled non-white pixels), custom legend visibility, and style popover counts of 1 after open, 0 after Escape, and 0 after outside click.
 - `npm audit --omit=dev`: 0 vulnerabilities.
 - GitHub Pages deployment: active at `https://siun-comp.github.io/isoamplar-plot-analysis/`.
 - Playwright checks include upload-first smoke, generated `.xlsx` upload, append `.xlsx` import, reagent-first collapsed state, virtualized single-curve selection row, search bulk select, Style-panel marker basis/group marker smoke, fixed hover readout smoke, chart canvas visibility, nonwhite pixel count, chart viewport height stability after settings expansion, and sticky chart panel behavior.
