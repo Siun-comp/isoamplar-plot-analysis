@@ -32,7 +32,7 @@ Direct post-release usability fixes after Phase R13: large-value Y-axis label sp
 M8 - MVP release preparation complete locally, with post-MVP UI refinement applied.
 
 ## Last Completed Step
-Completed the local implementation and verification pass for large Y-axis spacing, dedicated legend-only clipboard PNG, Export-section image layout selection, and compact group style color/line/marker popovers.
+Completed the implementation, local verification, GitHub push, GitHub Pages deployment, and public URL smoke for large Y-axis spacing, dedicated legend-only clipboard PNG, Export-section image layout selection, and compact group style color/line/marker popovers.
 
 ## Latest Changed Files
 - `src/chart/chartConfig.ts`
@@ -340,6 +340,8 @@ Completed the local implementation and verification pass for large Y-axis spacin
 - Current UX/export fix `npm run build`: passed.
 - Current UX/export fix `npm run test:e2e`: passed, 3 Chromium Playwright tests; generated workbook fixture now uses large Y-axis values around 1,200,000.
 - Current UX/export fix visual screenshot review: passed for large Y-axis label spacing and group line/marker popover stacking in `test-results\app-uploads-an-xlsx-workbo-26c3e-t-first-collapsed-selection-chromium\phase-r8-style-legend-panel.png`.
+- Current UX/export fix GitHub Actions Pages deploy: passed for pushed `main` run `28961446984`; the workflow gate ran `npm run test` and `npm run build`.
+- Current UX/export fix public URL smoke: passed at `https://siun-comp.github.io/isoamplar-plot-analysis/` for HTTP/browser load, latest asset hash `index-BBdXD71o.js`, generated `.xlsx` Excel upload, chart canvas render, and visible `범례 클립보드 PNG` control.
 - `npm audit --omit=dev`: 0 vulnerabilities.
 - GitHub Pages deployment: active at `https://siun-comp.github.io/isoamplar-plot-analysis/`.
 - Playwright checks include upload-first smoke, generated `.xlsx` upload, append `.xlsx` import, reagent-first collapsed state, virtualized single-curve selection row, search bulk select, Style-panel marker basis/group marker smoke, fixed hover readout smoke, chart canvas visibility, nonwhite pixel count, chart viewport height stability after settings expansion, and sticky chart panel behavior.
@@ -373,5 +375,5 @@ Completed the local implementation and verification pass for large Y-axis spacin
 
 ## Next 3 Tasks
 1. Manually validate the real `C:\Users\siunj\Desktop\graph_TEST.xlsx` in the deployed app when the user is ready.
-2. After push/deploy, smoke-test the public GitHub Pages URL for the updated legend clipboard/export controls.
+2. Manually verify clipboard image copy behavior in Chrome/Edge on the deployed HTTPS origin.
 3. Decide dirty tab close/replace confirmation UX and internal tab-count warning policy before making destructive tab actions more permissive.
