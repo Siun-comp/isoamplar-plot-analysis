@@ -23,16 +23,16 @@ Active
 - GitHub Pages asset base is configured as `./` by default. The public GitHub Pages deployment is active at `https://siun-comp.github.io/isoamplar-plot-analysis/`.
 - Browser tab/bookmark/PWA icon assets use the selected Option A amplification-curve icon.
 - The current implementation plan is `docs/09_UX_REFINEMENT_IMPLEMENTATION_PLAN_KR.md`. Phases R0 through R13 are complete.
-- The latest direct refinement pass adds app-controlled curve hover highlighting, custom-legend hover/focus highlighting, marker-preserving hover behavior, analysis-name-based export filenames, balanced Y-axis spacing, dedicated legend-only clipboard PNG copy, compact group style controls, and controlled popover closing.
+- The latest direct refinement pass adds app-controlled curve hover highlighting, custom-legend hover/focus highlighting, marker-preserving hover behavior, analysis-name-based export filenames, balanced Y-axis spacing, dedicated legend-only clipboard PNG copy, compact group style controls, and native style popover closing.
 
 ## Current Goal
-Direct post-release usability fixes after Phase R13: balanced chart Y-axis spacing, legend-only clipboard copy, compact group style controls with visible group names, controlled popover closing, and updated regression coverage/docs.
+Direct post-release usability fixes after Phase R13: balanced chart Y-axis spacing, legend-only clipboard copy, compact group style controls with visible group names, native style popover closing, and updated regression coverage/docs.
 
 ## Current Milestone
 M8 - MVP release preparation complete locally, with post-MVP UI refinement applied.
 
 ## Last Completed Step
-Completed the user-reviewed local implementation for reduced chart left whitespace, visible group-style labels, compact color/line/reset controls, and style popovers that close on outside click, Escape, or opening another popover. Commit/deploy is now requested.
+Completed local verification for reduced chart left whitespace, visible group-style labels, compact color/line/reset controls, and native style popovers that close on outside click, Escape, or opening another popover. Commit/deploy is now requested.
 
 ## Latest Changed Files
 - `src/chart/chartConfig.ts`
@@ -346,6 +346,7 @@ Completed the user-reviewed local implementation for reduced chart left whitespa
 - Final pre-use Escape follow-up `npm run test -- --run src/app/App.test.tsx src/chart/chartConfig.test.ts`: passed, 2 files / 31 Vitest tests.
 - Final pre-use Escape follow-up `npm run build`: passed.
 - Final pre-use Escape follow-up `npm run test:e2e`: passed, 3 Chromium Playwright tests.
+- Final pre-use native popover local Playwright smoke: passed at `http://127.0.0.1:5173/` using a generated `.xlsx`; style line/marker popover count was 1 after open, 0 after Escape, and 0 after outside click.
 - `npm audit --omit=dev`: 0 vulnerabilities.
 - GitHub Pages deployment: active at `https://siun-comp.github.io/isoamplar-plot-analysis/`.
 - Playwright checks include upload-first smoke, generated `.xlsx` upload, append `.xlsx` import, reagent-first collapsed state, virtualized single-curve selection row, search bulk select, Style-panel marker basis/group marker smoke, fixed hover readout smoke, chart canvas visibility, nonwhite pixel count, chart viewport height stability after settings expansion, and sticky chart panel behavior.

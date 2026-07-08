@@ -571,27 +571,30 @@ const stylePopoverOpenEvent = "isoamplar-style-popover-open";
 function useStylePopoverState() {
   const id = useId();
   const ref = useRef<HTMLDetailsElement | null>(null);
-  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    if (!isOpen) return;
+    function closePopover() {
+      if (ref.current?.open) {
+        ref.current.open = false;
+      }
+    }
 
     function closeOnOutsidePointer(event: PointerEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
-        setIsOpen(false);
+      if (ref.current?.open && !ref.current.contains(event.target as Node)) {
+        closePopover();
       }
     }
 
     function closeOnEscape(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        setIsOpen(false);
+        closePopover();
       }
     }
 
     function closeWhenAnotherPopoverOpens(event: Event) {
       const nextId = (event as CustomEvent<string>).detail;
       if (nextId !== id) {
-        setIsOpen(false);
+        closePopover();
       }
     }
 
@@ -604,12 +607,10 @@ function useStylePopoverState() {
       document.removeEventListener("keydown", closeOnEscape);
       window.removeEventListener(stylePopoverOpenEvent, closeWhenAnotherPopoverOpens);
     };
-  }, [id, isOpen]);
+  }, [id]);
 
   function onToggle(event: SyntheticEvent<HTMLDetailsElement>) {
-    const nextOpen = event.currentTarget.open;
-    setIsOpen(nextOpen);
-    if (nextOpen) {
+    if (event.currentTarget.open) {
       window.dispatchEvent(new CustomEvent(stylePopoverOpenEvent, { detail: id }));
     }
   }
@@ -617,11 +618,13 @@ function useStylePopoverState() {
   function onKeyDown(event: ReactKeyboardEvent<HTMLDetailsElement>) {
     if (event.key === "Escape") {
       event.preventDefault();
-      setIsOpen(false);
+      if (ref.current?.open) {
+        ref.current.open = false;
+      }
     }
   }
 
-  return { ref, isOpen, onToggle, onKeyDown };
+  return { ref, onToggle, onKeyDown };
 }
 
 function ColorPopoverButton({
@@ -640,7 +643,6 @@ function ColorPopoverButton({
     <details
       className="style-popover color-popover"
       ref={popover.ref}
-      open={popover.isOpen}
       onToggle={popover.onToggle}
       onKeyDown={popover.onKeyDown}
     >
@@ -683,7 +685,6 @@ function LineMarkerPopoverButton({
     <details
       className="style-popover line-marker-popover"
       ref={popover.ref}
-      open={popover.isOpen}
       onToggle={popover.onToggle}
       onKeyDown={popover.onKeyDown}
     >
