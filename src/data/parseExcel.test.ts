@@ -124,6 +124,72 @@ describe("parseExcelWorkbook", () => {
     ]);
   });
 
+  it("imports columns with missing specimen or reagent headers and reports header warnings", () => {
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ["", "Specimen 2", "", "Specimen 4"],
+      ["R1", "", "", "R4"],
+      [0.2, 0.25, 0.3, ""],
+      [1.2, 1.4, 1.6, ""]
+    ]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+
+    const result = parseWorkbook(workbook, "missing-headers.xlsx", XLSX);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.dataset.curves).toHaveLength(4);
+    expect(result.dataset.curves[0]).toMatchObject({
+      specimenLabel: "",
+      reagentLabel: "R1",
+      displayLabel: "Empty specimen A1 │ R1"
+    });
+    expect(result.dataset.curves[1]).toMatchObject({
+      specimenLabel: "Specimen 2",
+      reagentLabel: "",
+      displayLabel: "Specimen 2 │ Empty reagent B2"
+    });
+    expect(result.dataset.curves[2]).toMatchObject({
+      specimenLabel: "",
+      reagentLabel: "",
+      displayLabel: "Empty specimen C1 │ Empty reagent C2"
+    });
+    expect(result.dataset.curves[3].warnings.map((warning) => warning.code)).not.toContain("MISSING_SPECIMEN_LABEL");
+    expect(result.dataset.curves[3].warnings.map((warning) => warning.code)).not.toContain("MISSING_REAGENT_LABEL");
+    expect(result.dataset.curves[0].warnings.map((warning) => warning.code)).toContain("MISSING_SPECIMEN_LABEL");
+    expect(result.dataset.curves[1].warnings.map((warning) => warning.code)).toContain("MISSING_REAGENT_LABEL");
+    expect(result.dataset.curves[2].warnings.map((warning) => warning.code)).toEqual([
+      "MISSING_SPECIMEN_LABEL",
+      "MISSING_REAGENT_LABEL"
+    ]);
+  });
+
+  it("normalizes uneven curve lengths to a shared generated cycle range with null gaps", () => {
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ["Specimen 1", "Specimen 2"],
+      ["R1", "R2"],
+      [0.2, 0.25],
+      [1.2, ""],
+      [2.4, ""],
+      [3.6, 3.8]
+    ]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+
+    const result = parseWorkbook(workbook, "uneven-length.xlsx", XLSX);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.dataset.cycleCount).toBe(4);
+    expect(result.dataset.curves[0].x).toEqual([1, 2, 3, 4]);
+    expect(result.dataset.curves[1].x).toEqual([1, 2, 3, 4]);
+    expect(result.dataset.curves[1].y).toEqual([0.25, null, null, 3.8]);
+    expect(result.dataset.curves[1].warnings.map((warning) => warning.code)).toEqual([
+      "EMPTY_FLUORESCENCE_CELL",
+      "EMPTY_FLUORESCENCE_CELL"
+    ]);
+  });
+
   it("rejects unsupported file extensions before workbook parsing", async () => {
     const result = await parseExcelWorkbook(new Uint8Array(), "data.csv");
 

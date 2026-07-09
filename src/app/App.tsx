@@ -18,7 +18,7 @@ export function App() {
           <h1 id="app-title">IsoAmplar Plot Analysis</h1>
           <p className="developer-credit">Developer Jang Si Un</p>
         </div>
-        <span className="phase-badge">MVP implementation</span>
+        <span className="phase-badge">Browser-local analysis</span>
       </header>
 
       <AnalysisTabs />

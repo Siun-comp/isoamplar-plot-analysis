@@ -4,10 +4,10 @@
 PCR 증폭형광 그래프 작성 웹툴을 구현하기 위한 단계별 실행 계획과, 각 단계에서 사용할 구현 프롬프트를 정리한다.
 
 ## Status
-MVP implementation completed locally through Phase 8; pending manual validation and deployment
+Initial implementation completed through Phase 8; current app is in release validation and real-data hardening
 
 ## Last Updated
-2026-07-07
+2026-07-10
 
 ## Owner
 Engineering / Product / Agent

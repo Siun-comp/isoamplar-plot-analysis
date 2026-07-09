@@ -7,14 +7,14 @@ User visible and release relevant change history.
 Active draft
 
 ## Last Updated
-2026-07-09
+2026-07-10
 
 ## Owner
 Agent / Engineering
 
 ## Compression-Safe Summary
-- The MVP is implemented locally as IsoAmplar Plot Analysis.
-- The current change set includes documentation, GUI mockup planning, accepted implementation stack, narrowed PCR/LAMP plot MVP scope, and post-MVP UI/analysis refinements.
+- IsoAmplar Plot Analysis has moved beyond the initial MVP into release validation and real-data hardening.
+- The current change set includes documentation, GUI mockup planning, accepted implementation stack, narrowed PCR/LAMP plot initial scope, and post-MVP UI/analysis refinements.
 - Feature changes should be recorded under `Unreleased`.
 - Release entries should follow Keep a Changelog style.
 - Known limitations should remain visible.
@@ -29,6 +29,7 @@ Update this file when user visible behavior, documentation baseline, release rea
 - Added rich Excel-cell legend clipboard copy using an HTML table clipboard payload with Malgun Gothic 9 pt text so style samples and names can paste into separate Excel cells where supported.
 - Added purpose-grouped Export controls for Chart image, Report legend, and Data/session, with report legend image file saves moved behind a nested disclosure.
 - Added Analysis XLSX continuity regression coverage for current Analysis labels, preview legend state, label mode, image export layout, export counter, selected/unselected curves, and user order.
+- Added direct parser regression coverage for missing specimen headers, missing reagent headers, both headers missing, and uneven curve lengths.
 
 ### Fixed
 - Fixed the preview legend visibility label mojibake and applied Auto compact legend labels consistently to the chart preview legend and plot/legend image exports.
@@ -138,6 +139,7 @@ Update this file when user visible behavior, documentation baseline, release rea
 - Added regression coverage that chart series use raw fluorescence points without smoothing or resampling.
 
 ### Changed
+- Changed the app header status badge from internal phase wording to `Browser-local analysis`.
 - Replaced default replicate/series/exclude/restore-style wording in the active GUI baseline with individual curve and selected/unselected terminology.
 - Adjusted the consolidated mockup layout so long settings panels scroll independently instead of stretching the chart area into a large blank region.
 - Changed the right settings panel default state so only Scale is expanded while Style, Legend Order, and Export remain collapsed with summaries.
@@ -200,6 +202,7 @@ Update this file when user visible behavior, documentation baseline, release rea
 - Updated line/marker popovers so a selected line or marker choice closes the popover instead of leaving it over later controls.
 
 ### Fixed
+- Fixed a Korean mojibake empty-state message in the Legend settings before any curves are selected.
 - Adjusted report legend image spacing so legend text aligns with the line sample and no longer crowds the title.
 - Changed the Excel report-legend clipboard style sample from SVG/CSS line snippets to colored text glyph samples with fixed-width cells, improving paste fidelity in Windows Excel.
 - Fixed chart preview height stretching with expanded left/right panel content.

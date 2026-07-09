@@ -135,7 +135,7 @@ If future features require remote storage or sharing, they must be explicitly ap
 - Should chart configuration JSON be downloadable?
 - Should internal analysis tabs have a hard cap or warning-only memory policy?
 
-## MVP Implementation Status - 2026-07-08
+## Initial Implementation Status - 2026-07-08
 - Implemented: `.xls` / `.xlsx` upload, append upload, first worksheet only, row 1 specimen / row 2 reagent / row 3+ fluorescence parsing, generated cycle X values, warning-only similar names, missing-header warnings, and no source-data editing.
 - Implemented: reagent-first default selection, specimen-first alternate view, grouping-aware curve labels, all groups collapsed after import, curveId-based selection, search/filter bulk actions across collapsed groups, grouped row banding, and virtualized major-group tree rendering in browser.
 - Implemented: ECharts amplification line chart preview with white background, sparse major grid, no minor grid, large-value Y-axis spacing, fixed/sticky plot preview, plot-safe fixed hover readout, app-controlled transient curve highlighting, stable default colors, default no-marker solid lines, fixed/auto/user-defined P1/P2 X/Y scales, >20 visible-curve warning with assistance actions, compact group style controls, group/individual style controls, group marker style UI, built-in style presets with one-step undo, style origin badges, field/curve/selected/all/group reset controls, searchable large selected-curve style lists, and user legend/export order.

@@ -7,10 +7,10 @@ Single project state snapshot for resuming work after context compression.
 Active
 
 ## Last Updated
-2026-07-09
+2026-07-10
 
 ## Compression-Safe Summary
-- IsoAmplar Plot Analysis MVP implementation has progressed through Phase 8 plus the 2026-07-08 UI/analysis refinement, GitHub Pages deployment, app icon, and staged UX refinement planning passes.
+- IsoAmplar Plot Analysis implementation has moved beyond the initial MVP into release-validation and real-data hardening after Phase 8 plus the 2026-07-08/09 UI/analysis refinement, GitHub Pages deployment, app icon, and staged UX refinement passes.
 - Stack: React + Vite + TypeScript, SheetJS/xlsx, Apache ECharts, Zustand + Immer, `@tanstack/react-virtual`, Vitest + Testing Library, Playwright.
 - MVP input: `.xls` / `.xlsx` upload only, first worksheet only. CSV, paste/manual entry, app-side data editing, and sheet picker are deferred.
 - Parser preserves raw fluorescence values; no smoothing, normalization, baseline correction, log transform, averaging, or Ct/Cq calculation is applied.
@@ -25,19 +25,20 @@ Active
 - The current implementation plan is `docs/09_UX_REFINEMENT_IMPLEMENTATION_PLAN_KR.md`. Phases R0 through R13 are complete.
 - The latest direct refinement pass adds app-controlled curve hover highlighting, custom-legend hover/focus highlighting, marker-preserving hover behavior, analysis-name-based export filenames, balanced Y-axis spacing, dedicated legend-only clipboard PNG copy, compact group style controls, and native style popover closing.
 - The current pre-use refinement adds slash-safe ` │ ` curve labels, report-readable legend PNG/JPEG/clipboard export, Analysis label editing, rich Excel-cell legend clipboard copy with Malgun Gothic 9 pt formatting, Export control grouping, dirty close/replace confirmation flows, Style-panel preset shortcut removal, line/marker popover auto-close after selection, report legend image text alignment fixes, Excel-friendly colored glyph legend clipboard samples, and raw-point/no-smoothing regression coverage.
-- The latest patch fixes the preview legend visibility Korean label, applies Auto compact labels to the chart preview/custom legend and plot/legend image exports, changes the Labels reset control back to an icon-sized button, stacks the Export Legend header to avoid text overlap, adds current Analysis XLSX continuity regression coverage, and removes unused legacy Legend/Report editor code that still referenced the old report-name override model.
+- The latest patch fixes the preview legend visibility Korean label and the pre-import Legend empty-state Korean mojibake, applies Auto compact labels to the chart preview/custom legend and plot/legend image exports, changes the Labels reset control back to an icon-sized button, stacks the Export Legend header to avoid text overlap, adds current Analysis XLSX continuity and parser edge-case regression coverage, removes unused legacy Legend/Report editor code that still referenced the old report-name override model, and changes the app header status badge from internal phase wording to `Browser-local analysis`.
 
 ## Current Goal
-Ready for user real-data validation on the deployed GitHub Pages app after the slash-label, Analysis-label, report-legend, rich Excel clipboard, Export grouping, dirty-confirmation, report-legend alignment/Excel-paste, and Analysis XLSX continuity refinement.
+Ready for user real-data validation on the deployed GitHub Pages app after the slash-label, Analysis-label, report-legend, rich Excel clipboard, Export grouping, dirty-confirmation, report-legend alignment/Excel-paste, Analysis XLSX continuity, and pre-import Korean UI text refinement.
 
 ## Current Milestone
-M8 - MVP release preparation complete locally, with post-MVP UI refinement applied.
+M9 - Release validation and real-data hardening.
 
 ## Last Completed Step
-Committed and pushed the current slash-safe labels, report legend export/copy, Analysis label editing, rich Excel-cell legend clipboard copy, Export control grouping, dirty close/replace confirmation, Style-panel preset shortcut removal, popover auto-close, report legend image alignment correction, Excel-friendly legend glyph clipboard sample, raw-point regression test, Auto compact preview/export legend fix, preview legend Korean text fix, Export Legend header layout fix, Analysis XLSX continuity regression test, unused legacy Legend/Report editor removal, and documentation updates. Local focused/full Vitest, production build, Playwright E2E, browser DOM smoke, diff checks, GitHub Actions Pages deploy, and public URL HTTP smoke passed.
+Fixed the pre-import Legend empty-state Korean mojibake, updated the app header badge to `Browser-local analysis`, refreshed current status documentation beyond initial MVP wording, and added parser regression tests for missing headers and uneven curve lengths. Local focused/full Vitest, production build, Playwright E2E, mojibake source scan, and diff checks passed; Pages deploy status will be updated after commit/push.
 
 ## Latest Changed Files
 - `src/data/curveLabels.ts`
+- `src/data/parseExcel.test.ts`
 - `src/data/parseExcel.ts`
 - `src/data/sampleData.ts`
 - `src/chart/exportChart.ts`
@@ -48,6 +49,7 @@ Committed and pushed the current slash-safe labels, report legend export/copy, A
 - `src/chart/plottedDataExport.test.ts`
 - `src/ui/CustomLegend.test.tsx`
 - `src/ui/SettingsPanel.tsx`
+- `src/app/App.tsx`
 - `src/analysis/analysisWorkbook.test.ts`
 - `src/ui/DataImportPanel.tsx`
 - `src/ui/AnalysisTabs.tsx`
@@ -410,6 +412,10 @@ Committed and pushed the current slash-safe labels, report legend export/copy, A
 - Current final Analysis XLSX continuity and bug review: expert code review found no blockers; focused `npm run test -- --run src/analysis/analysisState.test.ts src/analysis/analysisWorkbook.test.ts src/app/appStore.test.ts src/app/App.test.tsx src/chart/chartConfig.test.ts src/chart/reportLegend.test.ts src/chart/exportChart.test.ts src/chart/plottedDataExport.test.ts` passed, 8 files / 93 Vitest tests.
 - Current final release verification after removing unused legacy Legend/Report editor code: full `npm run test` passed, 16 files / 115 Vitest tests; `npm run build` passed; `npm run test:e2e` passed, 3 Chromium Playwright tests; `git diff --check` passed with CRLF replacement warnings only.
 - Current release commit `860b1d2` GitHub Actions Pages deploy: passed for run `29027285777`; public URL smoke returned HTTP 200 and contained the `IsoAmplar Plot Analysis` title.
+- Current Korean UI/status refinement focused `npm run test -- --run src/data/parseExcel.test.ts src/app/App.test.tsx`: passed, 2 files / 27 Vitest tests.
+- Current Korean UI/status refinement full `npm run test`: passed, 16 files / 117 Vitest tests.
+- Current Korean UI/status refinement `npm run build`: passed.
+- Current Korean UI/status refinement `npm run test:e2e`: passed, 3 Chromium Playwright tests.
 - `npm audit --omit=dev`: 0 vulnerabilities.
 - GitHub Pages deployment: active at `https://siun-comp.github.io/isoamplar-plot-analysis/`.
 - Playwright checks include upload-first smoke, generated `.xlsx` upload, append `.xlsx` import, reagent-first collapsed state, virtualized single-curve selection row, search bulk select, Style-panel marker basis/group marker smoke, fixed hover readout smoke, chart canvas visibility, nonwhite pixel count, chart viewport height stability after settings expansion, and sticky chart panel behavior.

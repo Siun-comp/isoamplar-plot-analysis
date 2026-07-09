@@ -1,7 +1,7 @@
 # 08 릴리스 체크리스트
 
 ## 목적
-IsoAmplar Plot Analysis MVP를 GitHub Pages 또는 동등한 정적 호스팅에 올리기 전 확인해야 할 항목을 정리한다.
+IsoAmplar Plot Analysis를 GitHub Pages 또는 동등한 정적 호스팅에 배포/갱신하기 전 확인해야 할 항목을 정리한다.
 
 ## 현재 구현 범위
 - `.xls` / `.xlsx` Excel 업로드, 첫 번째 worksheet만 사용.

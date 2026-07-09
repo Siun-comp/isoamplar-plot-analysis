@@ -1255,7 +1255,7 @@ function LegendEditor({
             미리보기 범례 표시
           </label>
         </div>
-        {curves.length === 0 && <p>?좏깮??curve媛 ?놁뒿?덈떎.</p>}
+        {curves.length === 0 && <p>선택된 curve가 없습니다.</p>}
         {curves.map((curve, index) => {
           const label = formatCurveLabel(curve, labelMode);
           const sourceSuffix = formatCurveSourceSuffix(curve);

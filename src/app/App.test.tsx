@@ -47,12 +47,16 @@ describe("App PCR workspace", () => {
 
     expect(screen.getByRole("heading", { name: "IsoAmplar Plot Analysis" })).toBeInTheDocument();
     expect(screen.getByText("Developer Jang Si Un")).toBeInTheDocument();
+    expect(screen.getByText("Browser-local analysis")).toBeInTheDocument();
+    expect(screen.queryByText("MVP implementation")).not.toBeInTheDocument();
+    expect(screen.queryByText("Release validation")).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Analysis 1" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("textbox", { name: "Analysis name" })).toHaveValue("Analysis 1");
     expect(screen.getByRole("heading", { name: "Excel 데이터" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "데이터 선택" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "그래프 미리보기" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "설정" })).toBeInTheDocument();
+    expect(screen.getAllByText("선택된 curve가 없습니다.").length).toBeGreaterThan(0);
     expect(screen.getByText(".xls 또는 .xlsx 첫 번째 worksheet만 사용합니다.")).toBeInTheDocument();
   });
 
