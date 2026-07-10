@@ -26,17 +26,22 @@ Active
 - The latest direct refinement pass adds app-controlled curve hover highlighting, custom-legend hover/focus highlighting, marker-preserving hover behavior, analysis-name-based export filenames, balanced Y-axis spacing, dedicated legend-only clipboard PNG copy, compact group style controls, and native style popover closing.
 - The current pre-use refinement adds slash-safe ` │ ` curve labels, report-readable legend PNG/JPEG/clipboard export, Analysis label editing, rich Excel-cell legend clipboard copy with Malgun Gothic 9 pt formatting, Export control grouping, dirty close/replace confirmation flows, Style-panel preset shortcut removal, line/marker popover auto-close after selection, report legend image text alignment fixes, Excel-friendly colored glyph legend clipboard samples, and raw-point/no-smoothing regression coverage.
 - The latest patch fixes the preview legend visibility Korean label and the pre-import Legend empty-state Korean mojibake, applies Auto compact labels to the chart preview/custom legend and plot/legend image exports, changes the Labels reset control back to an icon-sized button, stacks the Export Legend header to avoid text overlap, adds current Analysis XLSX continuity and parser edge-case regression coverage, removes unused legacy Legend/Report editor code that still referenced the old report-name override model, and changes the app header status badge from internal phase wording to `Browser-local analysis`.
+- A first-user Korean PDF guide has been generated under `output/pdf/`, covering Excel input format, core workflows, export options, Analysis XLSX continuity, parser edge cases, and troubleshooting. The guide examples use only synthetic `Sample` / `Assay` labels and generated fluorescence values; do not use real user-provided labels or disease/test names in guide examples.
 
 ## Current Goal
-Ready for user real-data validation on the deployed GitHub Pages app after the slash-label, Analysis-label, report-legend, rich Excel clipboard, Export grouping, dirty-confirmation, report-legend alignment/Excel-paste, Analysis XLSX continuity, and pre-import Korean UI text refinement.
+Ready for user review of the first-user PDF guide and real-data validation on the deployed GitHub Pages app.
 
 ## Current Milestone
 M9 - Release validation and real-data hardening.
 
 ## Last Completed Step
-Fixed the pre-import Legend empty-state Korean mojibake, updated the app header badge to `Browser-local analysis`, refreshed current status documentation beyond initial MVP wording, and added parser regression tests for missing headers and uneven curve lengths. Local focused/full Vitest, production build, Playwright E2E, mojibake source scan, and diff checks passed; Pages deploy status will be updated after commit/push.
+Regenerated the `IsoAmplar Plot Analysis` first-user Korean PDF guide with synthetic deployed-app screenshots and synthetic workbook examples, replacing user-like RSV/date/old/new examples. The guide now explicitly states that all examples are synthetic and not real specimen, reagent, disease, patient, experiment-date, or user-provided data. PDF metadata, extracted text, sensitive-term search, and Poppler-rendered visual pages were checked.
 
 ## Latest Changed Files
+- `.gitignore`
+- `output/pdf/IsoAmplar_Plot_Analysis_User_Guide_KR.pdf`
+- `output/pdf/IsoAmplar_Plot_Analysis_User_Guide_KR.md`
+- `DEVELOPMENT_STATE.md`
 - `src/data/curveLabels.ts`
 - `src/data/parseExcel.test.ts`
 - `src/data/parseExcel.ts`
@@ -417,6 +422,7 @@ Fixed the pre-import Legend empty-state Korean mojibake, updated the app header 
 - Current Korean UI/status refinement `npm run build`: passed.
 - Current Korean UI/status refinement `npm run test:e2e`: passed, 3 Chromium Playwright tests.
 - `npm audit --omit=dev`: 0 vulnerabilities.
+- First-user PDF guide synthetic-data regeneration: passed. The guide was rebuilt from deployed-app screenshots using a generated synthetic `.xlsx` workbook with `Sample` / `Assay` labels only, output as a 14-page PDF, checked with `pypdf` for page count/metadata/text extraction, searched for user-like sensitive labels (`RSV`, date-like labels, `_old`, `_new`), rendered through Poppler to PNG pages, and visually reviewed with contact sheets for layout, Korean text rendering, tables, screenshots, and troubleshooting pages.
 - GitHub Pages deployment: active at `https://siun-comp.github.io/isoamplar-plot-analysis/`.
 - Playwright checks include upload-first smoke, generated `.xlsx` upload, append `.xlsx` import, reagent-first collapsed state, virtualized single-curve selection row, search bulk select, Style-panel marker basis/group marker smoke, fixed hover readout smoke, chart canvas visibility, nonwhite pixel count, chart viewport height stability after settings expansion, and sticky chart panel behavior.
 - Visual screenshots:
@@ -445,9 +451,10 @@ Fixed the pre-import Legend empty-state Korean mojibake, updated the app header 
 - Implementation plan: `docs/06_IMPLEMENTATION_PLAN_KR.md`
 - Fixture plan: `docs/07_FIXTURE_SNAPSHOT_PLAN_KR.md`
 - Release checklist: `docs/08_RELEASE_CHECKLIST_KR.md`
+- First-user guide PDF: `output/pdf/IsoAmplar_Plot_Analysis_User_Guide_KR.pdf`
 - Local dev server: `http://127.0.0.1:5173/`
 
 ## Next 3 Tasks
-1. Manually validate the real `C:\Users\siunj\Desktop\graph_TEST.xlsx` in the deployed app when the user is ready.
-2. Manually verify selected-layout PNG clipboard, report legend PNG clipboard, and rich Excel-cell legend paste behavior in Chrome/Edge on the deployed HTTPS origin.
-3. Decide internal tab-count warning policy and practical performance budgets for very large imported datasets.
+1. User review of `output/pdf/IsoAmplar_Plot_Analysis_User_Guide_KR.pdf` for wording, screenshot coverage, and troubleshooting completeness.
+2. Manually validate the real `C:\Users\siunj\Desktop\graph_TEST.xlsx` in the deployed app when the user is ready.
+3. Manually verify selected-layout PNG clipboard, report legend PNG clipboard, and rich Excel-cell legend paste behavior in Chrome/Edge on the deployed HTTPS origin.
