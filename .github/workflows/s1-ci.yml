@@ -1,0 +1,116 @@
+name: S1 CI evidence
+
+on:
+  push:
+    branches-ignore:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: s1-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: "1"
+      VITE_BASE_PATH: "./"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Vitest
+        run: |
+          mkdir -p evidence
+          npm run test -- \
+            --reporter=default \
+            --reporter=junit \
+            --outputFile.junit=evidence/vitest-junit.xml
+
+      - name: Record known-red audit evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run test:audit:red 2>&1 \
+            | tee evidence/known-red-audit.txt
+
+      - name: Build dist once
+        run: npm run build
+
+      - name: Hash built dist
+        shell: bash
+        run: |
+          set -euo pipefail
+          (
+            cd dist
+            find . -type f -print0 \
+              | LC_ALL=C sort -z \
+              | xargs -0 -r sha256sum
+          ) > evidence/dist-files.sha256
+          sha256sum evidence/dist-files.sha256 \
+            | tee evidence/dist-tree.sha256
+
+      - name: Run fresh Chromium against built dist
+        run: |
+          npm run test:e2e -- \
+            --project=chromium \
+            --fail-on-flaky-tests \
+            --reporter=github,html
+
+      - name: Verify dist was not changed by browser tests
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          (
+            cd dist
+            find . -type f -print0 \
+              | LC_ALL=C sort -z \
+              | xargs -0 -r sha256sum
+          ) > evidence/dist-files-after-playwright.sha256
+          sha256sum evidence/dist-files-after-playwright.sha256 \
+            | tee evidence/dist-tree-after-playwright.sha256
+          if cmp -s \
+            evidence/dist-files.sha256 \
+            evidence/dist-files-after-playwright.sha256; then
+            echo "PASS: complete dist tree is byte-identical after Playwright." \
+              | tee evidence/dist-verification.txt
+          else
+            diff -u \
+              evidence/dist-files.sha256 \
+              evidence/dist-files-after-playwright.sha256 \
+              | tee evidence/dist-verification.txt
+            exit 1
+          fi
+
+      - name: Upload tested dist and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s1-ci-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            dist/
+            evidence/
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 14

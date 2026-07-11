@@ -9,6 +9,19 @@ Active
 ## Last Updated
 2026-07-11
 
+## CURRENT TRUTH
+
+- Active branch: `codex/audit-remediation`; it does not trigger the Pages deploy workflow.
+- Last published rollback: `9e77ad23ec8e863d3d05e7c8508ceb4729372155` on `main`.
+- Pre-remediation checkpoint: commit `319daa901221b4d5811eafb44f82319ddcedf296`, tag `checkpoint/audit-remediation-baseline-20260711`.
+- Phase S0 is complete. Phase S1 evidence foundation is implemented and verified locally; user review is the remaining gate before any S1 commit.
+- No S2 or later product remediation has started. Current known-red defects remain intentionally reproduced by `npm run test:audit:red`.
+- S1 adds synthetic-only fixed `.xlsx`/BIFF8 `.xls` fixtures, SHA-256 manifest, normalized/target snapshots, raster evidence helper, Target/Known-red acceptance criteria, traceability, and a read-only non-deploying CI workflow.
+- Product runtime behavior is unchanged by S1. No parser, chart, state, export, UI, dependency, or Pages deployment behavior was modified.
+- Latest S1 verification: regular suite 22 files / 172 tests passed with 7 target TODOs; five isolated known-red probes reproduced; deterministic fixture regeneration changed 0 of 14 generated source/snapshot files; build passed; fresh Chromium 5 tests passed; all 25 `dist` files matched the pre-browser SHA-256 manifest; `npm audit --omit=dev` found 0 vulnerabilities.
+- User data remains browser-local. No real workbook, patient/specimen record, or actual fluorescence dataset is checked into S1 fixtures.
+- Do not stage, commit, push, or deploy S1 until the user reviews the local result and explicitly approves the S1 commit.
+
 ## Compression-Safe Summary
 - IsoAmplar Plot Analysis implementation has moved beyond the initial MVP into release-validation and real-data hardening after Phase 8 plus the 2026-07-08/09 UI/analysis refinement, GitHub Pages deployment, app icon, and staged UX refinement passes.
 - Stack: React + Vite + TypeScript, SheetJS/xlsx, Apache ECharts, Zustand + Immer, `@tanstack/react-virtual`, Vitest + Testing Library, Playwright.
@@ -35,71 +48,31 @@ Active
 - The audit remediation plan is drafted in `docs/12_AUDIT_REMEDIATION_IMPLEMENTATION_PLAN_KR.md`. It defines sequential Phases S0-S11, proposed AC-PCR-045~053/AC-QP-021 evidence, per-phase copyable prompts, desktop-only quality gates, and 19 unresolved user-decision gates. Four post-draft expert reviews were integrated. No remediation product code has been implemented from this plan.
 
 ## Current Goal
-The user approved UD-01 and Phase S0 checkpoint creation. The verified working tree is now on the non-deploying `codex/audit-remediation` branch and is being fixed as the pre-remediation baseline before S1 begins. Do not push or deploy this branch without separate explicit approval. After the checkpoint, proceed with S1 synthetic fixtures, acceptance evidence, and early fresh-build CI.
+Phase S0 is complete at checkpoint `319daa9`. Phase S1 evidence foundation is implemented locally and undergoing final expert review. Provide the local review URL and evidence summary, then obtain explicit approval before the S1 commit. Do not start S2, push, or deploy before that review.
 
 ## Current Milestone
 M9 - Release validation and real-data hardening.
 
 ## Last Completed Step
-Completed Phase S0 verification on `codex/audit-remediation`: the full Vitest suite, production build, fresh Chromium Playwright run, dependency audit, synthetic screenshot review, and PDF sensitive-term extraction passed. The approved baseline commit/tag is the remaining S0 action before S1.
+Completed the local S1 verification cycle: deterministic fixed fixture regeneration, passing normalized projections, isolated known-red probes, regular regression, TypeScript/Vite build, and fresh exact-dist Chromium verification all passed. Final expert review and user approval remain before S1 commit.
 
 ## Latest Changed Files
+- `.github/workflows/s1-ci.yml`
+- `.gitignore`
+- `package.json`
+- `playwright.config.ts`
+- `vitest.audit.config.ts`
+- `tests/fixtures/`
+- `tests/data/parseExcel.fixture.test.ts`
+- `tests/audit/`
+- `tests/e2e/helpers/rasterEvidence.ts`
+- `tests/helpers/rasterEvidence.test.ts`
+- `docs/07_FIXTURE_SNAPSHOT_PLAN_KR.md`
+- `docs/13_AUDIT_REMEDIATION_TRACEABILITY.md`
+- `docs/04_TEST_PLAN_ACCEPTANCE_EN.md`
 - `docs/12_AUDIT_REMEDIATION_IMPLEMENTATION_PLAN_KR.md`
 - `DEVELOPMENT_STATE.md`
-- `docs/11_GPT56_PROJECT_AUDIT_KR.md`
-- `src/chart/chartStyle.ts`
-- `src/data/parsePastedTable.ts`
-- `src/data/parsePastedTable.test.ts`
-- `src/ui/PasteImportPanel.tsx`
-- `src/ui/PasteImportPanel.test.tsx`
-- `src/chart/pasteSourceRegression.test.ts`
-- `src/chart/chartStyle.test.ts`
-- `src/chart/ChartView.tsx`
-- `src/chart/ChartView.test.ts`
-- `src/ui/ChartPanel.tsx`
-- `src/analysis/analysisWorkbook.ts`
-- `src/app/appStore.test.ts`
-- `src/app/App.test.tsx`
-- `CHANGELOG.md`
-- `DEVELOPMENT_STATE.md`
-- `docs/10_QUICK_PASTE_IMPORT_PLAN_KR.md`
-- `docs/02_FUNCTIONAL_REQUIREMENTS_EN.md`
-- `docs/03_INPUT_OUTPUT_SPEC_EN.md`
-- `docs/04_TEST_PLAN_ACCEPTANCE_EN.md`
-- `DECISIONS.md`
-- `.gitignore`
-- `output/pdf/IsoAmplar_Plot_Analysis_User_Guide_KR.pdf`
-- `output/pdf/IsoAmplar_Plot_Analysis_User_Guide_KR.md`
-- `src/data/curveLabels.ts`
-- `src/data/parseExcel.test.ts`
-- `src/data/parseExcel.ts`
-- `src/data/sampleData.ts`
-- `src/chart/exportChart.ts`
-- `src/chart/reportLegend.ts`
-- `src/chart/reportLegend.test.ts`
-- `src/chart/chartConfig.test.ts`
-- `src/chart/ChartView.test.ts`
-- `src/chart/plottedDataExport.test.ts`
-- `src/ui/CustomLegend.test.tsx`
-- `src/ui/SettingsPanel.tsx`
-- `src/app/App.tsx`
-- `src/analysis/analysisWorkbook.test.ts`
-- `src/ui/DataImportPanel.tsx`
-- `src/ui/AnalysisTabs.tsx`
-- `src/ui/DataSelectionPanel.tsx`
-- `src/app/appStore.ts`
-- `src/styles.css`
-- `src/app/App.test.tsx`
-- `src/app/appStore.test.ts`
-- `src/chart/exportChart.test.ts`
-- `src/data/curveLabels.test.ts`
-- `tests/e2e/app.spec.ts`
-- `docs/02_FUNCTIONAL_REQUIREMENTS_EN.md`
-- `docs/03_INPUT_OUTPUT_SPEC_EN.md`
-- `docs/04_TEST_PLAN_ACCEPTANCE_EN.md`
-- `DECISIONS.md`
-- `CHANGELOG.md`
-- `DEVELOPMENT_STATE.md`
+- `docs/gui_mockups/screenshots/s1_fixture_import.png`
 
 ## Implemented
 - Quick Paste Import:
@@ -497,6 +470,7 @@ Completed Phase S0 verification on `codex/audit-remediation`: the full Vitest su
 - 2026-07-11 desktop audit used synthetic data only: lead walkthrough 6 curves x 60 cycles at approximately 1280 x 720 and 1920 x 1080; independent stress review 24 curves x 40 cycles across 1280 x 800, 1366 x 768, 1440 x 900, and 1920 x 1080; independent performance probe 100 curves x 100 points.
 - 2026-07-11 post-draft expert re-audit completed and was integrated into `docs/11_GPT56_PROJECT_AUDIT_KR.md`; no product source files were changed by the audit.
 - Phase S0 pre-remediation verification on `codex/audit-remediation`: `npm run test` passed 19 files / 162 tests; `npm run build` passed; exact fresh command `$env:CI='1'; npm run test:e2e` passed 5 Chromium tests after stopping the prior preview server; `npm audit --omit=dev` found 0 vulnerabilities. Separate production-preview smoke at 1280x720 and 1920x1080 returned HTTP 200 with the expected app title, zero console warnings/errors, zero page errors, and zero non-app-origin requests; screenshots are local test artifacts under `test-results/`. The three new Quick Paste screenshots use only `Synthetic Sample`, `Assay`, `Control`, and generated values; expert review found their `.png` files initially contained JPEG/JFIF bytes, so all three were losslessly re-encoded to real PNG signatures before checkpointing. The 15-page guide PDF text contained none of the scanned prior workbook/disease/date-like example terms. Approved checkpoint target: branch `codex/audit-remediation`, tag `checkpoint/audit-remediation-baseline-20260711`, last-published rollback SHA `9e77ad23ec8e863d3d05e7c8508ceb4729372155`.
+- Phase S1 final local verification: deterministic fixture regeneration changed 0 of 14 generated source/snapshot files and left `tests/fixtures/manifest.json` byte-identical; `npm run test` passed 22 files / 172 tests with 7 explicit Target TODOs; `npm run test:audit:red` passed 5 exact defect-signature probes; `npm run build` passed; `$env:CI='1'; npm run test:e2e -- --project=chromium --fail-on-flaky-tests --reporter=line` passed 5 tests from a fresh 4173 preview server; complete pre/post manifests for all 25 files in the tested `dist` were byte-identical. A negative-control check added a temporary 26th file and confirmed the complete-tree comparison failed, then removed it and reconfirmed 25-file equality. `npm audit --omit=dev` found 0 vulnerabilities. The first build attempt generated all assets but ended with a non-reproducible Node 24.14.1 Windows `libuv` shutdown assertion; an immediate clean rerun exited 0 and the same output hashes were verified. The synthetic FX-002 desktop evidence screenshot is `docs/gui_mockups/screenshots/s1_fixture_import.png`; it rendered two curves at 1920x1080 with no console/page errors or horizontal overflow.
 - First-user PDF guide synthetic-data regeneration: passed. The guide was rebuilt from local-app screenshots using generated synthetic labels/data only, output as a 15-page PDF, checked with `pypdf` for page count/metadata/text extraction, searched for user-like sensitive labels (`RSV`, date-like labels, `_old`, `_new`), rendered through Poppler to PNG pages, and visually reviewed for layout, Korean text rendering, tables, screenshots, and troubleshooting pages.
 - GitHub Pages deployment: active at `https://siun-comp.github.io/isoamplar-plot-analysis/`.
 - Playwright checks include upload-first smoke, generated `.xlsx` upload, append `.xlsx` import, reagent-first collapsed state, virtualized single-curve selection row, search bulk select, Style-panel marker basis/group marker smoke, fixed hover readout smoke, chart canvas visibility, nonwhite pixel count, chart viewport height stability after settings expansion, and sticky chart panel behavior.
@@ -509,11 +483,11 @@ Completed Phase S0 verification on `codex/audit-remediation`: the full Vitest su
   - `docs/gui_mockups/screenshots/phase-r12_hover_warning_mobile.png`
 
 ## Known Gaps
-- The remediation plan is documentation only. None of Phase S0-S11 product remediations have been implemented yet.
+- Phase S1 evidence/CI infrastructure is implemented locally, but none of the S2-S11 product remediations have been implemented yet.
 - The P1 items identified in `docs/11_GPT56_PROJECT_AUDIT_KR.md` are audit findings only and are not yet implemented: invalid Fixed-scale fallback/export, exported-legend identity truncation, Excel formatted-header identity, actionable Excel warnings, browser refresh/close protection, and accepted-size Quick Paste spread failure.
 - The audit also reproduced a CSS defect where Legend `Labels` does not hide the `Order` panel, plus laptop-height sticky-chart and dense individual-style/legend-editor limitations. These remain unmodified pending user prioritization.
 - Clipboard image copy and rich Excel-cell legend paste have not been manually verified in Chrome/Edge on the final deployment origin.
-- Static fixture files and expected normalized JSON snapshots are still not checked in; tests currently generate workbook fixtures.
+- S1 fixed fixture files and snapshots now exist locally but are not committed yet; S2-S8 target criteria remain known red by design.
 - Public URL technical smoke used generated `.xlsx` workbooks. Real `C:\Users\siunj\Desktop\graph_TEST.xlsx` has been inspected read-only but has not yet been uploaded through the finished UI in this session; final domain judgement for real labels/curve counts remains a user/manual validation item.
 - Performance budgets for max file size, row count, specimen count, imported curve count, and rendered curve count remain undecided.
 - P1/P2 scale presets are user-editable per analysis session and represented in AnalysisState; they can be preserved through explicit Analysis XLSX export/import but not automatic browser-session persistence.
@@ -532,11 +506,13 @@ Completed Phase S0 verification on `codex/audit-remediation`: the full Vitest su
 - Quick Paste implementation plan: `docs/10_QUICK_PASTE_IMPORT_PLAN_KR.md`
 - GPT-5.6 project audit: `docs/11_GPT56_PROJECT_AUDIT_KR.md`
 - Audit remediation implementation plan: `docs/12_AUDIT_REMEDIATION_IMPLEMENTATION_PLAN_KR.md`
+- Audit remediation traceability: `docs/13_AUDIT_REMEDIATION_TRACEABILITY.md`
+- Synthetic fixture contract: `docs/07_FIXTURE_SNAPSHOT_PLAN_KR.md`
 - First-user guide PDF: `output/pdf/IsoAmplar_Plot_Analysis_User_Guide_KR.pdf`
 - Local dev server: `http://127.0.0.1:5173/`
 - Local production preview: `http://127.0.0.1:4173/`
 
 ## Next 3 Tasks
-1. Complete the approved Phase S0 baseline commit and annotated tag on `codex/audit-remediation`, without pushing or deploying.
-2. Run Phase S1 to freeze synthetic `.xls/.xlsx` fixtures, normalized snapshots, acceptance evidence, and early fresh-build CI before product remediation.
-3. Provide the S1 local review URL and evidence matrix for user inspection before any S1 commit.
+1. Complete final S1 expert review and correct any evidence/CI/documentation blockers.
+2. Provide `http://127.0.0.1:4173/`, S1 verification results, fixture manifest, and traceability matrix for user inspection.
+3. After explicit user approval, commit S1 as one evidence-foundation change; do not push/deploy, and do not start S2 before that approval.

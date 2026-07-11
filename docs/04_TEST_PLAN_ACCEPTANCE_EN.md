@@ -155,6 +155,24 @@ These criteria bind implementation to decisions `D010` through `D016`.
 | AC-PCR-043 | FR-020 | Main tab, file import, tree, accordion, style, legend, and export controls are keyboard reachable, expose accessible names/states where feasible, and show a visible focus indication. | Component + Playwright accessibility smoke + manual |
 | AC-PCR-044 | FR-006, FR-009, FR-010, D036 | Box zoom mode highlights the valid plot area, lets the user drag a visible plot-area rectangle, and converts that selection to Fixed X/Y scale bounds without transforming, smoothing, cropping, or deleting the underlying curve data. The mode shows clear active/cancel/reject feedback, can be cancelled with Escape, clears hover emphasis while active, and enables Previous scale to restore the prior scale one Box zoom step at a time. Auto scale is separate and restores both axes to automatic mode while clearing Box zoom return history. Analysis XLSX stores/restores the current resulting scale bounds like any other scale setting; transient return history is browser-session state only. | Unit + component + E2E + Analysis XLSX roundtrip |
 
+## Audit Remediation Target Acceptance Criteria
+
+These criteria are frozen during Phase S1 as **Target / Known red**. S1 may add synthetic evidence, isolated current defect-signature probes, and CI plumbing, but it must not mark product behavior as accepted. A green defect-signature probe means only that its exact documented defect is reproduced. Each remediation Phase changes the status only after implementation, full regression, browser evidence, and expert review are complete.
+
+| ID | Requirement / Decision | Target acceptance criterion | S1 status / verification |
+| --- | --- | --- | --- |
+| AC-PCR-045 | FR-006, FR-009, FR-010, D036 | An invalid active Fixed/P1/P2 draft never renders or exports as an Auto-like plot under a Fixed label. Plot-bearing exports are blocked; Legend-only and Analysis XLSX remain available. Tiny, negative, and exponential Box zoom bounds remain finite with `min < max`. | Target / Known red - `FX-007`, isolated scale probe; S2 owner |
+| AC-PCR-046 | FR-008, FR-011, FR-012, FR-019, D028, D035 | Distinct curve IDs with shared-prefix or colliding labels remain identifiable in preview and every legend-bearing raster. Labels are not silently rewritten, Plot-only remains available, and unresolved legend identity collision blocks only legend-bearing output with affected curve/source evidence. | Target / Known red - `FX-006`, isolated SVG probe, raster helper; S3 owner |
+| AC-PCR-047 | FR-001, IO-001, D014 | `.xls/.xlsx` formatted header display text is the immutable visible label while raw value, raw type, number format, formula/cache state, worksheet, and source cell remain provenance. | Target / Known red - `FX-001` target snapshot and isolated parser probe; S4 owner |
+| AC-PCR-048 | FR-001, FR-020, IO-001, D014, D039 | Every import warning exposes source identity, handling, and affected curves; applicable cell/header warnings also expose location and raw value. Append and Analysis XLSX roundtrip keep source evidence distinct without mutating selection/order/style/dirty state when navigating to a warning. | Target / Known red - `FX-004` partial snapshot; S4 owner |
+| AC-PCR-049A | FR-017, FR-018, D026, D027 | Any dirty analysis, including an inactive tab, installs browser refresh/close protection; an all-clean workspace does not. Explicit Analysis XLSX remains the persistence path. | Target / Known red - state/UI TODO plus desktop manual check; S6 owner |
+| AC-PCR-049B | FR-011, FR-012, FR-017, FR-018, D040 | Async save/export/clipboard success and failure update only the captured analysis runtime/revision according to the documented counter/dirty state table; closed/replaced runtimes receive no live update. | Target / Known red - deferred-promise race TODO; S6 owner |
+| AC-PCR-050 | FR-017, IO-005, D026, D039 | Analysis XLSX validates curve lengths, stats, entity/source membership, and ID references before committing state; a rejected payload leaves the current analysis unchanged. | Target / Known red - generated malformed restore matrix TODO; S7 owner |
+| AC-PCR-051 | FR-016, D035 | Every final plotted CSV specimen/reagent/generated/Analysis label header is spreadsheet-safe. Output escaping does not mutate source labels, Analysis labels, or Analysis XLSX values. | Target / Known red - isolated CSV probe plus Windows Excel manual evidence; S7 owner |
+| AC-PCR-052A | FR-008, D035 | The inactive Legend Order/Labels panel is absent from display and accessibility trees while the active editor remains keyboard operable. | Target / Known red - DOM/a11y TODO; S8 owner |
+| AC-PCR-052B | FR-020, D032 | At user-approved desktop viewports, scrolling through settings preserves an inspectable plot bounding box without incoherent overlap or workspace horizontal overflow. | Target / Known red - viewport measurement TODO; UD-08/S8 owner |
+| RQ-CI-001 | FR-013, D002, D003 | CI verifies deterministic fixture hashes, the full unit suite, isolated known-red evidence, one built `dist` hash, and fresh Chromium against that same artifact. Raster/network/Pages promotion gates remain red until S10. | Partial foundation in S1; release-quality target remains open through S10 |
+
 ## Quick Paste Import Acceptance Criteria
 
 | ID | Requirement / Decision | Acceptance Criterion | Verification |
@@ -179,6 +197,7 @@ These criteria bind implementation to decisions `D010` through `D016`.
 | AC-QP-018 | FR-003, FR-018, D037 | Confirmation applies only to the analysis runtime instance and revision captured by preview. Closing, replacing, or changing the target blocks stale confirmation. | Unit + component |
 | AC-QP-019 | FR-003, FR-017, D037 | Analysis XLSX visible Settings/ImportedData and hidden restore data preserve mixed Excel/paste source type, immutable source ID, source name, source column, and paste input mode; repeated imports with identical file metadata retain distinct source-instance IDs, and legacy missing provenance migrates to Excel. | Unit + workbook readback |
 | AC-QP-020 | FR-003, FR-020, D037 | At a 375 x 812 viewport, the Quick Paste dialog remains inside the viewport, the body scrolls independently, warning pagination remains usable, and Cancel / append / new-analysis actions stay visible. | Playwright + visual/manual |
+| AC-QP-021 | FR-003, D037 | Generated valid tables at the documented boundaries - tall 250,000 x 1, wide 3 x 83,333, and balanced 500 x 500 cells, all within 2,000,000 characters - complete read-only preview without stack overflow or analysis mutation. Character-over-limit and cell-over-limit cases reject before mutation; only catchable parser failures are required to become controlled errors. | Target / Known red - isolated tall probe in S1; full shape matrix in S2/S5 |
 
 ## PCR Test Phases
 
@@ -323,8 +342,7 @@ Create or collect fixture datasets for:
 ## Known Gaps
 - PCR parser, selection UI, chart preview, style controls, legend order, image export utilities, clipboard fallback, and plotted-data CSV utilities are implemented for MVP.
 - The selected test stack is installed and configured for unit/component/Playwright smoke tests.
-- Static checked-in sample fixture files do not exist yet; generated workbook fixtures are used in Vitest and Playwright tests.
-- PCR-specific expected normalized JSON snapshots do not exist yet.
+- Phase S1 adds synthetic-only checked-in `.xlsx`/BIFF8 `.xls` fixtures, deterministic SHA-256 manifest, passing normalized projections, target snapshots, generated case descriptors, and isolated known-red evidence. These files are local pending S1 review/commit and do not mark target product criteria accepted.
 - Browser checks have been performed with Playwright: upload-first smoke, generated `.xlsx` upload, appended `.xlsx` upload, collapsed reagent-first selection, internal analysis tab switching, fixed hover readout smoke, chart canvas nonblank pixel check, fixed chart viewport height after settings expansion, sticky chart panel behavior, and public URL technical smoke with generated `.xlsx` upload.
 - Clipboard image behavior and rich Excel-cell legend paste have not been manually verified in Chrome/Edge under the final deployment origin.
 - GitHub Pages deployment behavior was verified on 2026-07-08 through the Pages workflow and public URL technical smoke with generated `.xlsx` data.

@@ -1,0 +1,13 @@
+{
+  "fixtureId": "FX-005",
+  "sheetName": "First",
+  "curveIds": [
+    "sheet0_col_A"
+  ],
+  "reagentLabels": [
+    "Assay First"
+  ],
+  "datasetWarningCodes": [
+    "IGNORED_WORKSHEETS"
+  ]
+}

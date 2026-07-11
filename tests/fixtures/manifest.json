@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "generator": {
+    "path": "tests/fixtures/generateFixtures.mjs",
+    "producer": "SheetJS CE",
+    "producerVersion": "0.20.3"
+  },
+  "dataPolicy": {
+    "syntheticOnly": true
+  },
+  "fixtures": [
+    {
+      "fixtureId": "FX-001",
+      "logicalCaseId": "formatted-header-identity",
+      "file": "source/FX-001-formatted-headers.xlsx",
+      "format": "OOXML .xlsx",
+      "extension": ".xlsx",
+      "sheetNames": [
+        "Data"
+      ],
+      "expected": "expected/FX-001-formatted-headers.target.json",
+      "status": "known-red",
+      "covers": [
+        "AC-PCR-047",
+        "C-P1-03"
+      ],
+      "purpose": "Excel display text versus raw header identity.",
+      "byteLength": 8965,
+      "magicHex": "504b030414000000",
+      "sha256": "f12f8f820290d20dba02f9791ece670d9c252fd6dacd48e0aa35373d4834e15a"
+    },
+    {
+      "fixtureId": "FX-002",
+      "logicalCaseId": "excel-container-parity",
+      "file": "source/FX-002-equivalent.xlsx",
+      "format": "OOXML .xlsx",
+      "extension": ".xlsx",
+      "sheetNames": [
+        "Data"
+      ],
+      "expected": "expected/FX-002-equivalent.json",
+      "status": "active",
+      "covers": [
+        "AC-PCR-001",
+        "AC-PCR-006",
+        "AC-PCR-016"
+      ],
+      "purpose": "Equivalent normalized raw fluorescence across supported Excel containers.",
+      "byteLength": 8795,
+      "magicHex": "504b030414000000",
+      "sha256": "35b3f08265edf38ca548a9d794cd60d59ad8570c78acad9049324b5bd53df60b"
+    },
+    {
+      "fixtureId": "FX-003",
+      "logicalCaseId": "excel-container-parity",
+      "file": "source/FX-003-equivalent.xls",
+      "format": "BIFF8 .xls",
+      "extension": ".xls",
+      "sheetNames": [
+        "Data"
+      ],
+      "expected": "expected/FX-003-equivalent.json",
+      "status": "active",
+      "covers": [
+        "AC-PCR-001",
+        "AC-PCR-006",
+        "AC-PCR-016"
+      ],
+      "purpose": "Equivalent normalized raw fluorescence across supported Excel containers.",
+      "byteLength": 4096,
+      "magicHex": "d0cf11e0a1b11ae1",
+      "sha256": "ac5d4b8fbc74c061a0aed4cc9ff33b54405c0d63dbe666fae1a82809afdd6ffd"
+    },
+    {
+      "fixtureId": "FX-004",
+      "logicalCaseId": "warning-evidence",
+      "file": "source/FX-004-warning-cells.xlsx",
+      "format": "OOXML .xlsx",
+      "extension": ".xlsx",
+      "sheetNames": [
+        "Data"
+      ],
+      "expected": "expected/FX-004-warning-cells.json",
+      "status": "active-partial",
+      "covers": [
+        "AC-PCR-002",
+        "AC-PCR-048"
+      ],
+      "purpose": "Stable warning codes and source locations without user data.",
+      "byteLength": 8928,
+      "magicHex": "504b030414000000",
+      "sha256": "7174216b746b8f84f30659d37b5d88ea63e861cfeee99469793dbed8c7b4e16f"
+    },
+    {
+      "fixtureId": "FX-005",
+      "logicalCaseId": "first-sheet-only",
+      "file": "source/FX-005-multi-sheet.xlsx",
+      "format": "OOXML .xlsx",
+      "extension": ".xlsx",
+      "sheetNames": [
+        "First",
+        "Ignored"
+      ],
+      "expected": "expected/FX-005-multi-sheet.json",
+      "status": "active",
+      "covers": [
+        "AC-PCR-015"
+      ],
+      "purpose": "First worksheet only with an explicit ignored-sheet warning.",
+      "byteLength": 9342,
+      "magicHex": "504b030414000000",
+      "sha256": "8f1837c9ba2611467870e8ff86fc0bc50c0b18e52817c7e48d086cc37c755c57"
+    },
+    {
+      "fixtureId": "FX-006",
+      "logicalCaseId": "legend-shared-prefix",
+      "file": "source/FX-006-shared-prefix-labels.xlsx",
+      "format": "OOXML .xlsx",
+      "extension": ".xlsx",
+      "sheetNames": [
+        "Data"
+      ],
+      "expected": "expected/FX-006-shared-prefix-labels.target.json",
+      "status": "known-red",
+      "covers": [
+        "AC-PCR-046",
+        "C-P1-02"
+      ],
+      "purpose": "Legend identity where distinguishing information is in the suffix.",
+      "byteLength": 8747,
+      "magicHex": "504b030414000000",
+      "sha256": "27ce2463e424d5aa4b0575483d4aea649bf1c256e111951035c32c836399ab6f"
+    },
+    {
+      "fixtureId": "FX-007",
+      "logicalCaseId": "small-y-scale",
+      "file": "source/FX-007-small-y.xlsx",
+      "format": "OOXML .xlsx",
+      "extension": ".xlsx",
+      "sheetNames": [
+        "Data"
+      ],
+      "expected": "expected/FX-007-small-y.target.json",
+      "status": "known-red",
+      "covers": [
+        "AC-PCR-045",
+        "C-P1-01"
+      ],
+      "purpose": "Scale and Box zoom precision near zero.",
+      "byteLength": 8687,
+      "magicHex": "504b030414000000",
+      "sha256": "f461b0a59bd23ebc2c7ad8d45ce8aeceb6ba87802351fe2b881c96d3ce5d920d"
+    }
+  ]
+}

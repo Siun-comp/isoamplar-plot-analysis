@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "FX-004",
+  "result": "partial-current-contract",
+  "cycleCount": 3,
+  "curves": [
+    {
+      "curveId": "sheet0_col_A",
+      "y": [
+        0.1,
+        null,
+        0.6
+      ],
+      "warningCodes": [
+        "MISSING_SPECIMEN_LABEL",
+        "NON_NUMERIC_FLUORESCENCE"
+      ]
+    },
+    {
+      "curveId": "sheet0_col_B",
+      "y": [
+        0.2,
+        0.4,
+        0.7
+      ],
+      "warningCodes": [
+        "MISSING_REAGENT_LABEL"
+      ]
+    },
+    {
+      "curveId": "sheet0_col_C",
+      "y": [
+        0.3,
+        0.5,
+        null
+      ],
+      "warningCodes": [
+        "FORMULA_WITHOUT_CACHED_VALUE"
+      ]
+    }
+  ],
+  "requiredWarningEvidence": [
+    {
+      "code": "MISSING_SPECIMEN_LABEL",
+      "sourceCell": "A1",
+      "curveId": "sheet0_col_A"
+    },
+    {
+      "code": "MISSING_REAGENT_LABEL",
+      "sourceCell": "B2",
+      "curveId": "sheet0_col_B"
+    },
+    {
+      "code": "NON_NUMERIC_FLUORESCENCE",
+      "sourceCell": "A4",
+      "curveId": "sheet0_col_A"
+    },
+    {
+      "code": "FORMULA_WITHOUT_CACHED_VALUE",
+      "sourceCell": "C5",
+      "curveId": "sheet0_col_C"
+    },
+    {
+      "code": "MERGED_HEADER_CELL",
+      "sourceRange": "B1:C1"
+    }
+  ],
+  "note": "S1 checks stable codes and locations. Full source provenance is AC-PCR-048/S4."
+}

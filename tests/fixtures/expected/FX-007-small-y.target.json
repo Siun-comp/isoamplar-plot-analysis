@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "FX-007",
+  "result": "target-known-red",
+  "x": [
+    1,
+    2,
+    3
+  ],
+  "y": [
+    0.00001,
+    0.00002,
+    -0.00001
+  ],
+  "activeScaleCases": [
+    {
+      "mode": "fixed",
+      "min": "0.00001",
+      "max": "0.00001",
+      "expected": "invalid-block-plot-export"
+    },
+    {
+      "mode": "preset1",
+      "min": "",
+      "max": "",
+      "expected": "invalid-inactive-does-not-block"
+    },
+    {
+      "mode": "preset2",
+      "min": "-1e-5",
+      "max": "2e-5",
+      "expected": "valid"
+    }
+  ]
+}

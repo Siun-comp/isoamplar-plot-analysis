@@ -1,431 +1,167 @@
-# 07 PCR Fixture and Snapshot Plan
+# 07 Synthetic Fixture 및 Snapshot 기준
 
-## Purpose
-PCR graph web app의 Excel parser, normalized model, selection, chart, export 테스트에 사용할 fixture 목록과 expected snapshot 구조를 정의한다.
+## 문서 상태
 
-## Status
-Active draft
+- 상태: Active - Audit Remediation Phase S1
+- 최종 갱신: 2026-07-11
+- 기준 manifest: `tests/fixtures/manifest.json`
+- 관련 계획: `docs/12_AUDIT_REMEDIATION_IMPLEMENTATION_PLAN_KR.md`
 
-## Last Updated
-2026-07-09
+## 압축 안전 요약
 
-## Owner
-QA / Engineering / Agent
+- 모든 체크인 fixture는 독립적으로 생성한 synthetic label과 fluorescence 값만 사용한다.
+- 실제 사용자 workbook, 실제 실험명·검체명·시약명·질환명·날짜형 식별자 또는 그 값을 변형한 자료를 fixture로 복사하지 않는다.
+- 형식에 민감한 `.xlsx`/BIFF8 `.xls`만 binary로 체크인하고 SHA-256으로 고정한다.
+- 대형 Quick Paste, 대량 curve, malformed Analysis XLSX 조합은 test에서 생성한다.
+- 현재 결함은 정상 동작처럼 snapshot하지 않는다. `Target / Known red` snapshot과 현재 결함의 정확한 signature를 검증하는 격리 audit probe로 기록한다.
+- `importedAtIso`, random `sourceInstanceId`, 현지화 message는 normalized snapshot 비교에서 제외한다.
 
-## Compression-Safe Summary
-- 이 문서는 Pre-Phase 산출물이다.
-- source app code는 아직 만들지 않는다.
-- MVP parser fixture는 `.xlsx`와 `.xls`, 첫 번째 worksheet only, row 1 specimen, row 2 reagent, row 3+ fluorescence 기준이다.
-- `graph_TEST.xlsx`는 실제 사용자 예시 기반 baseline fixture 후보이며, 앱에 데이터나 스타일을 하드코딩하면 안 된다.
-- expected normalized snapshot은 `curveId` 기준 identity, source 위치, specimen/reagent label, generated cycle X, raw fluorescence Y, warnings를 검증한다.
-- 모든 fixture는 원본 PCR fluorescence 값을 자동 보정, smoothing, normalization, 평균화, Ct/Cq 계산하지 않는 것을 전제로 한다.
+## 1. 고정 Binary Fixture
 
-## Update Rule
-fixture 파일을 추가하거나 parser warning 정책, normalized model, curve ID 규칙, export projection 규칙이 바뀌면 이 문서를 갱신한다.
+실제 파일 목록과 hash는 `tests/fixtures/manifest.json`이 권위 원본이다.
 
----
+| ID | 형식 | 목적 | 상태 |
+|---|---|---|---|
+| FX-001 | OOXML `.xlsx` | `001`, 날짜, 과학표기, 공백, 한글/특수문자 header 표시 identity와 provenance target | Known red - S4 |
+| FX-002 | OOXML `.xlsx` | synthetic 한국어/특수문자 label, 음수 포함 raw fluorescence parity | Passing |
+| FX-003 | BIFF8 `.xls` | FX-002와 같은 normalized 결과 및 실제 compound signature | Passing |
+| FX-004 | OOXML `.xlsx` | 빈 header, nonnumeric, no-cache formula, merged header의 code/location/null gap | Partial passing; provenance target은 S4 |
+| FX-005 | OOXML `.xlsx` | first worksheet only와 ignored worksheet warning | Passing |
+| FX-006 | OOXML `.xlsx` | suffix만 다른 shared-prefix legend identity | Known red - S3 |
+| FX-007 | OOXML `.xlsx` | 0 근처 tiny/negative fluorescence scale precision | Known red - S2 |
 
-# 0. Planned Fixture Manifest
+FX-006과 FX-007은 Excel container 자체가 핵심은 아니므로 S3/S2 구현 시 code-generated normalized fixture로 이동할 수 있다. 이동 전 manifest와 traceability link를 함께 갱신한다.
 
-Phase 0/1/2에서 실제 fixture 파일과 expected snapshot을 만들 때 아래 경로를 사용한다.
+## 2. Manifest 계약
 
-| ID | Planned Source Path | Planned Snapshot Path | Linked ACs | Primary Warnings / Errors |
-| --- | --- | --- | --- | --- |
-| FX-001 | `tests/fixtures/source/graph_TEST.xlsx` | `tests/fixtures/expected/FX-001.graph-test.snapshot.json` | AC-PCR-001, 006, 019 | `SIMILAR_SPECIMEN_LABEL` |
-| FX-002 | `tests/fixtures/source/FX-002.one-specimen-eight-reagents.xlsx` | `tests/fixtures/expected/FX-002.snapshot.json` | AC-PCR-001, 003, 018 | none |
-| FX-003 | `tests/fixtures/source/FX-003.one-specimen-eight-reagents.xls` | `tests/fixtures/expected/FX-003.snapshot.json` | AC-PCR-016 | none |
-| FX-004 | `tests/fixtures/source/FX-004.old-biff-korean-labels.xls` | `tests/fixtures/expected/FX-004.snapshot.json` | AC-PCR-016 | encoding/mojibake guard |
-| FX-005 | `tests/fixtures/source/FX-005.many-specimens-shared-reagents.xlsx` | `tests/fixtures/expected/FX-005.snapshot.json` | AC-PCR-004, 005 | none |
-| FX-006 | `tests/fixtures/source/FX-006.twenty-one-curves.xlsx` | `tests/fixtures/expected/FX-006.snapshot.json` | AC-PCR-012 | readability warning in UI state |
-| FX-007 | `tests/fixtures/source/FX-007.similar-labels.xlsx` | `tests/fixtures/expected/FX-007.snapshot.json` | AC-PCR-019 | `SIMILAR_SPECIMEN_LABEL`, `SIMILAR_REAGENT_LABEL` |
-| FX-008 | `tests/fixtures/source/FX-008.duplicate-pairs.xlsx` | `tests/fixtures/expected/FX-008.snapshot.json` | AC-PCR-001, 009 | `DUPLICATE_CURVE_LABEL` |
-| FX-009 | `tests/fixtures/source/FX-009.missing-headers.xlsx` | `tests/fixtures/expected/FX-009.snapshot.json` | AC-PCR-001, 017 | `MISSING_SPECIMEN_LABEL`, `MISSING_REAGENT_LABEL` |
-| FX-010 | `tests/fixtures/source/FX-010.nonnumeric-values.xlsx` | `tests/fixtures/expected/FX-010.snapshot.json` | AC-PCR-001, 006 | `NON_NUMERIC_FLUORESCENCE` |
-| FX-011 | `tests/fixtures/source/FX-011.empty-values-uneven.xlsx` | `tests/fixtures/expected/FX-011.snapshot.json` | AC-PCR-001, 021, 022 | `EMPTY_FLUORESCENCE_CELL` |
-| FX-012 | `tests/fixtures/source/FX-012.empty-rows-columns.xlsx` | `tests/fixtures/expected/FX-012.snapshot.json` | AC-PCR-001 | empty range warnings |
-| FX-013 | `tests/fixtures/source/FX-013.first-valid-later-different.xlsx` | `tests/fixtures/expected/FX-013.snapshot.json` | AC-PCR-015 | `IGNORED_WORKSHEETS` |
-| FX-014 | `tests/fixtures/source/FX-014.first-invalid-later-valid.xlsx` | `tests/fixtures/expected/FX-014.error.json` | AC-PCR-015 | `FIRST_SHEET_INVALID` |
-| FX-015 | `tests/fixtures/source/FX-015.formula-cached.xlsx` | `tests/fixtures/expected/FX-015.snapshot.json` | AC-PCR-001 | formula cached value metadata |
-| FX-016 | `tests/fixtures/source/FX-016.formula-no-cache.xlsx` | `tests/fixtures/expected/FX-016.snapshot.json` | AC-PCR-001 | `FORMULA_WITHOUT_CACHED_VALUE` |
-| FX-017 | `tests/fixtures/source/FX-017.merged-headers.xlsx` | `tests/fixtures/expected/FX-017.snapshot.json` | AC-PCR-001 | `MERGED_HEADER_CELL` |
-| FX-018 | `tests/fixtures/source/FX-018.unsupported-or-corrupt.*` | `tests/fixtures/expected/FX-018.error.json` | AC-012 | `UNSUPPORTED_FILE_TYPE`, `PROTECTED_OR_UNREADABLE_WORKBOOK` |
-| FX-019 | `tests/fixtures/source/FX-019.large-generated.xlsx` | `tests/fixtures/expected/FX-019.summary.snapshot.json` | AC-PCR-013 | summary/hash only |
-| FX-020 | generated normalized projection | `tests/fixtures/expected/FX-020.plotted-data.csv.snapshot.json` | AC-PCR-021 | none |
-| FX-021 | generated normalized projection | `tests/fixtures/expected/FX-021.plotted-data-disabled.snapshot.json` | AC-PCR-022 | disabled reason |
-| FX-022 | generated normalized chart sample | `tests/fixtures/expected/FX-022.visual-theme.snapshot.json` | AC-PCR-023 | no hardcoded reference content |
-| FX-023 | `tests/fixtures/source/FX-023.active-tab-not-first.xlsx` | `tests/fixtures/expected/FX-023.snapshot.json` | AC-PCR-015 | `IGNORED_WORKSHEETS` |
-| FX-024 | `tests/fixtures/source/FX-024.first-valid-later-invalid.xlsx` | `tests/fixtures/expected/FX-024.snapshot.json` | AC-PCR-015 | `IGNORED_WORKSHEETS`; later invalid sheet ignored |
+Manifest는 다음 정보를 포함한다.
 
-Notes:
+- `schemaVersion`
+- generator path, producer, producer version
+- `dataPolicy.syntheticOnly`
+- fixture ID와 logical case ID
+- source path, expected snapshot path
+- 실제 형식과 extension
+- byte length, 첫 8바이트 magic, SHA-256
+- worksheet 이름
+- `active`, `active-partial`, `known-red` 상태
+- 연결된 AC/audit finding과 fixture 목적
 
-- `graph_TEST.xlsx` is currently available at `C:\Users\siunj\Desktop\graph_TEST.xlsx`. Phase 0/2 should copy or recreate a sanitized fixture under `tests/fixtures/source/` and record a hash.
-- `.xls` fixtures must be real BIFF `.xls`; renamed `.xlsx` or HTML-saved-as-xls files do not satisfy `.xls` equivalence coverage.
-- Snapshots should avoid localized UI copy. Assert warning/error codes and source cells instead.
+Magic 기준:
 
----
+- OOXML `.xlsx`: ZIP signature `504b0304...`
+- BIFF8 `.xls`: compound signature `d0cf11e0a1b11ae1`
 
-# 1. Observed User Workbook
+## 3. Normalized Snapshot 계약
 
-Source file inspected during Pre-Phase:
+Passing snapshot은 가능한 범위에서 다음을 고정한다.
 
-- Path: `C:\Users\siunj\Desktop\graph_TEST.xlsx`
-- Format: `.xlsx`
-- Sheet count: 1
-- First worksheet: `Sheet1`
-- Used range: 47 rows x 4 columns
-- SHA-256: `F8365DF27D7EA036897B10DA2E253AC1F326EF2F67FF3E65627D95740D943781`
-- Header row 1: specimen labels
-- Header row 2: reagent labels
-- Data rows: 45 fluorescence rows, mapping to generated `Cycle 1..45`
-- Curve count: 4
+- fixture ID와 parse result
+- source file name, actual format, sheet names, used/ignored sheet
+- dataset schema/source kind/sheet index/cycle count/ordered curve IDs
+- curve ID, source ID, specimen/reagent entity ID
+- 원본 specimen/reagent label과 display label
+- 전체 `x[]`, `y[]`, `null` 위치
+- point/missing/min/max stats
+- source sheet/column/header cell/data range
+- curve warnings와 dataset warnings의 code/severity/scope/location/raw evidence
+- specimen/reagent entity membership
 
-Observed headers:
+제외 항목:
 
-| Column | Specimen | Reagent | Points | Notes |
-| --- | --- | --- | --- | --- |
-| A | `검체 1` | `A1` | 45 | numeric fluorescence values |
-| B | `검체 1` | `A2` | 45 | numeric fluorescence values |
-| C | `검체2` | `A1` | 45 | similar to `검체 2`; warning candidate |
-| D | `검체 2` | `A2` | 45 | similar to `검체2`; warning candidate |
+- import 시각
+- random runtime/source instance token
+- 번역 가능한 warning message
+- browser tab ID와 dirty/transient UI state
 
-Pre-Phase observations:
+## 4. Header Target Snapshot
 
-- All inspected fluorescence cells are numeric.
-- No missing cells were observed in the used range.
-- Negative numeric fluorescence values exist and are valid raw values. They must not be treated as parse errors by default.
-- `검체2` and `검체 2` should trigger a non-blocking similar-name warning if the similar-name detector normalizes whitespace.
-- Columns A and D have identical inspected fluorescence arrays. They are still separate curves because curve identity is source-column based.
-- The workbook has one worksheet, so it does not exercise first-sheet-only ignored-sheet behavior.
+FX-001의 target은 각 header에 다음을 요구한다.
 
-Use of this workbook:
+- source cell
+- Excel display text
+- raw type와 raw value
+- number format
+- formula text 또는 `null`
 
-- Use as a real-world baseline fixture candidate.
-- Do not hardcode its specimen labels, reagent labels, curve count, data values, chart title, axis labels, colors, markers, or threshold/reference line into the app.
-- If copied into a future test fixture directory, keep it under a clear source fixture path such as `tests/fixtures/source/graph_TEST.xlsx`.
+S1에서는 이 target을 현재 parser output으로 덮어쓰지 않는다. S4가 formatted display label과 raw provenance를 구현한 뒤 target을 passing snapshot으로 승격한다.
 
----
+## 5. Warning Snapshot
 
-# 2. Fixture Matrix
+FX-004는 S1에서 다음을 passing evidence로 고정한다.
 
-Fixture IDs are stable planning IDs. Actual file names may be created in Phase 0/1/2.
+- stable warning code
+- applicable source cell/range
+- affected curve ID
+- 전체 Y 배열과 `null` 위치
 
-| ID | Fixture | Type | Purpose | Expected Verification |
-| --- | --- | --- | --- | --- |
-| FX-001 | `graph_TEST.xlsx` baseline | `.xlsx` source workbook | Validate real user-like 4-curve PCR structure and similar specimen warning candidate. | 4 curves, 45 generated cycles, stable IDs, raw numeric Y values preserved, no correction/normalization. |
-| FX-002 | 1 specimen x 8 reagents | `.xlsx` generated workbook | Validate cartridge-shaped common case. | 8 curves under one specimen; reagent-first tree has 8 reagent groups. |
-| FX-003 | `.xls` equivalent of FX-002 | real BIFF `.xls` workbook | Validate `.xls` support and equivalence to `.xlsx`. | Normalized curve data equivalent to FX-002 except source file metadata. A renamed `.xlsx` is not sufficient. |
-| FX-004 | Old BIFF `.xls` with Korean labels | real BIFF `.xls` workbook | Validate old `.xls` encoding risk. | Korean labels preserved without mojibake, or controlled actionable failure if unsupported. |
-| FX-005 | Many specimens x shared reagents | `.xlsx` generated workbook | Validate specimen/reagent projections and search. | Reagent-first and specimen-first trees contain same curve IDs; selection survives grouping toggle. |
-| FX-006 | More than 20 visible curves | normalized dataset or workbook | Validate readability warning without blocking preview/export. | 21+ selected curves triggers warning; all selected curves remain visible/exportable. |
-| FX-007 | Similar specimen/reagent names | `.xlsx` generated workbook | Validate warning-only similar-name behavior. | Warning lists affected labels; IDs, labels, grouping, legend/export order, and export names unchanged. |
-| FX-008 | Exact duplicate specimen/reagent pairs | `.xlsx` generated workbook | Validate duplicate curve label handling. | Curves remain distinct by `curveId`; duplicate-label warning if implemented; no merge. |
-| FX-009 | Missing specimen/reagent labels | `.xlsx` generated workbook | Validate missing header handling. | Affected curves invalid or warning according to parser rule; no silent relabeling. |
-| FX-010 | Nonnumeric fluorescence values | `.xlsx` generated workbook | Validate invalid fluorescence cell handling. | Raw value preserved in diagnostics; chart Y becomes `null`; warning contains cell address. |
-| FX-011 | Empty fluorescence cells and uneven lengths | `.xlsx` generated workbook | Validate missing Y handling. | Empty cells normalize to `null`; generated cycles remain consistent; warnings include affected cells. |
-| FX-012 | Empty rows and empty columns | `.xlsx` generated workbook | Validate data-range trimming. | Trailing blank rows/columns ignored; internal blank rows/cells produce null/warning. |
-| FX-013 | Multi-sheet first valid, later different | `.xlsx` generated workbook | Validate first-sheet-only behavior and ignored-sheet notice. | Worksheet index 0 parsed; later sheet ignored; no data from later sheets appears. |
-| FX-014 | Multi-sheet first invalid, later valid | `.xlsx` generated workbook | Validate invalid first sheet rule. | Import fails even when later worksheet is valid. |
-| FX-015 | Formula cells with cached numeric values | `.xlsx` generated workbook | Validate formula cached-value policy. | Cached numeric formula result accepted; browser does not recalculate formulas. |
-| FX-016 | Formula cells without cached values | `.xlsx` generated workbook | Validate formula no-cache risk. | Formula cells normalize to `null` with warning. |
-| FX-017 | Merged header cells | `.xlsx` generated workbook | Validate unsupported/ambiguous header handling. | No silent fill unless explicitly implemented; missing/merged headers warn. |
-| FX-018 | Unsupported/corrupt/protected/HTML-as-xls workbook | invalid files | Validate error paths. | Clear actionable error; no partial import. |
-| FX-019 | Large dataset | generated workbook or normalized dataset | Validate performance smoke. | Dozens to hundreds of specimens and up to 8 reagents remain navigable; use summary/hash snapshot, not full y arrays. |
-| FX-020 | Simple plotted-data export | normalized chart projection | Validate data CSV enabled case. | One chart, shared X values, selected curves only, current legend/export order. |
-| FX-021 | Non-simple plotted-data export | normalized chart projection | Validate data CSV disabled case. | Data CSV disabled with clear reason when chart projection is not rectangular/shared-X. |
-| FX-022 | Chart visual theme sample | normalized dataset | Validate default visual style without hardcoding reference image. | White background, sparse major grid, no dense minor grid, readable title/axis/legend, preview/export parity. |
-| FX-023 | Active tab not first sheet | `.xlsx` generated workbook | Validate worksheet index 0, not workbook active tab. | Parser uses `SheetNames[0]` even if workbook active tab points elsewhere. |
-| FX-024 | First valid, later invalid | `.xlsx` generated workbook | Validate ignored later sheet errors. | Import succeeds from first sheet; invalid later sheet is ignored. |
+source instance, source name, handling outcome, cross-source dedupe는 AC-PCR-048의 known-red 범위이며 S4 전에는 passing으로 표시하지 않는다.
 
----
+## 6. Generated Fixture
 
-# 3. Expected Snapshot Schema
+Binary로 체크인하지 않고 test에서 생성한다.
 
-Parser snapshots should be JSON. The exact fixture snapshots should be generated during Phase 2 after parser implementation begins, but the schema is fixed here.
+### Quick Paste
 
-Example shape:
+- reproduced known-red: 150,000-cell tall single-column input
+- supported boundary tall: 250,000 x 1 cells including headers
+- supported boundary wide: 3 x 83,333 cells
+- supported boundary balanced: 500 x 500 cells
+- character-over-limit
+- cell-over-limit
+- empty-heavy and nonnumeric warning pagination
 
-```json
-{
-  "schemaVersion": 1,
-  "fixtureId": "FX-001",
-  "source": {
-    "fileName": "graph_TEST.xlsx",
-    "fileType": "xlsx",
-    "sha256": "F8365DF27D7EA036897B10DA2E253AC1F326EF2F67FF3E65627D95740D943781",
-    "sheetNames": ["Sheet1"],
-    "sheetCount": 1,
-    "usedSheetIndex": 0,
-    "usedSheetName": "Sheet1",
-    "ignoredSheetNames": []
-  },
-  "range": {
-    "rowCount": 47,
-    "columnCount": 4,
-    "headerRows": {
-      "specimen": 1,
-      "reagent": 2
-    },
-    "dataStartRow": 3,
-    "dataRowCount": 45
-  },
-  "parserOptions": {
-    "firstWorksheetOnly": true,
-    "generatedX": "cycle-1-based",
-    "rawFluorescencePreserved": true,
-    "automaticCorrection": false
-  },
-  "curves": [
-    {
-      "curveId": "sheet0_col_A",
-      "sourceId": "workbook:sheet0:A",
-      "source": {
-        "sheetIndex": 0,
-        "columnIndex": 1,
-        "columnLetter": "A",
-        "specimenCell": "A1",
-        "reagentCell": "A2",
-        "dataRange": "A3:A47"
-      },
-      "specimenId": "specimen_0001",
-      "reagentId": "reagent_A1",
-      "specimenLabel": "검체 1",
-      "reagentLabel": "A1",
-      "displayLabel": "검체 1 │ A1",
-      "x": [1, 2, 3],
-      "yPreview": [41.3350398880229, 26.0445244130879, 19.5399610979439],
-      "pointCount": 45,
-      "nullCount": 0,
-      "nonNumericCount": 0,
-      "formulaCount": 0,
-      "warnings": []
-    }
-  ],
-  "groups": {
-    "reagentFirst": {
-      "groupCount": 2,
-      "defaultCollapsed": true
-    },
-    "specimenFirst": {
-      "groupCount": 3,
-      "defaultCollapsed": true
-    }
-  },
-  "warnings": [
-    {
-      "code": "SIMILAR_SPECIMEN_LABEL",
-      "severity": "warning",
-      "scope": "dataset",
-      "labels": ["검체2", "검체 2"],
-      "curveIds": ["sheet0_col_C", "sheet0_col_D"]
-    }
-  ]
-}
+실제 browser OOM처럼 process가 복구할 수 없는 실패를 controlled error로 보장하지 않는다. 문서상 제한 밖 입력과 catch 가능한 parser 오류만 mutation 없이 거부해야 한다.
+
+### Chart/Legend/Scale
+
+- shared-prefix와 동일 최종 표시 문자열
+- tiny, negative, exponent scale bounds
+- 20 x 100 reference와 100 x 100 stress dataset
+- line/marker/color signature collision
+
+### Analysis XLSX
+
+- curve X/Y 길이 불일치
+- stats 불일치
+- orphan selection/order/override ID
+- entity/source membership 불일치
+- chunk 누락·중복·손상
+- payload 계측용 generated full dataset
+
+## 7. Known-red 증거
+
+정규 suite는 항상 green이어야 한다.
+
+```powershell
+npm run test
 ```
 
-Snapshot requirements:
+현재 재현되는 감사 결함은 별도 명령에서 정확한 defect signature assertion으로 실행한다. parser 성공 같은 전제조건은 먼저 통과해야 하며, 엉뚱한 예외를 known-red 성공으로 인정하지 않는다.
 
-- Full parser snapshots should store complete `x[]` and normalized `y[]` arrays, not only `yPreview`.
-- Documentation examples may use `yPreview` to keep the document readable.
-- Large fixture snapshots should not store all `y[]` arrays. Use `curveCount`, group counts, first/last curve summaries, warning counts, and `yHash` or equivalent stable summary.
-- `curveId` must be stable for the same workbook/sheet/column parse.
-- `curveId` must not depend on current grouping mode, search, selected state, legend order, or chart style.
-- Raw labels must be preserved exactly in `specimenLabel` and `reagentLabel`.
-- Display labels may be derived, but must not replace raw labels.
-- Imported values are not editable in snapshots.
-- Snapshot warning assertions should use stable `code`, `scope`, `sourceCell`/`sourceRange`, labels, and affected `curveIds`. Do not snapshot localized UI message text.
-- Curves should be sorted by source sheet index and source column index in snapshots for deterministic diffs.
-- `.xls` / `.xlsx` equivalence snapshots should compare normalized curve data after stripping source-file-specific metadata such as file name, extension, hash, and workbook container details.
-
-Recommended curve ID rule:
-
-- Use one workbook-local curve per source data column.
-- `curveId`: `sheet0_col_<ExcelColumnLetter>`, for example `sheet0_col_A`.
-- `sourceId`: `workbook:sheet0:<ExcelColumnLetter>`.
-- If duplicate or missing labels exist, curve identity still comes from source position.
-
----
-
-# 4. Warning Taxonomy
-
-Warning IDs should be stable enough for tests.
-
-| Warning ID | Scope | Trigger | Behavior |
-| --- | --- | --- | --- |
-| `IGNORED_WORKSHEETS` | import | Workbook has sheets after worksheet index 0. | Non-blocking notice; parser uses only first sheet. |
-| `FIRST_SHEET_INVALID` | import | Worksheet index 0 lacks required PCR structure. | Blocking import error. |
-| `MISSING_SPECIMEN_LABEL` | curve/header | Row 1 cell is empty for a data column. | Warning or invalid curve; no automatic name generation except technical ID. |
-| `MISSING_REAGENT_LABEL` | curve/header | Row 2 cell is empty for a data column. | Warning or invalid curve; no automatic name generation except technical ID. |
-| `SIMILAR_SPECIMEN_LABEL` | dataset | Specimen labels are similar after conservative normalization. | Non-blocking warning only; no merge/rename. |
-| `SIMILAR_REAGENT_LABEL` | dataset | Reagent labels are similar after conservative normalization. | Non-blocking warning only; no merge/rename. |
-| `DUPLICATE_CURVE_LABEL` | dataset | More than one curve would display the same specimen/reagent label pair. | Non-blocking warning; curves remain distinct by `curveId`. |
-| `NON_NUMERIC_FLUORESCENCE` | cell/curve | Fluorescence cell cannot be read as a finite number. | Normalized chart Y value becomes `null`; raw value kept in diagnostics. |
-| `EMPTY_FLUORESCENCE_CELL` | cell/curve | Fluorescence cell is empty inside the data range. | Normalized chart Y value becomes `null`. |
-| `FORMULA_WITHOUT_CACHED_VALUE` | cell/curve | Formula cell has no usable cached value in browser parser. | Normalized chart Y value becomes `null`; warning includes cell address. |
-| `MERGED_HEADER_CELL` | header | Header cell is merged or ambiguous. | Warning; no silent label fill unless explicitly implemented and tested. |
-| `UNSUPPORTED_FILE_TYPE` | import | File is not `.xls` or `.xlsx`. | Blocking import error. |
-| `PROTECTED_OR_UNREADABLE_WORKBOOK` | import | Workbook cannot be parsed by browser parser. | Blocking import error. |
-
-Similar-name warning rule for MVP:
-
-- Warning-only and non-blocking.
-- Do not merge, rename, group together, or change export labels.
-- Deterministic similar-key rule:
-  - trim leading/trailing whitespace
-  - convert Latin text to lower case
-  - remove whitespace, hyphen (`-`), and underscore (`_`) characters
-  - compare resulting keys only when both keys are non-empty
-- Example warning target: `검체2` and `검체 2`.
-- Example warning target: `Sample1`, `Sample 1`, and `Sample-1`.
-- If this produces too much noise in real use, warning sensitivity can be adjusted later without changing the no-merge rule.
-
----
-
-# 5. Parser Policy Decisions For Fixtures
-
-These are technical Pre-Phase defaults and do not require user business judgment.
-
-| Area | Fixture Policy |
-| --- | --- |
-| Worksheet selection | Always parse worksheet index 0 only. |
-| Later worksheets | Ignore and warn with `IGNORED_WORKSHEETS`. |
-| Invalid first worksheet | Fail import with `FIRST_SHEET_INVALID`, even if later sheets are valid. |
-| X values | Generate `Cycle 1..N` from data row count. |
-| Negative fluorescence | Valid numeric raw value; do not warn by default. |
-| Empty trailing rows | Ignore after the final row containing any fluorescence value. |
-| Internal empty fluorescence cells | Normalize to `null` and warn. ECharts should render `null` as a line gap. |
-| Empty data columns | Ignore only if header and data cells are all empty; otherwise warn. |
-| Formula cells | Never recalculate formulas in the browser. Use cached finite numeric result when available; otherwise `null` + warning. |
-| Dates/booleans/error cells in fluorescence | Treat as nonnumeric fluorescence unless later explicitly supported. |
-| Merged headers | Warn; do not silently infer repeated labels unless implementation adds tested behavior. |
-| Raw label preservation | Preserve exactly; derived IDs/display labels must not mutate raw labels. |
-| Automatic PCR analysis | No Ct/Cq, threshold, baseline, smoothing, normalization, averaging, or log transform. |
-| Initial selection | After import, no curves are selected by default. All major groups are collapsed and counts remain visible. |
-| Missing Y in plotted-data CSV | Export blank CSV cells for `null` Y values; do not drop rows. |
-| Failed export counter | Failed export attempts do not consume `plotN`. |
-
----
-
-# 6. Selection, Style, And Export Snapshot Expectations
-
-Selection initial state after import:
-
-```json
-{
-  "groupingMode": "reagent",
-  "selectedCurveIds": [],
-  "collapsedGroupIds": ["reagent:A1", "reagent:A2"],
-  "matchedCurveIds": [],
-  "reagentTree": {
-    "groups": [
-      {
-        "groupId": "reagent:A1",
-        "label": "A1",
-        "curveCount": 2,
-        "checkedState": "unchecked",
-        "collapsed": true
-      }
-    ]
-  },
-  "specimenTree": {
-    "groups": [
-      {
-        "groupId": "specimen:검체 1",
-        "label": "검체 1",
-        "curveCount": 2,
-        "checkedState": "unchecked",
-        "collapsed": true
-      }
-    ]
-  }
-}
+```powershell
+npm run test:audit:red
 ```
 
-Important expectations:
+이 명령이 green이라는 의미는 결함이 수정됐다는 뜻이 아니라, 명시한 known-red signature가 현재 정확히 재현된다는 뜻이다. 해당 Phase에서 결함을 수정하면 defect-signature assertion을 정상 target acceptance test로 전환하고 traceability 상태를 갱신한다.
 
-- All major groups start collapsed.
-- Reagent-first is the default tree.
-- Specimen-first tree derives from the same `curveId` set.
-- Search bulk actions apply to all `matchedCurveIds`, including collapsed/virtualized rows.
-- Group IDs should be namespaced by grouping mode, for example `reagent:A1` and `specimen:검체 1`.
-- Tri-state checkbox values should be `checked`, `unchecked`, or `mixed`.
-- Style presets are not parser snapshots, but state tests must verify overwrite and one-step undo.
+## 8. 재생성 및 검토
 
-Preset undo state-machine tests:
-
-1. Before preset: existing group rules and individual overrides are recorded.
-2. Apply preset to an explicit scope.
-3. Affected curve count is emitted.
-4. Existing scoped individual style fields are overwritten.
-5. One-step undo restores the previous affected style state.
-6. A second preset application replaces the previous undo snapshot.
-7. Undo becomes unavailable after it is used once.
-
-Preset scope rule for tests:
-
-- Preset application must always receive an explicit scope from UI/state.
-- Supported test scopes can include selected curves, current reagent group, current specimen group, search matches, and visible curves.
-- No preset may silently apply to the entire dataset unless the explicit scope is `all`.
-
-Export projection snapshot for simple plotted-data CSV:
-
-```json
-{
-  "chartId": "plot1",
-  "visibleCurveIds": ["sheet0_col_A", "sheet0_col_B"],
-  "legendExportOrder": ["sheet0_col_A", "sheet0_col_B"],
-  "sharedX": [1, 2, 3],
-  "csvColumns": ["Cycle", "검체 1 │ A1", "검체 1 │ A2"],
-  "nullCell": "",
-  "duplicateHeaderPolicy": "append-source-column",
-  "enabled": true
-}
+```powershell
+node tests/fixtures/generateFixtures.mjs
+npm run test -- --run tests/data/parseExcel.fixture.test.ts
 ```
 
-Export projection disabled example:
+재생성 전후 hash가 달라지면 다음을 검토한다.
 
-```json
-{
-  "enabled": false,
-  "reason": "Current chart cannot be represented as one rectangular CSV with shared X values."
-}
-```
+1. generator code와 SheetJS version 변화
+2. workbook magic과 worksheet 구조
+3. label/fluorescence가 synthetic-only인지
+4. expected projection 변경 이유
+5. 연결된 AC와 known-red 상태
 
-Image export expectations:
+검토 없이 manifest hash만 갱신하지 않는다.
 
-- PNG/JPEG only.
-- White background.
-- Filename `YYMMDD_<sanitizedAnalysisName>_plotN.ext` when an analysis name is available, with legacy/no-name helper coverage for `YYMMDD_plotN.ext`.
-- Preview and export style parity.
-- No hardcoded reference-image title, threshold/reference line, marker shape, color, legend label, curve count, axis range, or data values.
+## 9. 증거 연결
 
-Plotted-data CSV shape:
-
-- Header row starts with `Cycle`.
-- Curve columns follow current legend/export order.
-- Duplicate display labels are disambiguated by source column, for example `검체 1 │ A1 [A]`.
-- `null` Y values export as blank cells.
-- CSV values are RFC 4180-style quoted when needed for commas, quotes, or line breaks.
-- Rows are ordered by generated cycle X ascending.
-- Disabled CSV export should use stable reason codes in tests, with localized UI text tested separately if needed.
-
-Export filename counter contract:
-
-- `plot1` starts per browser session.
-- A successful export operation increments the counter once.
-- Image + CSV in one operation share the same `plotN`.
-- CSV-only export receives the next `plotN`.
-- Failed export attempts do not consume a number.
-
----
-
-# 7. Verification Performed In Pre-Phase
-
-Local inspection performed:
-
-- Confirmed `C:\Users\siunj\Desktop\graph_TEST.xlsx` exists.
-- Inspected first worksheet using bundled Python `openpyxl` in read-only mode.
-- Confirmed observed workbook structure: 1 sheet, 47 rows, 4 columns, 45 data rows, 4 curve columns.
-- Confirmed `검체2` / `검체 2` similar-name warning candidate.
-- Confirmed no source app code has been created in Pre-Phase.
-
-No automated app tests were run because source code and test framework are not scaffolded yet. Automated tests begin after Phase 0/1.
+감사 finding, FR/IO/Decision, AC, fixture, automated/manual owner, evidence 상태는 `docs/13_AUDIT_REMEDIATION_TRACEABILITY.md`에서 관리한다.

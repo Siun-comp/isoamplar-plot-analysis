@@ -2,6 +2,7 @@ node_modules/
 dist/
 test-results/
 playwright-report/
+evidence/
 tmp/
 .codex-vite.log
 .env

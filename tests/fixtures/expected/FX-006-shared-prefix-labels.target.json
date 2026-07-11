@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "FX-006",
+  "result": "target-known-red",
+  "uniqueLabels": [
+    "Assay Shared Prefix Lot A │ Condition Alpha concentration 01",
+    "Assay Shared Prefix Lot B │ Condition Alpha concentration 02"
+  ],
+  "deliberateFinalStringCollision": [
+    {
+      "curveId": "curve-a",
+      "label": "Condition Shared Final Label",
+      "sourceAlias": "source-1"
+    },
+    {
+      "curveId": "curve-b",
+      "label": "Condition Shared Final Label",
+      "sourceAlias": "source-2"
+    }
+  ]
+}

@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "FX-002",
+  "result": "ok",
+  "source": {
+    "fileName": "FX-002-equivalent.xlsx",
+    "sheetNames": [
+      "Data"
+    ],
+    "usedSheetIndex": 0,
+    "usedSheetName": "Data",
+    "ignoredSheetNames": []
+  },
+  "dataset": {
+    "schemaVersion": 1,
+    "sourceKind": "excel",
+    "sheetIndex": 0,
+    "cycleCount": 3,
+    "orderedCurveIds": [
+      "sheet0_col_A",
+      "sheet0_col_B"
+    ],
+    "curves": [
+      {
+        "curveId": "sheet0_col_A",
+        "sourceId": "FX-002-equivalent.xlsx#Data!A",
+        "specimenId": "specimen:53_79_6e_74_68_65_74_69_63_20_ac80_ccb4_20_41_20_2f_20_3b1",
+        "reagentId": "reagent:41_73_73_61_79_20_31",
+        "specimenLabel": "Synthetic 검체 A / α",
+        "reagentLabel": "Assay 1",
+        "displayLabel": "Synthetic 검체 A / α │ Assay 1",
+        "x": [
+          1,
+          2,
+          3
+        ],
+        "y": [
+          0.1,
+          1.2,
+          2.4
+        ],
+        "stats": {
+          "pointCount": 3,
+          "missingCount": 0,
+          "minY": 0.1,
+          "maxY": 2.4
+        },
+        "source": {
+          "sourceKind": "excel",
+          "fileName": "FX-002-equivalent.xlsx",
+          "sheetName": "Data",
+          "sheetIndex": 0,
+          "columnIndex": 0,
+          "columnLetter": "A",
+          "specimenCell": "A1",
+          "reagentCell": "A2",
+          "dataStartCell": "A3",
+          "dataEndCell": "A5"
+        },
+        "warnings": []
+      },
+      {
+        "curveId": "sheet0_col_B",
+        "sourceId": "FX-002-equivalent.xlsx#Data!B",
+        "specimenId": "specimen:53_79_6e_74_68_65_74_69_63_20_53_61_6d_70_6c_65_20_42_20_ff5c_20_3b2",
+        "reagentId": "reagent:c2dc_c57d_20_32",
+        "specimenLabel": "Synthetic Sample B ｜ β",
+        "reagentLabel": "시약 2",
+        "displayLabel": "Synthetic Sample B ｜ β │ 시약 2",
+        "x": [
+          1,
+          2,
+          3
+        ],
+        "y": [
+          -0.1,
+          1.4,
+          3.5
+        ],
+        "stats": {
+          "pointCount": 3,
+          "missingCount": 0,
+          "minY": -0.1,
+          "maxY": 3.5
+        },
+        "source": {
+          "sourceKind": "excel",
+          "fileName": "FX-002-equivalent.xlsx",
+          "sheetName": "Data",
+          "sheetIndex": 0,
+          "columnIndex": 1,
+          "columnLetter": "B",
+          "specimenCell": "B1",
+          "reagentCell": "B2",
+          "dataStartCell": "B3",
+          "dataEndCell": "B5"
+        },
+        "warnings": []
+      }
+    ],
+    "specimens": [
+      {
+        "id": "specimen:53_79_6e_74_68_65_74_69_63_20_ac80_ccb4_20_41_20_2f_20_3b1",
+        "label": "Synthetic 검체 A / α",
+        "curveIds": [
+          "sheet0_col_A"
+        ],
+        "warningCodes": []
+      },
+      {
+        "id": "specimen:53_79_6e_74_68_65_74_69_63_20_53_61_6d_70_6c_65_20_42_20_ff5c_20_3b2",
+        "label": "Synthetic Sample B ｜ β",
+        "curveIds": [
+          "sheet0_col_B"
+        ],
+        "warningCodes": []
+      }
+    ],
+    "reagents": [
+      {
+        "id": "reagent:41_73_73_61_79_20_31",
+        "label": "Assay 1",
+        "curveIds": [
+          "sheet0_col_A"
+        ],
+        "warningCodes": []
+      },
+      {
+        "id": "reagent:c2dc_c57d_20_32",
+        "label": "시약 2",
+        "curveIds": [
+          "sheet0_col_B"
+        ],
+        "warningCodes": []
+      }
+    ],
+    "warnings": []
+  }
+}

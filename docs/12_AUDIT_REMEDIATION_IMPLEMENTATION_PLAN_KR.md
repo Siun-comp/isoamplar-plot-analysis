@@ -126,7 +126,7 @@
 
 ### 5.1 제안 수용기준 ID
 
-아래 ID는 계획 추적용 초안이다. 각 구현 Phase에서 실제 동작과 test를 확정한 뒤 `docs/04_TEST_PLAN_ACCEPTANCE_EN.md`에 추가한다.
+아래 ID는 S1에서 `Target / Known red`로 `docs/04_TEST_PLAN_ACCEPTANCE_EN.md`에 먼저 고정한다. 각 구현 Phase가 끝날 때 해당 상태와 evidence를 갱신하며, S1 fixture/CI 기반이 준비됐다는 이유만으로 제품 수용기준을 충족 처리하지 않는다.
 
 | ID | 수용기준 초안 |
 |---|---|
@@ -134,12 +134,14 @@
 | AC-PCR-046 | 서로 다른 curve ID의 shared-prefix label은 preview와 모든 legend raster에서 식별 가능하며 최종 표시 문자열 충돌이 조용히 허용되지 않는다. |
 | AC-PCR-047 | `.xls/.xlsx`의 formatted header display text가 label로 보존되고 raw value/type/format/formula/cell address가 provenance로 남는다. |
 | AC-PCR-048 | 모든 import warning은 source identity/handling/affected curves를 표시하고, 해당되는 warning은 location/raw value도 표시하며 append와 Analysis XLSX roundtrip에서 source별로 유지된다. |
-| AC-PCR-049 | dirty analysis의 refresh/close가 보호되고 async save/export/clipboard 결과가 시작 analysis instance에만 반영된다. |
+| AC-PCR-049A | dirty analysis가 하나라도 있으면 refresh/close가 보호되고 모두 clean이면 보호 handler가 없다. |
+| AC-PCR-049B | async save/export/clipboard 결과가 시작 analysis runtime/revision에만 반영된다. |
 | AC-PCR-050 | Analysis XLSX는 schema migration 후 entity/source/point/stats/order 관계를 검증하고 모순 payload를 state commit 전에 거부한다. |
 | AC-PCR-051 | plotted CSV의 최종 specimen/reagent/generated/Analysis label header가 spreadsheet formula로 실행되지 않으며 output escaping은 source label과 Analysis XLSX 값을 변경하지 않는다. |
-| AC-PCR-052 | Legend inactive tab은 화면과 accessibility tree에서 hidden되고 desktop plot/style/legend가 주요 viewport에서 겹치지 않는다. |
-| AC-PCR-053 | CI가 fresh production build, raster, browser-local network, Pages base path의 핵심 흐름을 검사한다. |
-| AC-QP-021 | 현재 문서화된 2,000,000-character 및 250,000-cell 제한 안의 유효한 worst-shape paste는 stack overflow 없이 preview를 완료한다. 제한 밖 또는 예기치 않은 resource 오류만 controlled error로 끝나며 active analysis를 변경하지 않는다. |
+| AC-PCR-052A | Legend inactive tab은 화면과 accessibility tree에서 hidden된다. |
+| AC-PCR-052B | desktop plot/style/legend가 합의된 주요 viewport에서 겹치거나 작업면을 잃지 않는다. |
+| RQ-CI-001 | CI가 한 번 build한 동일 `dist`, fresh Chromium, fixture hash, evidence artifact를 검사하며 raster/network/Pages gate는 S10에서 완성한다. |
+| AC-QP-021 | 현재 문서화된 2,000,000-character 및 250,000-cell 제한 안의 유효한 worst-shape paste는 stack overflow 없이 preview를 완료한다. 문자/cell 제한 밖 입력과 catch 가능한 parser 오류만 controlled error로 끝나며 active analysis를 변경하지 않는다. Browser OOM처럼 process가 복구할 수 없는 실패까지 controlled error로 보장하지 않는다. |
 
 ## 6. 전체 Phase 구조
 
@@ -261,12 +263,12 @@ baseline commit/tag의 정확한 포함 범위와 자동 배포되지 않는 cod
 - fixture에 민감한 실험명, 시약명, 환자/검체 정보가 없다.
 - binary fixture가 source control에서 재현 가능하다.
 - snapshot은 raw fluorescence 순서와 `null` 위치를 명시한다.
-- 현 결함을 보여주는 test는 정규 suite를 깨지 않는 명시적 `todo` 또는 별도 expected-failure audit command로 격리하고 실패 증거를 artifact로 기록한다.
+- 현 결함을 보여주는 test는 정규 suite를 깨지 않는 명시적 `todo` 또는 별도 defect-signature audit command로 격리한다. 별도 command는 전제조건과 현재 결함의 정확한 signature가 모두 일치할 때만 green으로 종료하고 known-red 증거를 artifact로 기록한다. 이 green은 결함 수정이나 수용기준 통과를 뜻하지 않는다.
 
 #### 완료 조건
 
 - 이후 S2~S9가 같은 fixture를 재사용한다.
-- 감사 finding과 test/fixture의 대응표가 생기고 제안 AC-PCR-045~053 및 AC-QP-021 문구가 제품 변경 전에 `docs/04_TEST_PLAN_ACCEPTANCE_EN.md`에 고정된다.
+- 감사 finding과 test/fixture의 대응표가 생기고 AC-PCR-045~052B, RQ-CI-001 및 AC-QP-021 문구가 제품 변경 전에 `Target / Known red`로 `docs/04_TEST_PLAN_ACCEPTANCE_EN.md`에 고정된다.
 - test count 숫자를 문서에 하드코딩하지 않고 command 결과로 기록한다.
 
 #### 구현 프롬프트
@@ -275,8 +277,8 @@ baseline commit/tag의 정확한 포함 범위와 자동 배포되지 않는 cod
 docs/12_AUDIT_REMEDIATION_IMPLEMENTATION_PLAN_KR.md Phase S1만 진행하라.
 사용자 데이터를 재사용하지 말고 synthetic .xls/.xlsx/paste/Analysis XLSX fixture와 normalized snapshot을 추가하라.
 C-P1-01~06, shared-prefix legend, formula-safe label, async tab, semantic restore를 재현할 수 있는 evidence를 준비하라.
-제품 동작은 아직 바꾸지 말고, 수정 전 실패 test는 todo 또는 별도 expected-failure audit job으로 격리하여 정규 suite를 green으로 유지하라.
-제안 수용기준을 docs/04에 고정하고 최소 CI에 test/build/fresh Chromium Playwright와 실패 artifact를 연결하라. dist는 한 번만 build하고 hash를 기록하되 Pages 배포 정책은 바꾸지 마라.
+제품 동작은 아직 바꾸지 말고, 수정 전 실패 test는 todo 또는 정확한 current defect signature를 검증하는 별도 audit job으로 격리하여 정규 suite를 green으로 유지하라. audit job의 green은 결함이 재현됐다는 뜻이며 제품 수용으로 기록하지 마라.
+제안 수용기준을 Target / Known red로 docs/04에 고정하고 최소 CI에 test/build/fresh Chromium Playwright와 known-red·실패 artifact를 연결하라. dist는 한 번만 build하고 hash를 기록하며 Playwright 이후 전체 파일 manifest를 다시 산출해 추가·삭제·변경까지 비교하되 Pages 배포 정책은 바꾸지 마라.
 DEVELOPMENT_STATE.md 상단 CURRENT TRUTH를 한 페이지 이내로 정리하라.
 전체 test/build/fresh Playwright와 데스크톱 browser 확인 후 전문가 검토 결과를 기록하라.
 현재 dirty tree를 보존하고 unresolved UD를 구현하지 말며 다음 Phase로 넘어가지 마라. stage/commit/tag/push/deploy하지 마라.
@@ -874,7 +876,7 @@ release candidate URL과 사용자 검수 checklist, 남은 결정 항목, rollb
 6. Excel warning provenance 변경과 schema version/legacy migration/roundtrip을 S4 한 Phase에 묶었다.
 7. Warning Inspector 이동이 selection/order/style/dirty를 변경하지 않게 했고 cell warning과 dataset warning의 dedupe 규칙을 분리했다.
 8. 현재 2,000,000-character/250,000-cell Quick Paste 계약 안의 유효 입력은 반드시 preview를 완료하도록 수용기준을 강화했다.
-9. async export/save의 runtime/revision/counter/dirty 상태표와 병행 counter 충돌 방지를 명시했다.
+9. async export/save의 runtime/revision/counter/dirty 상태표와 병행 counter 충돌 방지를 명시하고 refresh protection과 async attribution을 AC-PCR-049A/B로 분리했다.
 10. UD-02 전에는 Analysis XLSX 대형 payload 위험이 해결됐다고 주장하지 않고 semantic validation과 계측만 S7A로 완료하게 했다.
 11. Style의 중복 Analysis label 편집을 제거하고 Legend Labels를 단일 소유자로 정리했다.
 12. S8의 새 editor workflow 선택을 UD-19로 분리하고 S9는 측정된 병목의 virtualization/memoization만 담당하게 했다.
