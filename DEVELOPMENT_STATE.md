@@ -12,7 +12,7 @@ Active
 ## CURRENT TRUTH
 
 - Active branch: `codex/audit-remediation`; it does not trigger the Pages deploy workflow.
-- Current published release: `eae3281fb8f9bbbd900fab528be3e094b93b555a` on `main`, tag `release-20260711-audit-remediation-r1`.
+- Current published product artifact source: `eae3281fb8f9bbbd900fab528be3e094b93b555a`, tag `release-20260711-audit-remediation-r1`. Evidence-only commits may follow it on `main` without changing the verified dist hash.
 - Pre-release rollback anchor: `9e77ad23ec8e863d3d05e7c8508ceb4729372155`.
 - Pre-remediation checkpoint: commit `319daa901221b4d5811eafb44f82319ddcedf296`, tag `checkpoint/audit-remediation-baseline-20260711`.
 - Phase S0 is complete. Phase S1 evidence foundation was committed as `1e30717` after local verification and expert review.

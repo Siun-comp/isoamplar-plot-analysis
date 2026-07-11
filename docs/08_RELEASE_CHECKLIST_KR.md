@@ -38,7 +38,7 @@ Active release gate
 - [x] Pages artifact upload 전 unit/audit/dependency/Chromium/dist equality 통과
 - [x] screenshot, trace, browser console, network evidence failure artifact 보존
 - [x] release candidate push workflow run 성공: `29156244025`
-- [x] 공개 Pages URL에서 post-deploy smoke 성공: `29156323546`, deployed SHA `eae3281fb8f9bbbd900fab528be3e094b93b555a`
+- [x] 공개 Pages URL에서 post-deploy smoke 성공: `29156323546`, product artifact source SHA `eae3281fb8f9bbbd900fab528be3e094b93b555a`
 
 ## 사용자 수동 확인
 - [ ] 실제 업무 Excel에서 검체/시약 label, curve 수, warning이 의도와 일치하는지 확인

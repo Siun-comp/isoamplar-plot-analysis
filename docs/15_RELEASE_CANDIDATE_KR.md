@@ -14,7 +14,7 @@ Released - post-deploy smoke passed
 - Initial candidate commit/tag: `dcdbc21c01adafd355fa60d9d0cda0e54c853444` / `release-20260711-audit-remediation`
 - Final promoted commit/tag: `eae3281fb8f9bbbd900fab528be3e094b93b555a` / `release-20260711-audit-remediation-r1`
 - Pre-release rollback SHA: `9e77ad23ec8e863d3d05e7c8508ceb4729372155`
-- Current released SHA: `eae3281fb8f9bbbd900fab528be3e094b93b555a`
+- Current released product artifact source SHA: `eae3281fb8f9bbbd900fab528be3e094b93b555a`; evidence-only documentation commits may follow without changing the verified dist hash
 - Local Pages-base dist tree SHA-256: `1012572727dd66d74763775f828fef165baa24012c61c770db6617e90d6cce46`
 - Public URL: https://siun-comp.github.io/isoamplar-plot-analysis/
 
@@ -87,7 +87,7 @@ Released - post-deploy smoke passed
 - Final branch CI run: https://github.com/Siun-comp/isoamplar-plot-analysis/actions/runs/29156244025 - success, 11 Chromium tests
 - Initial Pages run: https://github.com/Siun-comp/isoamplar-plot-analysis/actions/runs/29156159533 - failed before build on historical Markdown trailing whitespace; no deployment occurred and the prior public version remained active
 - Final Pages workflow run: https://github.com/Siun-comp/isoamplar-plot-analysis/actions/runs/29156323546 - success
-- Deployed SHA: `eae3281fb8f9bbbd900fab528be3e094b93b555a`
+- Deployed product artifact source SHA: `eae3281fb8f9bbbd900fab528be3e094b93b555a`
 - Post-deploy smoke: pass at 2026-07-11 23:39 KST
 - Rollback required: no
 - Nonblocking workflow annotation: GitHub reports Node 20 deprecation for current action majors while forcing them to Node 24; both branch and Pages workflows completed successfully
