@@ -27,7 +27,9 @@ export function createPlottedDataCsv(args: {
   }
 
   const styleRules = args.styleRules ?? createDefaultStyleRules();
-  const headers = createUniqueHeaders(curves, styleRules, args.curveOverrides ?? {}, args.labelMode);
+  const headers = createSpreadsheetSafeHeaders(
+    createUniqueHeaders(curves, styleRules, args.curveOverrides ?? {}, args.labelMode)
+  );
   const lines = [["Cycle"].concat(headers).map(csvEscape).join(",")];
   for (let rowIndex = 0; rowIndex < referenceX.length; rowIndex += 1) {
     const cells = [String(referenceX[rowIndex])];
@@ -68,4 +70,19 @@ function createUniqueHeaders(
 function csvEscape(value: string) {
   if (!/[",\r\n]/u.test(value)) return value;
   return `"${value.replace(/"/gu, '""')}"`;
+}
+
+function createSpreadsheetSafeHeaders(headers: string[]) {
+  const used = new Set<string>();
+  return headers.map((header) => {
+    const safeHeader = /^[=+\-@]/u.test(header) ? `'${header}` : header;
+    let candidate = safeHeader;
+    let suffix = 2;
+    while (used.has(candidate)) {
+      candidate = `${safeHeader} [${suffix}]`;
+      suffix += 1;
+    }
+    used.add(candidate);
+    return candidate;
+  });
 }

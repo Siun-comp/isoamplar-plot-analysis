@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { createPlottedDataCsv } from "../../src/chart/plottedDataExport";
 import { createOneSpecimenEightReagentDataset } from "../../src/data/sampleData";
 
-describe("isolated known-red audit probes", () => {
-  it("records the AC-PCR-051 formula-like CSV header signature", () => {
+describe("isolated audit remediation probes", () => {
+  it("records the remediated AC-PCR-051 formula-safe CSV header signature", () => {
     const dataset = createOneSpecimenEightReagentDataset();
     const curve = dataset.curves[0];
     const result = createPlottedDataCsv({
@@ -12,6 +12,7 @@ describe("isolated known-red audit probes", () => {
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.csv.split("\r\n")[0]).toContain(",=");
+    expect(result.csv.split("\r\n")[0]).toContain(",'=FORMULA-LIKE-LABEL");
+    expect(result.csv.split("\r\n")[0]).not.toContain(",=");
   });
 });

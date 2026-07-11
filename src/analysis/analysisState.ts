@@ -283,6 +283,13 @@ export function validateSerializedAnalysisState(payload: unknown): SerializedAna
   validateLegendSettings(migratedPayload.legendSettings, datasetCurveIds);
   validateExportSettings(migratedPayload.exportSettings);
   validateSourceFiles(migratedPayload.sourceFiles);
+  validateDatasetRelationships(dataset);
+  validateSourceFileRelationships(dataset, migratedPayload.sourceFiles as SourceFileSummary[], payload.schemaVersion === 3);
+  validatePersistedReferences(
+    dataset,
+    migratedPayload.selection as SerializedSelectionState,
+    migratedPayload.styleRules as StyleRules
+  );
 
   return migratedPayload as SerializedAnalysisState;
 }
@@ -298,13 +305,17 @@ function migrateSerializedAnalysisPayload(payload: Record<string, unknown>): Rec
         reagentMarkerTypes: payload.styleRules.reagentMarkerTypes ?? {}
       }
     : payload.styleRules;
+  const sourceFiles = needsProvenanceMigration ? migrateSourceFileProvenance(payload.sourceFiles) : payload.sourceFiles;
+  const dataset = needsProvenanceMigration
+    ? migrateDatasetProvenance(payload.dataset, sourceFiles)
+    : payload.dataset;
 
   return {
     ...payload,
     schemaVersion: ANALYSIS_STATE_SCHEMA_VERSION,
     chartScale: isLegacySchema ? migrateChartScale(payload.chartScale) : payload.chartScale,
-    dataset: needsProvenanceMigration ? migrateDatasetProvenance(payload.dataset) : payload.dataset,
-    sourceFiles: needsProvenanceMigration ? migrateSourceFileProvenance(payload.sourceFiles) : payload.sourceFiles,
+    dataset,
+    sourceFiles,
     styleRules,
     legendSettings:
       "legendSettings" in payload && isRecord(payload.legendSettings)
@@ -347,10 +358,10 @@ function migrateAxisScale(value: unknown): unknown {
   return { ...value, applied };
 }
 
-function migrateDatasetProvenance(value: unknown): unknown {
+function migrateDatasetProvenance(value: unknown, sourceFiles: unknown): unknown {
   if (!isRecord(value)) return value;
   const sourcedCurves = Array.isArray(value.curves)
-    ? value.curves.map((curve) => migrateCurveProvenance(curve))
+    ? value.curves.map((curve) => migrateCurveProvenance(curve, sourceFiles))
     : value.curves;
   const curves = Array.isArray(sourcedCurves)
     ? sourcedCurves.map((curve) =>
@@ -379,13 +390,19 @@ function migrateDatasetProvenance(value: unknown): unknown {
   };
 }
 
-function migrateCurveProvenance(value: unknown): unknown {
+function migrateCurveProvenance(value: unknown, sourceFiles: unknown): unknown {
   if (!isRecord(value) || !isRecord(value.source)) return value;
   const source = value.source;
   const sourceKind = "sourceKind" in source ? source.sourceKind : "excel";
   const fileName = typeof source.fileName === "string" ? source.fileName : "unknown";
   const sheetName = typeof source.sheetName === "string" ? source.sheetName : "unknown";
   const sheetIndex = typeof source.sheetIndex === "number" ? source.sheetIndex : 0;
+  const importIndex = getLegacyCurveImportIndex(value.curveId);
+  const sourceFile = Array.isArray(sourceFiles) && isRecord(sourceFiles[importIndex]) ? sourceFiles[importIndex] : undefined;
+  const migratedSourceInstanceId =
+    sourceFile && typeof sourceFile.sourceInstanceId === "string"
+      ? sourceFile.sourceInstanceId
+      : `legacy:${sourceKind}:${importIndex + 1}:${fileName}#${sheetIndex}:${sheetName}`;
 
   return {
     ...value,
@@ -395,7 +412,7 @@ function migrateCurveProvenance(value: unknown): unknown {
       sourceInstanceId:
         typeof source.sourceInstanceId === "string" && source.sourceInstanceId
           ? source.sourceInstanceId
-          : `legacy:${sourceKind}:${fileName}#${sheetIndex}:${sheetName}`,
+          : migratedSourceInstanceId,
       specimenHeader:
         sourceKind === "excel"
           ? migrateHeaderProvenance(source.specimenHeader, value.specimenLabel)
@@ -406,6 +423,12 @@ function migrateCurveProvenance(value: unknown): unknown {
           : source.reagentHeader
     }
   };
+}
+
+function getLegacyCurveImportIndex(curveId: unknown) {
+  if (typeof curveId !== "string") return 0;
+  const fileNumber = Number(curveId.match(/^file(\d+)_/u)?.[1]);
+  return Number.isInteger(fileNumber) && fileNumber >= 2 ? fileNumber - 1 : 0;
 }
 
 function migrateHeaderProvenance(value: unknown, fallbackLabel: unknown) {
@@ -428,9 +451,27 @@ function migrateEntityWarnings(value: unknown, curves: unknown[]) {
 
 function migrateWarnings(value: unknown, curves: unknown[]) {
   if (!Array.isArray(value)) return value;
+  const migratedSourceIds = new Set(
+    curves
+      .map((curve) =>
+        isRecord(curve) && isRecord(curve.source) && typeof curve.source.sourceInstanceId === "string"
+          ? curve.source.sourceInstanceId
+          : null
+      )
+      .filter((sourceId): sourceId is string => sourceId !== null)
+  );
   return value.map((warning) => {
     if (!isRecord(warning)) return warning;
-    const sourceRefs = Array.isArray(warning.sourceRefs)
+    const persistedSourceRefsRemainValid =
+      Array.isArray(warning.sourceRefs) &&
+      warning.sourceRefs.length > 0 &&
+      warning.sourceRefs.every(
+        (sourceRef) =>
+          isRecord(sourceRef) &&
+          typeof sourceRef.sourceInstanceId === "string" &&
+          migratedSourceIds.has(sourceRef.sourceInstanceId)
+      );
+    const sourceRefs = persistedSourceRefsRemainValid
       ? warning.sourceRefs
       : createLegacyWarningSourceRefs(warning, curves);
     return {
@@ -489,7 +530,7 @@ function toPortableProvenanceValue(value: unknown) {
 
 function migrateSourceFileProvenance(value: unknown): unknown {
   if (!Array.isArray(value)) return value;
-  return value.map((sourceFile) => {
+  return value.map((sourceFile, index) => {
     if (!isRecord(sourceFile)) return sourceFile;
     const sourceKind = "sourceKind" in sourceFile ? sourceFile.sourceKind : "excel";
     const fileName = typeof sourceFile.fileName === "string" ? sourceFile.fileName : "unknown";
@@ -501,7 +542,7 @@ function migrateSourceFileProvenance(value: unknown): unknown {
       sourceInstanceId:
         typeof sourceFile.sourceInstanceId === "string" && sourceFile.sourceInstanceId
           ? sourceFile.sourceInstanceId
-          : `legacy:${sourceKind}:${fileName}#${sheetIndex}:${sheetName}`
+          : `legacy:${sourceKind}:${index + 1}:${fileName}#${sheetIndex}:${sheetName}`
     };
   });
 }
@@ -861,6 +902,259 @@ function validateSourceFiles(value: unknown): asserts value is SourceFileSummary
     assertString(sourceFile.importedAtIso, `${path}.importedAtIso`);
     assertNonNegativeInteger(sourceFile.curveCount, `${path}.curveCount`);
   });
+}
+
+function validateDatasetRelationships(dataset: PcrDataset) {
+  const expectedCycleCount = dataset.curves.reduce((max, curve) => Math.max(max, curve.x.length), 0);
+  if (dataset.cycleCount !== expectedCycleCount) {
+    throw new Error("dataset.cycleCount does not match the longest curve.");
+  }
+
+  for (const [index, curve] of dataset.curves.entries()) {
+    for (let pointIndex = 0; pointIndex < curve.x.length; pointIndex += 1) {
+      if (curve.x[pointIndex] !== pointIndex + 1) {
+        throw new Error(`dataset.curves[${index}].x must follow Cycle 1..N.`);
+      }
+    }
+    validateCurveStatsRelationship(curve, `dataset.curves[${index}]`);
+    if (curve.source.sourceKind === "excel") {
+      if (
+        curve.source.specimenHeader?.displayValue !== curve.specimenLabel ||
+        curve.source.reagentHeader?.displayValue !== curve.reagentLabel
+      ) {
+        throw new Error(`dataset.curves[${index}] header provenance does not match its labels.`);
+      }
+    }
+  }
+
+  validateEntityRelationships(dataset.curves, dataset.specimens, "specimen");
+  validateEntityRelationships(dataset.curves, dataset.reagents, "reagent");
+
+  const sourceKinds = new Set(dataset.curves.map((curve) => curve.source.sourceKind ?? "excel"));
+  const expectedSourceKind = sourceKinds.size > 1 ? "mixed" : (sourceKinds.values().next().value ?? "excel");
+  if (dataset.sourceKind !== expectedSourceKind) {
+    throw new Error("dataset.sourceKind does not match curve provenance.");
+  }
+}
+
+function validateCurveStatsRelationship(curve: Curve, path: string) {
+  let missingCount = 0;
+  let minY: number | null = null;
+  let maxY: number | null = null;
+  for (const value of curve.y) {
+    if (value === null) {
+      missingCount += 1;
+      continue;
+    }
+    minY = minY === null ? value : Math.min(minY, value);
+    maxY = maxY === null ? value : Math.max(maxY, value);
+  }
+
+  if (
+    curve.stats.pointCount !== curve.y.length ||
+    curve.stats.missingCount !== missingCount ||
+    curve.stats.minY !== minY ||
+    curve.stats.maxY !== maxY
+  ) {
+    throw new Error(`${path}.stats does not match its fluorescence points.`);
+  }
+}
+
+function validateEntityRelationships(curves: Curve[], entities: PcrEntity[], kind: "specimen" | "reagent") {
+  const expected = new Map<string, { label: string; curveIds: string[] }>();
+  for (const curve of curves) {
+    const id = kind === "specimen" ? curve.specimenId : curve.reagentId;
+    const label = kind === "specimen" ? curve.specimenLabel : curve.reagentLabel;
+    const entry = expected.get(id);
+    if (entry) {
+      if (entry.label !== label) throw new Error(`dataset.${kind}s contains one ID with conflicting labels.`);
+      entry.curveIds.push(curve.curveId);
+    } else {
+      expected.set(id, { label, curveIds: [curve.curveId] });
+    }
+  }
+
+  const seenIds = new Set<string>();
+  for (const entity of entities) {
+    if (seenIds.has(entity.id)) throw new Error(`dataset.${kind}s IDs must be unique.`);
+    seenIds.add(entity.id);
+    const expectedEntity = expected.get(entity.id);
+    if (!expectedEntity || expectedEntity.label !== entity.label) {
+      throw new Error(`dataset.${kind}s does not match curve membership.`);
+    }
+    assertSameStringSet(entity.curveIds, new Set(expectedEntity.curveIds), `dataset.${kind}s.${entity.id}.curveIds`);
+  }
+
+  if (seenIds.size !== expected.size) {
+    throw new Error(`dataset.${kind}s does not include every curve group.`);
+  }
+}
+
+function validateSourceFileRelationships(
+  dataset: PcrDataset,
+  sourceFiles: SourceFileSummary[],
+  requireCurrentPasteInputMode: boolean
+) {
+  const sourceIds = new Set<string>();
+  for (const sourceFile of sourceFiles) {
+    const sourceId = sourceFile.sourceInstanceId!;
+    if (sourceIds.has(sourceId)) throw new Error("sourceFiles source IDs must be unique.");
+    sourceIds.add(sourceId);
+  }
+
+  const curvesBySource = new Map<string, Curve[]>();
+  const provenanceLocations = new Set<string>();
+  for (const curve of dataset.curves) {
+    const sourceId = curve.source.sourceInstanceId!;
+    const location = `${sourceId}\u0000${curve.source.columnLetter}`;
+    if (provenanceLocations.has(location)) {
+      throw new Error("Curve provenance source and column pairs must be unique.");
+    }
+    provenanceLocations.add(location);
+    const sourceCurves = curvesBySource.get(sourceId) ?? [];
+    sourceCurves.push(curve);
+    curvesBySource.set(sourceId, sourceCurves);
+  }
+
+  for (const sourceCurves of curvesBySource.values()) {
+    const reference = sourceCurves[0].source;
+    if (
+      sourceCurves.some(
+        (curve) =>
+          curve.source.sourceKind !== reference.sourceKind ||
+          curve.source.fileName !== reference.fileName ||
+          curve.source.sheetName !== reference.sheetName ||
+          curve.source.sheetIndex !== reference.sheetIndex
+      )
+    ) {
+      throw new Error("Curves sharing one source ID contain conflicting provenance metadata.");
+    }
+    if (reference.sourceKind === "paste") {
+      if (requireCurrentPasteInputMode && reference.inputMode === undefined) {
+        throw new Error("Current paste curve provenance requires inputMode.");
+      }
+      if (sourceCurves.some((curve) => curve.source.inputMode !== reference.inputMode)) {
+        throw new Error("Curves sharing one paste source ID contain conflicting input modes.");
+      }
+    }
+  }
+
+  const isAggregateMixedSummary =
+    sourceFiles.length === 1 &&
+    sourceFiles[0].sourceKind === "mixed" &&
+    sourceFiles[0].sourceInstanceId === `dataset:${dataset.datasetId}`;
+  if (isAggregateMixedSummary) {
+    const summary = sourceFiles[0];
+    if (
+      summary.curveCount !== dataset.curves.length ||
+      summary.fileName !== dataset.sourceFileName ||
+      summary.sheetName !== dataset.sheetName ||
+      summary.sheetIndex !== dataset.sheetIndex
+    ) {
+      throw new Error("sourceFiles aggregate summary does not match the dataset.");
+    }
+    validateWarningRelationships(dataset, curvesBySource);
+    return;
+  }
+
+  for (const sourceFile of sourceFiles) {
+    const sourceCurves = curvesBySource.get(sourceFile.sourceInstanceId!);
+    if (!sourceCurves || sourceCurves.length !== sourceFile.curveCount) {
+      throw new Error("sourceFiles curve count does not match curve provenance.");
+    }
+    if (
+      sourceCurves.some(
+        (curve) =>
+          curve.source.sourceKind !== sourceFile.sourceKind ||
+          curve.source.fileName !== sourceFile.fileName ||
+          curve.source.sheetName !== sourceFile.sheetName ||
+          curve.source.sheetIndex !== sourceFile.sheetIndex
+      )
+    ) {
+      throw new Error("sourceFiles metadata does not match curve provenance.");
+    }
+  }
+
+  if (sourceIds.size !== curvesBySource.size || [...curvesBySource.keys()].some((sourceId) => !sourceIds.has(sourceId))) {
+    throw new Error("sourceFiles does not cover every curve provenance source.");
+  }
+
+  validateWarningRelationships(dataset, curvesBySource);
+}
+
+function validatePersistedReferences(
+  dataset: PcrDataset,
+  selection: SerializedSelectionState,
+  styleRules: StyleRules
+) {
+  const validGroupIds = new Set([
+    ...dataset.specimens.map((entity) => `group:specimen:${entity.id}`),
+    ...dataset.reagents.map((entity) => `group:reagent:${entity.id}`)
+  ]);
+  for (const groupId of selection.collapsedGroupIds) {
+    if (!validGroupIds.has(groupId)) throw new Error("selection.collapsedGroupIds contains an unknown groupId.");
+  }
+
+  const specimenIds = new Set(dataset.specimens.map((entity) => entity.id));
+  const reagentIds = new Set(dataset.reagents.map((entity) => entity.id));
+  validateStyleRecordKeys(styleRules.specimenColors, specimenIds, "styleRules.specimenColors");
+  validateStyleRecordKeys(styleRules.specimenLineTypes, specimenIds, "styleRules.specimenLineTypes");
+  validateStyleRecordKeys(styleRules.specimenMarkerTypes, specimenIds, "styleRules.specimenMarkerTypes");
+  validateStyleRecordKeys(styleRules.reagentColors, reagentIds, "styleRules.reagentColors");
+  validateStyleRecordKeys(styleRules.reagentLineTypes, reagentIds, "styleRules.reagentLineTypes");
+  validateStyleRecordKeys(styleRules.reagentMarkerTypes, reagentIds, "styleRules.reagentMarkerTypes");
+}
+
+function validateStyleRecordKeys(value: Record<string, unknown>, entityIds: Set<string>, path: string) {
+  for (const entityId of Object.keys(value)) {
+    if (!entityIds.has(entityId)) throw new Error(`${path} contains an unknown entity ID.`);
+  }
+}
+
+function validateWarningRelationships(dataset: PcrDataset, curvesBySource: Map<string, Curve[]>) {
+  const curveIds = new Set(dataset.curves.map((curve) => curve.curveId));
+  const curvesById = new Map(dataset.curves.map((curve) => [curve.curveId, curve]));
+  const warnings: Array<{ warning: PcrWarning; ownerCurveId?: string }> = [
+    ...dataset.warnings.map((warning) => ({ warning })),
+    ...dataset.curves.flatMap((curve) =>
+      curve.warnings.map((warning) => ({ warning, ownerCurveId: curve.curveId }))
+    ),
+    ...dataset.specimens.flatMap((entity) => entity.warnings.map((warning) => ({ warning }))),
+    ...dataset.reagents.flatMap((entity) => entity.warnings.map((warning) => ({ warning })))
+  ];
+
+  for (const { warning, ownerCurveId } of warnings) {
+    if (ownerCurveId && !warning.curveIds?.includes(ownerCurveId)) {
+      throw new Error("Curve warning metadata does not reference its owning curve.");
+    }
+    for (const curveId of warning.curveIds ?? []) {
+      if (!curveIds.has(curveId)) throw new Error("Warning metadata contains an unknown curveId.");
+    }
+    for (const sourceRef of warning.sourceRefs ?? []) {
+      const sourceCurves = sourceRef.sourceInstanceId ? curvesBySource.get(sourceRef.sourceInstanceId) : undefined;
+      if (!sourceCurves) throw new Error("Warning metadata contains an unknown source ID.");
+      if (
+        sourceCurves.some(
+          (curve) =>
+            curve.source.fileName !== sourceRef.sourceName ||
+            curve.source.sourceKind !== sourceRef.sourceKind
+        )
+      ) {
+        throw new Error("Warning source metadata does not match curve provenance.");
+      }
+    }
+    for (const curveId of warning.curveIds ?? []) {
+      const curve = curvesById.get(curveId)!;
+      const relatedSourceRef = warning.sourceRefs?.some(
+        (sourceRef) =>
+          sourceRef.sourceInstanceId === curve.source.sourceInstanceId &&
+          (sourceRef.columnLetter === undefined || sourceRef.columnLetter === curve.source.columnLetter)
+      );
+      if (!relatedSourceRef) {
+        throw new Error("Warning affected curves and source references are inconsistent.");
+      }
+    }
+  }
 }
 
 function validateNumberArray(value: unknown, path: string): asserts value is number[] {

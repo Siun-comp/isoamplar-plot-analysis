@@ -93,6 +93,8 @@ Workbook shape:
 - `_IsoAmplarAnalysis`: hidden worksheet containing `schemaVersion` and chunked JSON restore data. This hidden JSON is the authoritative restore source.
 - `_IsoAmplarChecksum`: optional hidden worksheet for checksum or sanity markers; not emitted by the current implementation.
 
+The visible `Settings` sheet also records source-specific cycle counts, the generated `Cycle 1..N` rule, fluorescence-point/source counts, restore-JSON UTF-16 code units and UTF-8 bytes, chunk count, and an advisory estimated workbook size. Export/import APIs measure actual file bytes where available. The workbook estimate is a planning heuristic rather than an accuracy or browser-capacity guarantee, and these measurements do not enforce a hard limit.
+
 Restore payload must include:
 
 - Full imported dataset with all curves, including unselected curves.
@@ -122,6 +124,10 @@ Routing policy:
 - Dirty tab close shows explicit options: Cancel, save Analysis XLSX then close, or close without saving. Dirty replacement never proceeds silently.
 
 If the hidden restore worksheet is missing, corrupt, chunk-damaged, or has an unsupported schema version, the app must show an actionable error and must not misinterpret the file as a normal PCR source workbook. Ordinary `.xlsx` source workbooks are treated as Analysis XLSX only when they contain the explicit IsoAmplar restore marker, so review-like sheet names such as `Settings` or `ImportedData` alone do not change routing. Current Analysis XLSX uses schema 3 and normalized dataset schema 2. Schema 1 is migrated by deriving explicit applied scale state and legacy source/header/warning provenance. Schema 2 keeps its explicit applied scale and migrates legacy header/warning provenance. Schema 3 requires explicit applied scale, Excel header provenance, warning handling, and source-reference arrays; missing required state is rejected as corrupt. Restore may fill only documented non-destructive legacy defaults.
+
+After migration and structural validation, restore must also verify generated `Cycle 1..N` X values, X/Y lengths, dataset maximum cycle count, recomputed min/max/missing/point statistics, specimen/reagent membership, source summary/provenance, warning references, selected/order/override IDs, collapsed group IDs, and style entity keys. Validation completes before a new analysis tab is committed. Restore JSON chunks must not split a UTF-16 surrogate pair.
+
+Plotted CSV applies spreadsheet-formula neutralization only to final text headers. A final header beginning `=`, `+`, `-`, or `@` is prefixed with an ASCII apostrophe before standard CSV quoting and post-neutralization duplicate disambiguation. Numeric fluorescence cells, original specimen/reagent labels, Analysis labels in live state, and Analysis XLSX values are not modified.
 
 ## Report / Plotted XLSX Rules
 Report/Plotted XLSX remains deferred and is separate from Analysis XLSX.

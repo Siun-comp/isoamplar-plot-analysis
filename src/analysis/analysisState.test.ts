@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createDefaultChartScale } from "../chart/chartScale";
 import { createDefaultStyleRules } from "../chart/chartStyle";
+import { appendPcrDataset } from "../data/mergeDatasets";
+import { parsePastedTable } from "../data/parsePastedTable";
 import { createOneSpecimenEightReagentDataset } from "../data/sampleData";
+import { createGroupId } from "../selection/buildTrees";
 import { createInitialSelectionState } from "../selection/selectionState";
 import {
   ANALYSIS_STATE_SCHEMA_VERSION,
@@ -18,7 +21,7 @@ function createTestAnalysisState(): AnalysisState {
   const secondCurveId = dataset.curves[1].curveId;
   const selection = createInitialSelectionState(dataset);
   selection.selectedCurveIds.add(firstCurveId);
-  selection.collapsedGroupIds.add(dataset.reagents[0].id);
+  selection.collapsedGroupIds.add(createGroupId("reagent", dataset.reagents[0].id));
   selection.orderedCurveIds = [secondCurveId, firstCurveId, ...selection.orderedCurveIds.slice(2)];
 
   const chartScale = createDefaultChartScale();
@@ -202,6 +205,45 @@ describe("analysis state serialization", () => {
     expect(restored.dataset.warnings[0].sourceRefs?.[0]).toMatchObject({ cell: "A1", columnLetter: "A" });
   });
 
+  it("migrates repeated same-name legacy sources by import occurrence instead of merging them", () => {
+    const first = createOneSpecimenEightReagentDataset();
+    const second = createOneSpecimenEightReagentDataset();
+    const merged = appendPcrDataset(first, second).dataset;
+    merged.warnings = [];
+    merged.curves.forEach((curve) => {
+      curve.warnings = [];
+    });
+    const state = createAnalysisState({
+      analysisId: "legacy-repeated-source",
+      analysisName: "Legacy repeated source",
+      dataset: merged,
+      selection: createInitialSelectionState(merged),
+      searchQuery: "",
+      selectionFilter: "all",
+      chartScale: createDefaultChartScale(),
+      styleRules: createDefaultStyleRules(),
+      curveOverrides: {},
+      exportCounter: 1,
+      importFileName: merged.sourceFileName,
+      sourceFiles: [createSourceFileSummary(first), createSourceFileSummary(second)]
+    });
+    const legacyPayload = JSON.parse(JSON.stringify(serializeAnalysisState(state)));
+    legacyPayload.schemaVersion = 2;
+    legacyPayload.dataset.curves.forEach((curve: { source: Record<string, unknown> }) => {
+      delete curve.source.sourceKind;
+      delete curve.source.sourceInstanceId;
+    });
+    legacyPayload.sourceFiles.forEach((source: Record<string, unknown>) => {
+      delete source.sourceKind;
+      delete source.sourceInstanceId;
+    });
+
+    const restored = deserializeAnalysisState(legacyPayload);
+    expect(new Set(restored.sourceFiles.map((source) => source.sourceInstanceId)).size).toBe(2);
+    expect(new Set(restored.dataset.curves.map((curve) => curve.source.sourceInstanceId)).size).toBe(2);
+    expect(restored.sourceFiles.map((source) => source.curveCount)).toEqual([8, 8]);
+  });
+
   it("migrates schema 1 scale drafts to explicit applied scale state", () => {
     const legacyPayload = JSON.parse(JSON.stringify(serializeAnalysisState(createTestAnalysisState())));
     legacyPayload.schemaVersion = 1;
@@ -353,6 +395,119 @@ describe("analysis state serialization", () => {
         selection: { ...serialized.selection, orderedCurveIds: serialized.selection.orderedCurveIds.slice(1) }
       })
     ).toThrow("must match dataset curve IDs");
+  });
+
+  it("rejects semantically inconsistent curve, entity, source, warning, and style relationships", () => {
+    const createPayload = () => JSON.parse(JSON.stringify(serializeAnalysisState(createTestAnalysisState())));
+
+    const wrongCycleCount = createPayload();
+    wrongCycleCount.dataset.cycleCount += 1;
+    expect(() => deserializeAnalysisState(wrongCycleCount)).toThrow("cycleCount");
+
+    const wrongCycleAxis = createPayload();
+    wrongCycleAxis.dataset.curves[0].x[1] = 3;
+    expect(() => deserializeAnalysisState(wrongCycleAxis)).toThrow("Cycle 1..N");
+
+    const wrongStats = createPayload();
+    wrongStats.dataset.curves[0].stats.maxY += 1;
+    expect(() => deserializeAnalysisState(wrongStats)).toThrow("stats does not match");
+
+    const wrongEntity = createPayload();
+    wrongEntity.dataset.specimens[0].curveIds = wrongEntity.dataset.specimens[0].curveIds.slice(1);
+    expect(() => deserializeAnalysisState(wrongEntity)).toThrow("dataset.specimens");
+
+    const wrongSource = createPayload();
+    wrongSource.sourceFiles[0].curveCount -= 1;
+    expect(() => deserializeAnalysisState(wrongSource)).toThrow("curve count");
+
+    const wrongWarning = createPayload();
+    wrongWarning.dataset.warnings = [
+      {
+        code: "EMPTY_FLUORESCENCE_CELL",
+        severity: "warning",
+        scope: "cell",
+        handling: "null-gap",
+        message: "Missing value",
+        curveIds: ["unknown-curve"],
+        sourceRefs: [
+          {
+            sourceInstanceId: wrongWarning.sourceFiles[0].sourceInstanceId,
+            sourceName: wrongWarning.sourceFiles[0].fileName,
+            sourceKind: "excel"
+          }
+        ]
+      }
+    ];
+    expect(() => deserializeAnalysisState(wrongWarning)).toThrow("unknown curveId");
+
+    const wrongStyle = createPayload();
+    wrongStyle.styleRules.specimenColors["unknown-specimen"] = "#000000";
+    expect(() => deserializeAnalysisState(wrongStyle)).toThrow("unknown entity ID");
+
+    const wrongCollapsedGroup = createPayload();
+    wrongCollapsedGroup.selection.collapsedGroupIds.push("group:reagent:unknown");
+    expect(() => deserializeAnalysisState(wrongCollapsedGroup)).toThrow("unknown groupId");
+  });
+
+  it("validates aggregate mixed-source provenance, paste mode, and warning-to-curve source links", () => {
+    const excelDataset = createOneSpecimenEightReagentDataset();
+    const pasted = parsePastedTable("Comparison\nA9\n0.1\n1.1", {
+      mode: "fullTable",
+      sourceName: "Paste comparison",
+      sourceInstanceId: "paste-semantic-review"
+    });
+    expect(pasted.ok).toBe(true);
+    if (!pasted.ok) return;
+    const merged = appendPcrDataset(excelDataset, pasted.dataset).dataset;
+    const aggregateState = createAnalysisState({
+      analysisId: "aggregate-mixed",
+      analysisName: "Aggregate mixed",
+      dataset: merged,
+      selection: createInitialSelectionState(merged),
+      searchQuery: "",
+      selectionFilter: "all",
+      chartScale: createDefaultChartScale(),
+      styleRules: createDefaultStyleRules(),
+      curveOverrides: {},
+      exportCounter: 1,
+      importFileName: merged.sourceFileName
+    });
+    const validPayload = JSON.parse(JSON.stringify(serializeAnalysisState(aggregateState)));
+    expect(deserializeAnalysisState(validPayload).dataset.curves).toHaveLength(9);
+
+    const conflictingSource = JSON.parse(JSON.stringify(validPayload));
+    const excelCurve = conflictingSource.dataset.curves[0];
+    const pasteCurve = conflictingSource.dataset.curves.at(-1);
+    pasteCurve.source.sourceInstanceId = excelCurve.source.sourceInstanceId;
+    pasteCurve.source.columnLetter = "Z";
+    expect(() => deserializeAnalysisState(conflictingSource)).toThrow("conflicting provenance metadata");
+
+    const missingPasteMode = JSON.parse(JSON.stringify(validPayload));
+    delete missingPasteMode.dataset.curves.at(-1).source.inputMode;
+    expect(() => deserializeAnalysisState(missingPasteMode)).toThrow("requires inputMode");
+
+    const crossedWarning = JSON.parse(JSON.stringify(validPayload));
+    const crossedExcelCurve = crossedWarning.dataset.curves[0];
+    const crossedPasteCurve = crossedWarning.dataset.curves.at(-1);
+    crossedWarning.dataset.warnings = [
+      {
+        code: "EMPTY_FLUORESCENCE_CELL",
+        severity: "warning",
+        scope: "cell",
+        handling: "null-gap",
+        message: "Crossed source reference",
+        curveIds: [crossedExcelCurve.curveId],
+        sourceRefs: [
+          {
+            sourceInstanceId: crossedPasteCurve.source.sourceInstanceId,
+            sourceName: crossedPasteCurve.source.fileName,
+            sourceKind: crossedPasteCurve.source.sourceKind,
+            columnLetter: crossedPasteCurve.source.columnLetter
+          }
+        ]
+      }
+    ];
+    expect(() => deserializeAnalysisState(crossedWarning)).toThrow("affected curves and source references");
   });
 
   it("rejects schema 3 payloads that omit required Excel header or warning provenance", () => {

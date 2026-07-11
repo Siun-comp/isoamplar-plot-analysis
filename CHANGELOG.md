@@ -1,5 +1,14 @@
 # CHANGELOG.md
 
+## 2026-07-11 - Audit remediation S7A restore and CSV safety
+
+- Added semantic Analysis XLSX validation for cycle axes, curve statistics, specimen/reagent membership, source provenance, warning references, ordering, collapse state, and style references before a restored tab is created.
+- Added payload measurements for curves, fluorescence points, sources, restore JSON, chunks, estimated workbook size, and actual workbook bytes without introducing an unapproved hard limit.
+- Added source-specific cycle-count and `Cycle 1..N` review metadata to the visible Settings worksheet.
+- Made restore JSON chunking preserve non-BMP text across chunk boundaries.
+- Made plotted CSV headers beginning with `=`, `+`, `-`, or `@` spreadsheet-safe without changing source labels, Analysis labels, fluorescence values, or Analysis XLSX content.
+- Added malformed restore, current-analysis preservation, formula-header, chunk-boundary, mixed-source, and 96-curve by 100-cycle generated payload regression tests.
+
 ## 2026-07-11 - Audit remediation S6 save continuity and async isolation
 
 - Added browser refresh/close protection whenever any analysis tab has unsaved changes.

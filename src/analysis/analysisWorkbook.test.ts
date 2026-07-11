@@ -3,15 +3,17 @@ import * as XLSX from "xlsx";
 import packageJson from "../../package.json";
 import { createDefaultChartScale, getAppliedAxisScaleForDraft } from "../chart/chartScale";
 import { createDefaultStyleRules } from "../chart/chartStyle";
-import { createOneSpecimenEightReagentDataset } from "../data/sampleData";
+import { createOneSpecimenEightReagentDataset, createSyntheticPcrDataset } from "../data/sampleData";
 import { appendPcrDataset } from "../data/mergeDatasets";
 import { parsePastedTable } from "../data/parsePastedTable";
 import { createInitialSelectionState } from "../selection/selectionState";
+import { createGroupId } from "../selection/buildTrees";
 import { createAnalysisState, createSourceFileSummary, serializeAnalysisState } from "./analysisState";
 import {
   ANALYSIS_RESTORE_SHEET_NAME,
   createAnalysisWorkbookFileName,
   exportAnalysisWorkbookBuffer,
+  exportAnalysisWorkbookBufferWithMetrics,
   readAnalysisWorkbook,
   readAnalysisWorkbookBuffer,
   sanitizeAnalysisFileNamePart
@@ -22,7 +24,8 @@ describe("Analysis XLSX workbook", () => {
     const dataset = createOneSpecimenEightReagentDataset();
     const selection = createInitialSelectionState(dataset);
     selection.selectedCurveIds.add(dataset.curves[0].curveId);
-    selection.collapsedGroupIds.add(dataset.reagents[0].id);
+    const collapsedReagentGroupId = createGroupId("reagent", dataset.reagents[0].id);
+    selection.collapsedGroupIds.add(collapsedReagentGroupId);
     selection.orderedCurveIds = [
       dataset.curves[1].curveId,
       dataset.curves[0].curveId,
@@ -115,8 +118,11 @@ describe("Analysis XLSX workbook", () => {
       "Sheet",
       "Sheet index",
       "Imported at",
-      "Curve count"
+      "Curve count",
+      "Cycle counts",
+      "X-axis rule"
     ]);
+    expect(settingsRows).toContainEqual(["Cycle generation rule", "Cycle 1..N"]);
 
     const restored = await readAnalysisWorkbookBuffer(buffer);
     expect(restored.kind).toBe("analysis");
@@ -125,7 +131,13 @@ describe("Analysis XLSX workbook", () => {
     expect(restored.analysis.dataset.curves).toHaveLength(dataset.curves.length);
     expect(restored.analysis.selection.selectedCurveIds.has(dataset.curves[0].curveId)).toBe(true);
     expect(restored.analysis.selection.selectedCurveIds.has(dataset.curves[1].curveId)).toBe(false);
-    expect(restored.analysis.selection.collapsedGroupIds.has(dataset.reagents[0].id)).toBe(true);
+    expect(restored.analysis.selection.collapsedGroupIds.has(collapsedReagentGroupId)).toBe(true);
+    expect(restored.metrics).toMatchObject({
+      fileBytes: buffer.byteLength,
+      curveCount: dataset.curves.length,
+      pointCount: dataset.curves.reduce((count, curve) => count + curve.y.length, 0),
+      sourceCount: 1
+    });
     expect(restored.analysis.selection.orderedCurveIds.slice(0, 2)).toEqual([
       dataset.curves[1].curveId,
       dataset.curves[0].curveId
@@ -219,7 +231,9 @@ describe("Analysis XLSX workbook", () => {
       "Paste",
       0,
       "2026-07-11T01:00:00.000Z",
-      1
+      1,
+      "3",
+      "Cycle 1..N"
     ]);
 
     const restored = await readAnalysisWorkbookBuffer(buffer);
@@ -560,6 +574,114 @@ describe("Analysis XLSX workbook", () => {
     expect(createAnalysisWorkbookFileName(2, new Date("2026-07-08T00:00:00"))).toBe("260708_analysis2.xlsx");
     expect(createAnalysisWorkbookFileName(1, new Date("2026-07-09T00:00:00"), "Run A")).toBe("260709_Run_A_analysis1.xlsx");
     expect(sanitizeAnalysisFileNamePart(" a/b:c* run ")).toBe("a_b_c_run");
+  });
+
+  it("reports payload metrics and preserves non-BMP text across restore chunk boundaries", async () => {
+    const dataset = createOneSpecimenEightReagentDataset();
+    const state = createAnalysisState({
+      analysisId: "analysis-chunk-boundary",
+      analysisName: "",
+      dataset,
+      selection: createInitialSelectionState(dataset),
+      searchQuery: "",
+      selectionFilter: "all",
+      chartScale: createDefaultChartScale(),
+      styleRules: createDefaultStyleRules(),
+      curveOverrides: {},
+      exportCounter: 1,
+      importFileName: dataset.sourceFileName
+    });
+    const emptyJson = JSON.stringify(serializeAnalysisState(state));
+    const analysisNameStart = emptyJson.indexOf('"analysisName":"') + '"analysisName":"'.length;
+    state.analysisName = `${"a".repeat(30000 - analysisNameStart - 1)}😀boundary`;
+
+    const exported = await exportAnalysisWorkbookBufferWithMetrics(state);
+    expect(exported.metrics.fileBytes).toBe(exported.buffer.byteLength);
+    expect(exported.metrics.restoreChunkCount).toBeGreaterThan(1);
+    expect(exported.metrics.joinedJsonBytes).toBeGreaterThan(exported.metrics.joinedJsonCodeUnits);
+    expect(exported.metrics.advisoryEstimatedWorkbookBytes).toBeGreaterThan(0);
+
+    const restored = await readAnalysisWorkbookBuffer(exported.buffer);
+    expect(restored.kind).toBe("analysis");
+    if (restored.kind !== "analysis") return;
+    expect(restored.analysis.analysisName).toBe(state.analysisName);
+    expect(restored.metrics).toEqual(exported.metrics);
+  });
+
+  it("keeps formula-like analysis labels unchanged inside Analysis XLSX", async () => {
+    const dataset = createOneSpecimenEightReagentDataset();
+    const curve = dataset.curves[0];
+    const state = createAnalysisState({
+      analysisId: "analysis-formula-label",
+      analysisName: "Formula label review",
+      dataset,
+      selection: createInitialSelectionState(dataset),
+      searchQuery: "",
+      selectionFilter: "all",
+      chartScale: createDefaultChartScale(),
+      styleRules: createDefaultStyleRules(),
+      curveOverrides: { [curve.curveId]: { displayName: "=Condition A" } },
+      exportCounter: 1,
+      importFileName: dataset.sourceFileName
+    });
+
+    const workbook = XLSX.read(await exportAnalysisWorkbookBuffer(state), { type: "array", raw: true });
+    expect(workbook.Sheets.ImportedData.B3?.v).toBe("=Condition A");
+  });
+
+  it("measures a generated 96-curve by 100-cycle payload without applying an unresolved hard limit", async () => {
+    const dataset = createSyntheticPcrDataset({
+      specimenLabels: Array.from({ length: 12 }, (_, index) => `합성 검체 ${index + 1}`),
+      reagentLabels: Array.from({ length: 8 }, (_, index) => `R${index + 1}`),
+      cycleCount: 100,
+      fileName: "synthetic_capacity_review.xlsx"
+    });
+    dataset.warnings = dataset.curves.map((curve, index) => ({
+      code: "EMPTY_FLUORESCENCE_CELL" as const,
+      severity: "warning" as const,
+      scope: "cell" as const,
+      handling: "null-gap" as const,
+      message: `Synthetic warning ${index + 1}`,
+      curveIds: [curve.curveId],
+      sourceRefs: [
+        {
+          sourceInstanceId: curve.source.sourceInstanceId,
+          sourceName: curve.source.fileName,
+          sourceKind: curve.source.sourceKind ?? "excel",
+          worksheet: curve.source.sheetName,
+          cell: curve.source.dataStartCell,
+          columnLetter: curve.source.columnLetter
+        }
+      ]
+    }));
+    const state = createAnalysisState({
+      analysisId: "analysis-capacity-review",
+      analysisName: "Synthetic capacity review",
+      dataset,
+      selection: createInitialSelectionState(dataset),
+      searchQuery: "",
+      selectionFilter: "all",
+      chartScale: createDefaultChartScale(),
+      styleRules: createDefaultStyleRules(),
+      curveOverrides: {},
+      exportCounter: 1,
+      importFileName: dataset.sourceFileName
+    });
+
+    const exported = await exportAnalysisWorkbookBufferWithMetrics(state);
+    expect(exported.metrics).toMatchObject({ curveCount: 96, pointCount: 9600, sourceCount: 1 });
+    expect(exported.metrics.restoreChunkCount).toBeGreaterThan(1);
+    expect(exported.metrics.fileBytes).toBeGreaterThan(0);
+    const actualToAdvisoryRatio =
+      exported.metrics.fileBytes! / exported.metrics.advisoryEstimatedWorkbookBytes;
+    expect(Number.isFinite(actualToAdvisoryRatio)).toBe(true);
+    expect(actualToAdvisoryRatio).toBeGreaterThan(0);
+
+    const restored = await readAnalysisWorkbookBuffer(exported.buffer);
+    expect(restored.kind).toBe("analysis");
+    if (restored.kind !== "analysis") return;
+    expect(restored.analysis.dataset.curves).toHaveLength(96);
+    expect(restored.analysis.selection.selectedCurveIds.size).toBe(0);
   });
 
   it("keeps native editable Excel chart and report image workbook dependencies out of the app", () => {

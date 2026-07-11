@@ -20,27 +20,48 @@ const IMPORTED_DATA_SHEET_NAME = "ImportedData";
 const WARNINGS_SHEET_NAME = "Warnings";
 const CHUNK_SIZE = 30000;
 
+export type AnalysisWorkbookMetrics = {
+  fileBytes: number | null;
+  curveCount: number;
+  pointCount: number;
+  sourceCount: number;
+  restoreChunkCount: number;
+  joinedJsonCodeUnits: number;
+  joinedJsonBytes: number;
+  advisoryEstimatedWorkbookBytes: number;
+};
+
 export type AnalysisWorkbookReadResult =
-  | { kind: "analysis"; analysis: AnalysisState }
+  | { kind: "analysis"; analysis: AnalysisState; metrics: AnalysisWorkbookMetrics }
   | { kind: "not-analysis" }
   | { kind: "invalid-analysis"; message: string };
 
 let xlsxModulePromise: Promise<XlsxModule> | null = null;
 
 export async function exportAnalysisWorkbookBuffer(state: AnalysisState) {
+  const result = await exportAnalysisWorkbookBufferWithMetrics(state);
+  return result.buffer;
+}
+
+export async function exportAnalysisWorkbookBufferWithMetrics(state: AnalysisState) {
+  const prepared = prepareAnalysisRestore(state);
   const xlsx = await loadXlsx();
   const workbook = xlsx.utils.book_new();
 
   appendSheet(xlsx, workbook, READ_ME_SHEET_NAME, createReadmeRows());
-  appendSheet(xlsx, workbook, SETTINGS_SHEET_NAME, createSettingsRows(state));
+  appendSheet(xlsx, workbook, SETTINGS_SHEET_NAME, createSettingsRows(state, prepared.metrics));
   appendSheet(xlsx, workbook, HEADER_PROVENANCE_SHEET_NAME, createHeaderProvenanceRows(state.dataset.curves));
   appendSheet(xlsx, workbook, IMPORTED_DATA_SHEET_NAME, createImportedDataRows(state.dataset.curves, state.curveOverrides));
   appendSheet(xlsx, workbook, WARNINGS_SHEET_NAME, createWarningsRows(state.dataset.warnings));
-  appendSheet(xlsx, workbook, ANALYSIS_RESTORE_SHEET_NAME, createRestoreRows(serializeAnalysisState(state)));
+  appendSheet(xlsx, workbook, ANALYSIS_RESTORE_SHEET_NAME, createRestoreRows(prepared));
   hideSheet(workbook, ANALYSIS_RESTORE_SHEET_NAME);
 
   const output = xlsx.write(workbook, { type: "array", bookType: "xlsx" }) as ArrayBuffer | Uint8Array | number[];
-  return toArrayBuffer(output);
+  const buffer = toArrayBuffer(output);
+  return {
+    buffer,
+    metrics: { ...prepared.metrics, fileBytes: buffer.byteLength }
+  };
 }
 
 export async function exportAnalysisWorkbookBlob(state: AnalysisState) {
@@ -69,7 +90,10 @@ export async function readAnalysisWorkbookFile(file: File): Promise<AnalysisWork
 export async function readAnalysisWorkbookBuffer(buffer: ArrayBuffer | Uint8Array): Promise<AnalysisWorkbookReadResult> {
   const xlsx = await loadXlsx();
   const workbook = xlsx.read(buffer, { type: "array", raw: true });
-  return readAnalysisWorkbook(workbook, xlsx);
+  const result = readAnalysisWorkbook(workbook, xlsx);
+  return result.kind === "analysis"
+    ? { ...result, metrics: { ...result.metrics, fileBytes: buffer.byteLength } }
+    : result;
 }
 
 export function readAnalysisWorkbook(workbook: XLSX.WorkBook, xlsx: XlsxModule): AnalysisWorkbookReadResult {
@@ -87,10 +111,12 @@ export function readAnalysisWorkbook(workbook: XLSX.WorkBook, xlsx: XlsxModule):
   }
 
   try {
-    const serialized = readSerializedAnalysisState(restoreSheet, xlsx);
+    const { serialized, restoreMetrics } = readSerializedAnalysisState(restoreSheet, xlsx);
+    const analysis = deserializeAnalysisState(serialized);
     return {
       kind: "analysis",
-      analysis: deserializeAnalysisState(serialized)
+      analysis,
+      metrics: createAnalysisWorkbookMetrics(analysis, restoreMetrics)
     };
   } catch (error) {
     return {
@@ -119,7 +145,7 @@ function createReadmeRows() {
   ];
 }
 
-function createSettingsRows(state: AnalysisState) {
+function createSettingsRows(state: AnalysisState, metrics: AnalysisWorkbookMetrics) {
   const selectedCount = state.selection.selectedCurveIds.size;
   const rows: unknown[][] = [
     ["Setting", "Value"],
@@ -128,6 +154,13 @@ function createSettingsRows(state: AnalysisState) {
     ["Schema version", ANALYSIS_STATE_SCHEMA_VERSION],
     ["Imported curve count", state.dataset.curves.length],
     ["Selected curve count", selectedCount],
+    ["Fluorescence point count", metrics.pointCount],
+    ["Source count", metrics.sourceCount],
+    ["Restore JSON UTF-16 code units", metrics.joinedJsonCodeUnits],
+    ["Restore JSON bytes", metrics.joinedJsonBytes],
+    ["Restore chunk count", metrics.restoreChunkCount],
+    ["Advisory estimated workbook bytes", metrics.advisoryEstimatedWorkbookBytes],
+    ["Cycle generation rule", "Cycle 1..N"],
     ["Dataset source file", state.dataset.sourceFileName],
     ["Worksheet", state.dataset.sheetName],
     ["Export counter", state.exportCounter],
@@ -145,9 +178,20 @@ function createSettingsRows(state: AnalysisState) {
     ["Y applied min", state.chartScale.y.applied.min ?? ""],
     ["Y applied max", state.chartScale.y.applied.max ?? ""],
     [],
-    ["Source type", "Source ID", "Source name", "Sheet", "Sheet index", "Imported at", "Curve count"]
+    [
+      "Source type",
+      "Source ID",
+      "Source name",
+      "Sheet",
+      "Sheet index",
+      "Imported at",
+      "Curve count",
+      "Cycle counts",
+      "X-axis rule"
+    ]
   ];
   for (const sourceFile of state.sourceFiles) {
+    const cycleCounts = getSourceCycleCounts(state, sourceFile);
     rows.push([
       sourceFile.sourceKind ?? "excel",
       sourceFile.sourceInstanceId ?? "",
@@ -155,7 +199,9 @@ function createSettingsRows(state: AnalysisState) {
       sourceFile.sheetName,
       sourceFile.sheetIndex,
       sourceFile.importedAtIso,
-      sourceFile.curveCount
+      sourceFile.curveCount,
+      cycleCounts.join(", "),
+      "Cycle 1..N"
     ]);
   }
   return rows;
@@ -284,9 +330,36 @@ function createWarningsRows(warnings: PcrWarning[]) {
   return rows;
 }
 
-function createRestoreRows(serialized: SerializedAnalysisState) {
+type PreparedAnalysisRestore = {
+  chunks: string[];
+  metrics: AnalysisWorkbookMetrics;
+};
+
+function prepareAnalysisRestore(state: AnalysisState): PreparedAnalysisRestore {
+  const serialized = serializeAnalysisState(state);
+  const curveCount = state.dataset.curves.length;
+  const pointCount = state.dataset.curves.reduce((count, curve) => count + curve.y.length, 0);
+  const sourceCount = new Set(state.dataset.curves.map((curve) => curve.source.sourceInstanceId)).size;
   const json = JSON.stringify(serialized);
   const chunks = chunkString(json, CHUNK_SIZE);
+  const joinedJsonBytes = utf8ByteLength(json);
+  return {
+    chunks,
+    metrics: {
+      fileBytes: null,
+      curveCount,
+      pointCount,
+      sourceCount,
+      restoreChunkCount: chunks.length,
+      joinedJsonCodeUnits: json.length,
+      joinedJsonBytes,
+      advisoryEstimatedWorkbookBytes: estimateWorkbookBytes(state, joinedJsonBytes)
+    }
+  };
+}
+
+function createRestoreRows(prepared: PreparedAnalysisRestore) {
+  const { chunks } = prepared;
   const rows: unknown[][] = [
     [ANALYSIS_RESTORE_MARKER],
     ["schemaVersion", ANALYSIS_STATE_SCHEMA_VERSION],
@@ -332,11 +405,79 @@ function readSerializedAnalysisState(worksheet: XLSX.WorkSheet, xlsx: XlsxModule
     throw new Error("Analysis XLSX restore chunks are incomplete.");
   }
 
-  const payload = JSON.parse(chunks.join("")) as { schemaVersion?: unknown };
+  const joinedJsonCodeUnits = chunks.reduce((count, chunk) => count + chunk.length, 0);
+  const joinedJson = chunks.join("");
+  const joinedJsonBytes = utf8ByteLength(joinedJson);
+  const payload = JSON.parse(joinedJson) as { schemaVersion?: unknown };
   if (!payload || typeof payload !== "object" || payload.schemaVersion !== schemaVersion) {
     throw new Error("Analysis XLSX restore schema metadata does not match its payload.");
   }
-  return payload as SerializedAnalysisState;
+  return {
+    serialized: payload as SerializedAnalysisState,
+    restoreMetrics: {
+      restoreChunkCount: chunks.length,
+      joinedJsonCodeUnits,
+      joinedJsonBytes
+    }
+  };
+}
+
+function createAnalysisWorkbookMetrics(
+  analysis: AnalysisState,
+  restoreMetrics: Pick<AnalysisWorkbookMetrics, "restoreChunkCount" | "joinedJsonCodeUnits" | "joinedJsonBytes">
+): AnalysisWorkbookMetrics {
+  const curveCount = analysis.dataset.curves.length;
+  return {
+    fileBytes: null,
+    curveCount,
+    pointCount: analysis.dataset.curves.reduce((count, curve) => count + curve.y.length, 0),
+    sourceCount: new Set(analysis.dataset.curves.map((curve) => curve.source.sourceInstanceId)).size,
+    ...restoreMetrics,
+    advisoryEstimatedWorkbookBytes: estimateWorkbookBytesFromShape(
+      analysis.dataset.cycleCount,
+      curveCount,
+      restoreMetrics.joinedJsonBytes
+    )
+  };
+}
+
+function getSourceCycleCounts(state: AnalysisState, sourceFile: AnalysisState["sourceFiles"][number]) {
+  const aggregateSource =
+    sourceFile.sourceKind === "mixed" && sourceFile.sourceInstanceId === `dataset:${state.dataset.datasetId}`;
+  return [
+    ...new Set(
+      state.dataset.curves
+        .filter((curve) => aggregateSource || curve.source.sourceInstanceId === sourceFile.sourceInstanceId)
+        .map((curve) => curve.x.length)
+    )
+  ].sort((left, right) => left - right);
+}
+
+function estimateWorkbookBytes(state: AnalysisState, joinedJsonBytes: number) {
+  return estimateWorkbookBytesFromShape(state.dataset.cycleCount, state.dataset.curves.length, joinedJsonBytes);
+}
+
+function estimateWorkbookBytesFromShape(cycleCount: number, curveCount: number, joinedJsonBytes: number) {
+  const importedDataCells = (cycleCount + 9) * (curveCount + 1);
+  const provenanceCells = curveCount * 2 * 13;
+  return Math.ceil(joinedJsonBytes + (importedDataCells + provenanceCells) * 24 + 65536);
+}
+
+function utf8ByteLength(value: string) {
+  let bytes = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code < 0x80) bytes += 1;
+    else if (code < 0x800) bytes += 2;
+    else if (code >= 0xd800 && code <= 0xdbff && index + 1 < value.length) {
+      const next = value.charCodeAt(index + 1);
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        bytes += 4;
+        index += 1;
+      } else bytes += 3;
+    } else bytes += 3;
+  }
+  return bytes;
 }
 
 function hasIsoAmplarAnalysisMarker(workbook: XLSX.WorkBook) {
@@ -360,8 +501,12 @@ function hideSheet(workbook: XLSX.WorkBook, sheetName: string) {
 
 function chunkString(value: string, size: number) {
   const chunks: string[] = [];
-  for (let index = 0; index < value.length; index += size) {
-    chunks.push(value.slice(index, index + size));
+  for (let index = 0; index < value.length; ) {
+    let end = Math.min(index + size, value.length);
+    const lastCodeUnit = value.charCodeAt(end - 1);
+    if (end < value.length && lastCodeUnit >= 0xd800 && lastCodeUnit <= 0xdbff) end -= 1;
+    chunks.push(value.slice(index, end));
+    index = end;
   }
   return chunks;
 }

@@ -19,10 +19,11 @@ Active
 - Phase S3 legend identity/raster remediation is committed as `723d83f` after full local verification and final independent expert GO review.
 - Phase S4 Excel header identity and common Warning Inspector remediation is committed as `276fbd1` after full automated, build, fresh Chromium, in-app browser, and independent expert verification.
 - Phase S5 Quick Paste accepted-envelope safety and localized error containment is committed as `6294bfb` after final independent expert GO verdicts.
-- Phase S6 save continuity, dedicated Analysis XLSX commands, browser-close protection, and asynchronous tab isolation are fully verified with final independent code and desktop-UX GO verdicts; its phase commit is next.
+- Phase S6 save continuity, dedicated Analysis XLSX commands, browser-close protection, and asynchronous tab isolation are committed as `63e42dd` after final independent code and desktop-UX GO verdicts.
+- Phase S7A Analysis XLSX semantic validation, payload measurement, surrogate-safe restore chunks, and formula-safe plotted CSV headers are fully verified with final independent semantic and performance/security GO verdicts; the phase commit is next.
 - S1 adds synthetic-only fixed `.xlsx`/BIFF8 `.xls` fixtures, SHA-256 manifest, normalized/target snapshots, raster evidence helper, Target/Known-red acceptance criteria, traceability, and a read-only non-deploying CI workflow.
 - Product runtime behavior is unchanged by S1. No parser, chart, state, export, UI, dependency, or Pages deployment behavior was modified.
-- Latest S5 verification: the deterministic standard suite passed twice consecutively at 30 files / 231 tests with 6 later-phase TODOs; the one remaining isolated known-red probe belongs to S7 CSV safety; build passed; fresh Chromium passed 7/7 including all three maximum cell-shape previews; local in-app browser had zero console warnings/errors and no horizontal overflow.
+- Latest S7A verification: the deterministic standard suite passed 30 files / 249 tests with 3 S8/S10 TODOs; the isolated CSV audit probe passes; build passed; fresh Chromium passed 7/7 with fail-on-flaky enabled; dependency audit found 0 vulnerabilities. In-app 1280x720, 1366x768, and 1920x1080 checks found no horizontal overflow, replacement characters, warnings, or errors.
 - User data remains browser-local. No real workbook, patient/specimen record, or actual fluorescence dataset is checked into S1 fixtures.
 - The user has granted standing approval for subsequent remediation phase commits. Continue phases sequentially, but do not push or deploy until the plan reaches the corresponding release phase.
 
@@ -49,30 +50,27 @@ Active
 - The latest UI consistency pass normalizes button/form-control sizing across top tabs, import actions, selection controls, chart tools, scale controls, legend controls, and export controls; status badges remain intentionally smaller. It also scopes settings accordion summary styling so nested Style color/line popover triggers stay compact, tightens reset-icon button padding, and removes an obsolete hidden Export legend button wrapper.
 - Quick Paste Import Phases Q0-Q6 are implemented from `docs/10_QUICK_PASTE_IMPORT_PLAN_KR.md`. It supports full-table and single-specimen input, tab-separated and single-column text, read-only preview, paginated source-position warnings with acknowledgement, stale/target revision guards for append and new-analysis actions, per-import source identity, mixed-source Analysis XLSX continuity, and the existing chart/export pipeline. Comma/CSV tables are rejected to prevent silent delimiter corruption.
 - A 2026-07-11 code/data-integrity/desktop-UX audit is complete in `docs/11_GPT56_PROJECT_AUDIT_KR.md`. Mobile was explicitly excluded. No P0 issue was identified; Stabilization A prioritizes invalid Fixed-scale export fallback, exported-legend identity truncation, Excel formatted-header identity, actionable Excel warnings, browser refresh/close protection, and accepted-size Quick Paste crash prevention. The audit also records P2 state/export/performance risks, documentation drift, and workflow candidates such as Warning Center, explicit save commands, Named Views, and optional export preflight.
-- The audit remediation plan is active in `docs/12_AUDIT_REMEDIATION_IMPLEMENTATION_PLAN_KR.md`. Phases S0-S5 are committed; S6 is fully verified and ready to commit. Later phases remain sequential and pending.
+- The audit remediation plan is active in `docs/12_AUDIT_REMEDIATION_IMPLEMENTATION_PLAN_KR.md`. Phases S0-S6 are committed; S7A is fully verified and ready to commit. S8-S11 remain sequential and pending.
 
 ## Current Goal
-Commit the independently approved S6 phase, then begin Phase S7 Analysis XLSX semantic validation and payload measurement. Stop only for a genuine user business decision.
+Commit the independently approved S7A phase, then begin Phase S8 desktop UI defect and density remediation. Stop only for a genuine user business decision.
 
 ## Current Milestone
 M9 - Release validation and real-data hardening.
 
 ## Last Completed Step
-Completed S6 browser-close protection, top-level Analysis XLSX save/status, intent-separated input commands, per-analysis output reservations, and captured-runtime completion rules. Initial expert NO-GO findings for cross-tab local messages, stale new-tab errors, non-modal dirty close, clipped guidance, missing progress semantics, and Escape during save-and-close were corrected and regression-tested. Final code and desktop-UX verdicts: GO.
+Completed S7A semantic restore validation, occurrence-aware legacy provenance migration, mixed-source/paste/warning relationship checks, migration-correct payload measurements, surrogate-safe restore chunks, and collision-safe spreadsheet formula neutralization for plotted CSV headers. Malformed restore leaves the current analysis unchanged. Final semantic and performance/security verdicts: GO. UD-02 hard payload limits remain explicitly unresolved.
 
 ## Latest Changed Files
-- `src/analysis/saveAnalysisWorkflow.ts`
-- `src/app/appStore.ts`
-- `src/app/App.tsx`
-- `src/ui/AnalysisTabs.tsx`
-- `src/ui/AnalysisWorkspaceRecovery.tsx`
-- `src/ui/DataImportPanel.tsx`
-- `src/ui/SettingsPanel.tsx`
-- `src/styles.css`
+- `src/analysis/analysisState.ts`
+- `src/analysis/analysisWorkbook.ts`
+- `src/chart/plottedDataExport.ts`
+- `src/analysis/analysisState.test.ts`
+- `src/analysis/analysisWorkbook.test.ts`
 - `src/app/appStore.test.ts`
-- `src/app/App.test.tsx`
-- `tests/e2e/app.spec.ts`
+- `src/chart/plottedDataExport.test.ts`
 - `tests/audit/auditEvidence.todo.test.ts`
+- `tests/audit/knownRed.audit.ts`
 - `docs/02_FUNCTIONAL_REQUIREMENTS_EN.md`
 - `docs/03_INPUT_OUTPUT_SPEC_EN.md`
 - `docs/04_TEST_PLAN_ACCEPTANCE_EN.md`
@@ -565,13 +563,14 @@ Completed S6 browser-close protection, top-level Analysis XLSX save/status, inte
   - `docs/gui_mockups/screenshots/phase-r12_hover_warning_mobile.png`
 
 ## Known Gaps
-- Phase S5 is committed. S6 is fully verified and ready to commit; S7-S11 product remediations remain pending.
-- S2-S6 resolve invalid Fixed-scale fallback, accepted-envelope large-array hazards, exported-legend identity loss, Excel formatted-header identity, actionable source-aware warnings, localized containment, browser refresh/close protection, and captured-tab async output routing. Later payload/performance/UX work remains for its scheduled phases.
+- Phases S0-S6 are committed. S7A is fully implemented and locally verified; S8-S11 product remediations remain pending.
+- S2-S7A resolve invalid Fixed-scale fallback, accepted-envelope large-array hazards, exported-legend identity loss, Excel formatted-header identity, actionable source-aware warnings, localized containment, browser refresh/close protection, captured-tab async output routing, contradictory Analysis XLSX restoration, non-BMP restore chunk damage, and plotted CSV formula-like headers.
 - The audit also reproduced a CSS defect where Legend `Labels` does not hide the `Order` panel, plus laptop-height sticky-chart and dense individual-style/legend-editor limitations. These remain unmodified pending user prioritization.
 - Clipboard image copy and rich Excel-cell legend paste have not been manually verified in Chrome/Edge on the final deployment origin.
-- Phase S1 fixtures are committed. One S7 CSV-safety defect remains isolated as a known-red probe by design.
+- The audit CSV probe is now passing. S8 desktop Legend-panel and workspace-density evidence plus S10 release-quality CI evidence remain TODO.
 - Public URL technical smoke used generated `.xlsx` workbooks. Real `C:\Users\siunj\Desktop\graph_TEST.xlsx` has been inspected read-only but has not yet been uploaded through the finished UI in this session; final domain judgement for real labels/curve counts remains a user/manual validation item.
 - Performance budgets for max file size, row count, specimen count, imported curve count, and rendered curve count remain undecided.
+- Analysis XLSX now reports payload measurements and passes a generated 96-curve by 100-cycle roundtrip, but no hard browser-memory/file-size guard is claimed until UD-02 is decided. SheetJS workbook parse/write peak allocation remains a residual risk.
 - P1/P2 scale presets are user-editable per analysis session and represented in AnalysisState; they can be preserved through explicit Analysis XLSX export/import but not automatic browser-session persistence.
 - Analysis XLSX currently stores restore JSON and visible review sheets, but it does not include a native editable Excel chart or a static chart image workbook.
 - Group style controls are now compact, but individual curve style rows can still become dense when many curves are selected; a broader style overview/editor pattern remains a future UX candidate.
@@ -595,6 +594,6 @@ Completed S6 browser-close protection, top-level Analysis XLSX save/status, inte
 - Local production preview: `http://127.0.0.1:4173/`
 
 ## Next 3 Tasks
-1. Commit the approved S6 phase without pushing or deploying.
-2. Read the S7A semantic-validation and payload-measurement contract against the schema-3 workbook implementation.
-3. Implement S7A Analysis XLSX semantic validation, payload measurement, and plotted CSV formula escaping without deciding UD-02 hard limits.
+1. Complete final expert review and commit S7A without pushing or deploying.
+2. Read the Phase S8 desktop UI defect and density contract against the current Legend, Style, and sticky plot implementation.
+3. Implement and verify S8 without deciding unresolved large-layout, localization, or style-collision policies.

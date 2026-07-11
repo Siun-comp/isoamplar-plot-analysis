@@ -5,7 +5,7 @@ import { parsePastedTable } from "../data/parsePastedTable";
 import type { PcrDataset } from "../data/types";
 import { buildPcrChartOption } from "../chart/chartConfig";
 import { createAnalysisState } from "../analysis/analysisState";
-import { exportAnalysisWorkbookBuffer } from "../analysis/analysisWorkbook";
+import { ANALYSIS_RESTORE_SHEET_NAME, exportAnalysisWorkbookBuffer } from "../analysis/analysisWorkbook";
 import { useAppStore } from "./appStore";
 
 describe("app store style preset and legend order", () => {
@@ -1055,6 +1055,25 @@ describe("app store style preset and legend order", () => {
     expect(useAppStore.getState().importError).toContain("restore sheet is missing");
   });
 
+  it("rejects semantically corrupted Analysis XLSX without changing the current analysis", async () => {
+    await useAppStore.getState().importFile(createWorkbookFile("current.xlsx", "Current specimen", "A1", 0.1));
+    const curveId = useAppStore.getState().dataset!.curves[0].curveId;
+    useAppStore.getState().setCurveOverride(curveId, { color: "#123456" });
+    const before = useAppStore.getState();
+    const corruptedFile = await createSemanticallyCorruptedAnalysisXlsxFile("corrupted-analysis.xlsx");
+
+    await useAppStore.getState().openAnalysisFile(corruptedFile);
+
+    const after = useAppStore.getState();
+    expect(after.activeAnalysisId).toBe(before.activeAnalysisId);
+    expect(after.dataset?.datasetId).toBe(before.dataset?.datasetId);
+    expect(after.curveOverrides[curveId]?.color).toBe("#123456");
+    expect(after.revision).toBe(before.revision);
+    expect(after.dirty).toBe(true);
+    expect(after.importStatus).toBe("ready");
+    expect(after.importError).toContain("stats does not match");
+  });
+
   it("imports ordinary Excel files with review-like sheet names as source data", async () => {
     await useAppStore.getState().importFile(createWorkbookFile("ordinary-settings.xlsx", "Specimen 1", "A1", 0.1, "Settings"));
 
@@ -1158,6 +1177,38 @@ async function createCurrentAnalysisXlsxFile(fileName: string) {
     name: fileName,
     arrayBuffer: async () => arrayBuffer
   } as File;
+}
+
+async function createSemanticallyCorruptedAnalysisXlsxFile(fileName: string) {
+  const validFile = await createCurrentAnalysisXlsxFile(fileName);
+  const workbook = XLSX.read(await validFile.arrayBuffer(), { type: "array", raw: true });
+  const restoreRows = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[ANALYSIS_RESTORE_SHEET_NAME], {
+    header: 1,
+    blankrows: false
+  });
+  const chunkCount = Number(restoreRows.find((row) => row[0] === "chunkCount")?.[1]);
+  const chunks = restoreRows
+    .filter((row) => typeof row[0] === "number" && typeof row[1] === "string")
+    .sort((left, right) => Number(left[0]) - Number(right[0]))
+    .map((row) => String(row[1]));
+  expect(chunks).toHaveLength(chunkCount);
+  const payload = JSON.parse(chunks.join(""));
+  payload.dataset.curves[0].stats.pointCount += 1;
+  const corruptedJson = JSON.stringify(payload);
+  const corruptedChunks = Array.from(
+    { length: Math.ceil(corruptedJson.length / 30000) },
+    (_, index) => corruptedJson.slice(index * 30000, (index + 1) * 30000)
+  );
+  workbook.Sheets[ANALYSIS_RESTORE_SHEET_NAME] = XLSX.utils.aoa_to_sheet([
+    ["IsoAmplarAnalysis"],
+    ["schemaVersion", payload.schemaVersion],
+    ["chunkCount", corruptedChunks.length],
+    ["chunkIndex", "jsonChunk"],
+    ...corruptedChunks.map((chunk, index) => [index, chunk])
+  ]);
+  const output = XLSX.write(workbook, { type: "array", bookType: "xlsx" }) as ArrayBuffer | Uint8Array | number[];
+  const arrayBuffer = toArrayBuffer(output);
+  return { name: fileName, arrayBuffer: async () => arrayBuffer } as File;
 }
 
 function toArrayBuffer(output: ArrayBuffer | Uint8Array | number[]) {
