@@ -238,17 +238,8 @@ function formatReadoutValue(value: number | string) {
   return typeof value === "number" ? Number(value.toPrecision(5)).toString() : value;
 }
 
-function formatZoomScaleValue(axis: "x" | "y", value: number) {
+export function formatZoomScaleValue(_axis: "x" | "y", value: number) {
   if (!Number.isFinite(value)) return "";
-  if (axis === "x") {
-    return trimFixed(value, 2);
-  }
-  if (Math.abs(value) >= 1000) {
-    return Math.round(value).toString();
-  }
-  return trimFixed(value, 3);
-}
-
-function trimFixed(value: number, digits: number) {
-  return Number(value.toFixed(digits)).toString();
+  if (Object.is(value, -0) || value === 0) return "0";
+  return value.toString();
 }

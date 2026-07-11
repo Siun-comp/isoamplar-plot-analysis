@@ -282,10 +282,14 @@ function findCandidateColumns(worksheet: XLSX.WorkSheet, range: XLSX.Range, xlsx
   for (let columnIndex = range.s.c; columnIndex <= range.e.c; columnIndex += 1) {
     const hasHeader = !isBlankCell(worksheet[xlsx.utils.encode_cell({ r: 0, c: columnIndex })])
       || !isBlankCell(worksheet[xlsx.utils.encode_cell({ r: 1, c: columnIndex })]);
-    const hasData = rangeRows(range, 2).some((rowIndex) => {
+    let hasData = false;
+    for (let rowIndex = 2; rowIndex <= range.e.r; rowIndex += 1) {
       const cell = worksheet[xlsx.utils.encode_cell({ r: rowIndex, c: columnIndex })];
-      return Boolean(cell && !isBlankCell(cell));
-    });
+      if (cell && !isBlankCell(cell)) {
+        hasData = true;
+        break;
+      }
+    }
 
     if (hasHeader || hasData) {
       columns.push(columnIndex);
@@ -330,10 +334,6 @@ function isBlankCell(cell: XLSX.CellObject | undefined) {
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
-}
-
-function rangeRows(range: XLSX.Range, startRow: number) {
-  return Array.from({ length: Math.max(0, range.e.r - startRow + 1) }, (_, index) => startRow + index);
 }
 
 function createIgnoredSheetsWarnings(workbook: XLSX.WorkBook): PcrWarning[] {

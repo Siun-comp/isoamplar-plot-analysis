@@ -221,7 +221,7 @@ describe("App PCR workspace", () => {
     render(<App />);
 
     const xAxis = screen.getByRole("region", { name: "X axis" });
-    expect(within(xAxis).getByText("Auto range: 1 - 45")).toBeInTheDocument();
+    expect(within(xAxis).getByText("Selected raw data range: 1 - 45")).toBeInTheDocument();
 
     await user.click(within(xAxis).getByRole("button", { name: "Fixed" }));
     await user.click(within(xAxis).getByRole("button", { name: "현재 Auto값 적용" }));
@@ -247,6 +247,61 @@ describe("App PCR workspace", () => {
     await user.click(screen.getByRole("button", { name: "Auto scale" }));
     expect(useAppStore.getState().chartScale.x.mode).toBe("auto");
     expect(useAppStore.getState().chartScale.y.mode).toBe("auto");
+  });
+
+  it("keeps the last valid scale and blocks only plot-bearing image exports for an invalid active draft", async () => {
+    const user = userEvent.setup();
+    const dataset = createOneSpecimenEightReagentDataset();
+    act(() => {
+      useAppStore.getState().loadDataset(dataset);
+      useAppStore.getState().setCurvesSelected([dataset.curves[0].curveId], true);
+      useAppStore.getState().setAxisScaleMode("y", "fixed");
+      useAppStore.getState().setAxisFixedValue("y", "min", "-1");
+      useAppStore.getState().setAxisFixedValue("y", "max", "100");
+      useAppStore.getState().setAxisFixedValue("y", "max", "-2");
+    });
+
+    render(<App />);
+
+    const yAxis = screen.getByRole("region", { name: "Y axis" });
+    expect(within(yAxis).getByText("Applied: Fixed -1 - 100")).toBeInTheDocument();
+    expect(within(yAxis).getByText(/last valid scale remains applied/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save PNG" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save JPEG" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Copy selected layout PNG to clipboard" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save report legend PNG" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Analysis XLSX" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Plotted CSV" })).toBeEnabled();
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Image export layout" }), "legendOnly");
+    expect(screen.getByRole("button", { name: "Save PNG" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Copy selected layout PNG to clipboard" })).toBeEnabled();
+  });
+
+  it("uses the applied fixed bounds for PNG, JPEG, and chart clipboard exports", async () => {
+    const user = userEvent.setup();
+    const dataset = createOneSpecimenEightReagentDataset();
+    act(() => {
+      useAppStore.getState().loadDataset(dataset);
+      useAppStore.getState().setCurvesSelected([dataset.curves[0].curveId], true);
+      useAppStore.getState().setChartFixedScaleBounds({ xMin: "10", xMax: "20", yMin: "100", yMax: "200" });
+    });
+
+    render(<App />);
+    await user.click(getSettingsSummary("Export"));
+    await user.click(screen.getByRole("button", { name: "Save PNG" }));
+    await user.click(screen.getByRole("button", { name: "Save JPEG" }));
+    await user.click(screen.getByRole("button", { name: "Copy selected layout PNG to clipboard" }));
+
+    await waitFor(() => expect(exportChartLayoutImageBlob).toHaveBeenCalledTimes(3));
+    for (const [args] of vi.mocked(exportChartLayoutImageBlob).mock.calls) {
+      expect(args.option).toMatchObject({
+        xAxis: { min: 10, max: 20 },
+        yAxis: { min: 100, max: 200 }
+      });
+    }
+    expect(vi.mocked(exportChartLayoutImageBlob).mock.calls.map(([args]) => args.type)).toEqual(["png", "jpeg", "png"]);
+    expect(copyPngBlobToClipboard).toHaveBeenCalledTimes(1);
   });
 
   it("accepts HEX color input for group and individual curve styles", async () => {

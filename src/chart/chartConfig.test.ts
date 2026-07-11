@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createDefaultChartScale, hasVisibleCurveWarning } from "./chartScale";
+import { createDefaultChartScale, getAppliedAxisScaleForDraft, hasVisibleCurveWarning } from "./chartScale";
 import { buildPcrChartOption } from "./chartConfig";
 import { createDefaultStyleRules } from "./chartStyle";
 import { createOneSpecimenEightReagentDataset, createTwentyOnePlusCurveDataset } from "../data/sampleData";
@@ -106,6 +106,8 @@ describe("PCR chart configuration", () => {
     const scale = createDefaultChartScale();
     scale.x = { ...scale.x, mode: "fixed", fixedMin: "1", fixedMax: "45" };
     scale.y = { ...scale.y, mode: "fixed", fixedMin: "-1", fixedMax: "100" };
+    scale.x.applied = getAppliedAxisScaleForDraft(scale.x)!;
+    scale.y.applied = getAppliedAxisScaleForDraft(scale.y)!;
 
     const result = buildPcrChartOption({
       dataset,
@@ -248,9 +250,11 @@ describe("PCR chart configuration", () => {
     });
   });
 
-  it("reports invalid fixed scales and leaves chart axes on auto", () => {
+  it("reports invalid fixed drafts while keeping the last valid applied axis", () => {
     const dataset = createOneSpecimenEightReagentDataset();
     const scale = createDefaultChartScale();
+    scale.y = { ...scale.y, mode: "fixed", fixedMin: "-1", fixedMax: "100" };
+    scale.y.applied = getAppliedAxisScaleForDraft(scale.y)!;
     scale.y = { ...scale.y, mode: "fixed", fixedMin: "20", fixedMax: "10" };
 
     const result = buildPcrChartOption({
@@ -261,8 +265,9 @@ describe("PCR chart configuration", () => {
     const option = result.option as Record<string, any>;
 
     expect(result.scaleIssues).toHaveLength(1);
-    expect(option.yAxis.min).toBeUndefined();
-    expect(option.yAxis.max).toBeUndefined();
+    expect(result.scaleIssues[0]).toMatchObject({ status: "invalid-order", blocksPlotExport: true });
+    expect(option.yAxis.min).toBe(-1);
+    expect(option.yAxis.max).toBe(100);
   });
 
   it("warns only when more than twenty curves are visible", () => {

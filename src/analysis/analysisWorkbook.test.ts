@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as XLSX from "xlsx";
 import packageJson from "../../package.json";
-import { createDefaultChartScale } from "../chart/chartScale";
+import { createDefaultChartScale, getAppliedAxisScaleForDraft } from "../chart/chartScale";
 import { createDefaultStyleRules } from "../chart/chartStyle";
 import { createOneSpecimenEightReagentDataset } from "../data/sampleData";
 import { appendPcrDataset } from "../data/mergeDatasets";
@@ -36,6 +36,8 @@ describe("Analysis XLSX workbook", () => {
     chartScale.y.fixedMin = "120000";
     chartScale.y.fixedMax = "900000";
     chartScale.y.preset1 = { label: "P1 low", min: "0", max: "100" };
+    chartScale.x.applied = getAppliedAxisScaleForDraft(chartScale.x)!;
+    chartScale.y.applied = getAppliedAxisScaleForDraft(chartScale.y)!;
     const styleRules = createDefaultStyleRules();
     styleRules.colorBy = "specimen";
     styleRules.lineTypeBy = "reagent";
@@ -91,9 +93,11 @@ describe("Analysis XLSX workbook", () => {
     expect(workbook.Sheets.ImportedData.B3?.v).toBe("Report A1");
     expect(workbook.Sheets.ImportedData.B4?.v).toBe(dataset.curves[0].curveId);
     const settingsRows = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets.Settings, { header: 1, blankrows: false });
-    expect(settingsRows).toContainEqual(["X scale mode", "fixed"]);
+    expect(settingsRows).toContainEqual(["X scale draft mode", "fixed"]);
     expect(settingsRows).toContainEqual(["X fixed min", "18.5"]);
     expect(settingsRows).toContainEqual(["Y fixed max", "900000"]);
+    expect(settingsRows).toContainEqual(["X applied mode", "fixed"]);
+    expect(settingsRows).toContainEqual(["X applied min", 18.5]);
     expect(settingsRows).toContainEqual([
       "Source type",
       "Source ID",
@@ -119,6 +123,8 @@ describe("Analysis XLSX workbook", () => {
     expect(restored.analysis.selectionFilter).toBe("selected");
     expect(restored.analysis.chartScale.x).toMatchObject({ mode: "fixed", fixedMin: "18.5", fixedMax: "42" });
     expect(restored.analysis.chartScale.y).toMatchObject({ mode: "fixed", fixedMin: "120000", fixedMax: "900000" });
+    expect(restored.analysis.chartScale.x.applied).toEqual({ mode: "fixed", min: 18.5, max: 42 });
+    expect(restored.analysis.chartScale.y.applied).toEqual({ mode: "fixed", min: 120000, max: 900000 });
     expect(restored.analysis.chartScale.y.preset1?.label).toBe("P1 low");
     expect(restored.analysis.styleRules).toMatchObject({
       colorBy: "specimen",
@@ -288,6 +294,81 @@ describe("Analysis XLSX workbook", () => {
     expect(restored.analysis.exportSettings.imageLayout).toBe("plotWithLegend");
     expect(restored.analysis.exportCounter).toBe(11);
     expect(restored.analysis.dirty).toBe(false);
+  });
+
+  it("roundtrips an invalid scale draft separately from the last valid applied bounds", async () => {
+    const dataset = createOneSpecimenEightReagentDataset();
+    const chartScale = createDefaultChartScale();
+    chartScale.y.mode = "fixed";
+    chartScale.y.fixedMin = "20";
+    chartScale.y.fixedMax = "10";
+    chartScale.y.applied = { mode: "fixed", min: -1, max: 100 };
+    const state = createAnalysisState({
+      analysisId: "analysis-scale-draft",
+      analysisName: "Scale draft",
+      dataset,
+      selection: createInitialSelectionState(dataset),
+      searchQuery: "",
+      selectionFilter: "all",
+      chartScale,
+      styleRules: createDefaultStyleRules(),
+      curveOverrides: {},
+      exportCounter: 1,
+      importFileName: dataset.sourceFileName
+    });
+
+    const restored = await readAnalysisWorkbookBuffer(await exportAnalysisWorkbookBuffer(state));
+
+    expect(restored.kind).toBe("analysis");
+    if (restored.kind !== "analysis") return;
+    expect(restored.analysis.chartScale.y).toMatchObject({
+      mode: "fixed",
+      fixedMin: "20",
+      fixedMax: "10",
+      applied: { mode: "fixed", min: -1, max: 100 }
+    });
+  });
+
+  it("migrates schema 1 scale state through the full Analysis XLSX workbook reader", () => {
+    const dataset = createOneSpecimenEightReagentDataset();
+    const state = createAnalysisState({
+      analysisId: "analysis-schema-1",
+      analysisName: "Legacy scale",
+      dataset,
+      selection: createInitialSelectionState(dataset),
+      searchQuery: "",
+      selectionFilter: "all",
+      chartScale: createDefaultChartScale(),
+      styleRules: createDefaultStyleRules(),
+      curveOverrides: {},
+      exportCounter: 1,
+      importFileName: dataset.sourceFileName
+    });
+    const serialized = JSON.parse(JSON.stringify(serializeAnalysisState(state)));
+    serialized.schemaVersion = 1;
+    serialized.chartScale.x.mode = "preset1";
+    serialized.chartScale.x.preset1 = { label: "Legacy P1", min: "1e-6", max: "2e-6" };
+    delete serialized.chartScale.x.applied;
+    delete serialized.chartScale.y.applied;
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.aoa_to_sheet([
+        ["IsoAmplarAnalysis"],
+        ["schemaVersion", 1],
+        ["chunkCount", 1],
+        ["chunkIndex", "jsonChunk"],
+        [0, JSON.stringify(serialized)]
+      ]),
+      ANALYSIS_RESTORE_SHEET_NAME
+    );
+
+    const restored = readAnalysisWorkbook(workbook, XLSX);
+
+    expect(restored.kind).toBe("analysis");
+    if (restored.kind !== "analysis") return;
+    expect(restored.analysis.chartScale.x.applied).toEqual({ mode: "preset1", min: 1e-6, max: 2e-6 });
+    expect(restored.analysis.chartScale.y.applied).toEqual({ mode: "auto", min: null, max: null });
   });
 
   it("detects missing restore sheets and corrupt restore chunks", () => {

@@ -1,4 +1,5 @@
 import type { Curve } from "../data/types";
+import { getFiniteRange } from "../data/numericRange";
 
 export type AxisId = "x" | "y";
 export type ScaleMode = "auto" | "fixed" | "preset1" | "preset2";
@@ -10,12 +11,19 @@ export type ScalePreset = {
   max: string;
 };
 
+export type AppliedAxisScale = {
+  mode: ScaleMode;
+  min: number | null;
+  max: number | null;
+};
+
 export type AxisScaleState = {
   mode: ScaleMode;
   fixedMin: string;
   fixedMax: string;
   preset1: ScalePreset | null;
   preset2: ScalePreset | null;
+  applied: AppliedAxisScale;
 };
 
 export type ChartScaleState = {
@@ -25,7 +33,20 @@ export type ChartScaleState = {
 
 export type AxisScaleIssue = {
   axis: AxisId;
+  status: Exclude<AxisScaleDraftStatus, "valid">;
+  blocksPlotExport: boolean;
   message: string;
+};
+
+export type AxisScaleDraftStatus = "valid" | "incomplete" | "invalid-order" | "valid-no-data-overlap";
+
+export type AxisScaleResolution = {
+  min?: number;
+  max?: number;
+  dataDomain: { min: number; max: number } | null;
+  status: AxisScaleDraftStatus;
+  applied: AppliedAxisScale;
+  issue?: AxisScaleIssue;
 };
 
 export function createDefaultChartScale(): ChartScaleState {
@@ -41,7 +62,8 @@ export function createDefaultAxisScale(): AxisScaleState {
     fixedMin: "",
     fixedMax: "",
     preset1: { label: "P1", min: "", max: "" },
-    preset2: { label: "P2", min: "", max: "" }
+    preset2: { label: "P2", min: "", max: "" },
+    applied: createAutoAppliedScale()
   };
 }
 
@@ -49,49 +71,61 @@ export function resolveAxisScale(
   axis: AxisId,
   state: AxisScaleState,
   curves: Curve[]
-): { min?: number; max?: number; issue?: AxisScaleIssue } {
-  if (state.mode === "auto") {
-    return {};
-  }
-
-  if (state.mode === "fixed") {
-    const min = parseNumberInput(state.fixedMin);
-    const max = parseNumberInput(state.fixedMax);
-    if (min === null || max === null || min >= max) {
-      return {
-        issue: {
-          axis,
-          message: `${axis.toUpperCase()} fixed scale requires numeric min < max.`
-        }
-      };
-    }
-    return { min, max };
-  }
-
-  const preset = state.mode === "preset1" ? state.preset1 : state.preset2;
-  const parsedPreset = parseScalePreset(preset);
-  if (!parsedPreset) {
-    return {
-      issue: {
-        axis,
-        message: `${axis.toUpperCase()} ${state.mode.toUpperCase()} scale preset is not configured.`
-      }
-    };
-  }
-
+): AxisScaleResolution {
   const domain = getAxisDataDomain(axis, curves);
-  if (domain && (parsedPreset.max < domain.min || parsedPreset.min > domain.max)) {
+  const draft = parseActiveScaleDraft(state);
+  const applied = normalizeAppliedScale(state.applied);
+  const appliedBounds = applied.mode === "auto" ? {} : { min: applied.min ?? undefined, max: applied.max ?? undefined };
+
+  if (draft.status === "incomplete" || draft.status === "invalid-order") {
+    const label = state.mode === "fixed" ? "fixed" : state.mode.toUpperCase();
     return {
-      min: parsedPreset.min,
-      max: parsedPreset.max,
+      ...appliedBounds,
+      dataDomain: domain,
+      applied,
+      status: draft.status,
       issue: {
         axis,
-        message: `${axis.toUpperCase()} preset does not overlap the selected data domain.`
+        status: draft.status,
+        blocksPlotExport: true,
+        message:
+          draft.status === "incomplete"
+            ? `${axis.toUpperCase()} ${label} scale draft needs numeric min and max. The last valid scale remains applied.`
+            : `${axis.toUpperCase()} ${label} scale draft requires min < max. The last valid scale remains applied.`
       }
     };
   }
 
-  return { min: parsedPreset.min, max: parsedPreset.max };
+  if (
+    draft.bounds &&
+    domain &&
+    (draft.bounds.max < domain.min || draft.bounds.min > domain.max)
+  ) {
+    return {
+      ...appliedBounds,
+      dataDomain: domain,
+      applied,
+      status: "valid-no-data-overlap",
+      issue: {
+        axis,
+        status: "valid-no-data-overlap",
+        blocksPlotExport: false,
+        message: `${axis.toUpperCase()} scale is valid but does not overlap the selected raw data range.`
+      }
+    };
+  }
+
+  return { ...appliedBounds, dataDomain: domain, applied, status: "valid" };
+}
+
+export function getAppliedAxisScaleForDraft(state: AxisScaleState): AppliedAxisScale | null {
+  const draft = parseActiveScaleDraft(state);
+  if (draft.status !== "valid" || !draft.applied) return null;
+  return draft.applied;
+}
+
+export function createAutoAppliedScale(): AppliedAxisScale {
+  return { mode: "auto", min: null, max: null };
 }
 
 export function hasVisibleCurveWarning(visibleCurveCount: number) {
@@ -120,12 +154,58 @@ function parseScalePreset(preset: ScalePreset | null) {
   return { min, max };
 }
 
-function getAxisDataDomain(axis: AxisId, curves: Curve[]) {
-  const values = curves.flatMap((curve) => (axis === "x" ? curve.x : curve.y)).filter(isFiniteNumber);
-  if (values.length === 0) return null;
-  return { min: Math.min(...values), max: Math.max(...values) };
+function parseActiveScaleDraft(state: AxisScaleState): {
+  status: "valid" | "incomplete" | "invalid-order";
+  bounds?: { min: number; max: number };
+  applied?: AppliedAxisScale;
+} {
+  if (state.mode === "auto") {
+    return { status: "valid", applied: createAutoAppliedScale() };
+  }
+
+  const source =
+    state.mode === "fixed"
+      ? { min: state.fixedMin, max: state.fixedMax }
+      : state.mode === "preset1"
+        ? state.preset1
+        : state.preset2;
+  if (!source) return { status: "incomplete" };
+  const min = parseNumberInput(source.min);
+  const max = parseNumberInput(source.max);
+  if (min === null || max === null) return { status: "incomplete" };
+  if (min >= max) return { status: "invalid-order" };
+  return {
+    status: "valid",
+    bounds: { min, max },
+    applied: { mode: state.mode, min, max }
+  };
 }
 
-function isFiniteNumber(value: number | null): value is number {
-  return typeof value === "number" && Number.isFinite(value);
+function normalizeAppliedScale(applied: AppliedAxisScale | undefined): AppliedAxisScale {
+  if (!applied || applied.mode === "auto") return createAutoAppliedScale();
+  if (
+    typeof applied.min !== "number" ||
+    typeof applied.max !== "number" ||
+    !Number.isFinite(applied.min) ||
+    !Number.isFinite(applied.max) ||
+    applied.min >= applied.max
+  ) {
+    return createAutoAppliedScale();
+  }
+  return applied;
+}
+
+function getAxisDataDomain(axis: AxisId, curves: Curve[]) {
+  let domain: { min: number; max: number } | null = null;
+  for (const curve of curves) {
+    const range = getFiniteRange(axis === "x" ? curve.x : curve.y);
+    if (!range) continue;
+    if (!domain) {
+      domain = { min: range.min, max: range.max };
+      continue;
+    }
+    if (range.min < domain.min) domain.min = range.min;
+    if (range.max > domain.max) domain.max = range.max;
+  }
+  return domain;
 }

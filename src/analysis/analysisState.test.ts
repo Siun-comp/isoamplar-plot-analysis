@@ -175,6 +175,49 @@ describe("analysis state serialization", () => {
     expect(restored.sourceFiles[0].sourceInstanceId).toMatch(/^legacy:excel:/u);
   });
 
+  it("migrates schema 1 scale drafts to explicit applied scale state", () => {
+    const legacyPayload = JSON.parse(JSON.stringify(serializeAnalysisState(createTestAnalysisState())));
+    legacyPayload.schemaVersion = 1;
+    legacyPayload.chartScale.x.mode = "fixed";
+    legacyPayload.chartScale.x.fixedMin = "1";
+    legacyPayload.chartScale.x.fixedMax = "60";
+    delete legacyPayload.chartScale.x.applied;
+    legacyPayload.chartScale.y.mode = "fixed";
+    legacyPayload.chartScale.y.fixedMin = "20";
+    legacyPayload.chartScale.y.fixedMax = "10";
+    delete legacyPayload.chartScale.y.applied;
+
+    const restored = deserializeAnalysisState(legacyPayload);
+
+    expect(restored.chartScale.x.applied).toEqual({ mode: "fixed", min: 1, max: 60 });
+    expect(restored.chartScale.y.applied).toEqual({ mode: "auto", min: null, max: null });
+    expect(serializeAnalysisState(restored).schemaVersion).toBe(ANALYSIS_STATE_SCHEMA_VERSION);
+  });
+
+  it("roundtrips an invalid active draft with its separate last valid applied bounds", () => {
+    const state = createTestAnalysisState();
+    state.chartScale.y.mode = "fixed";
+    state.chartScale.y.fixedMin = "20";
+    state.chartScale.y.fixedMax = "10";
+    state.chartScale.y.applied = { mode: "fixed", min: -1, max: 100 };
+
+    const restored = deserializeAnalysisState(serializeAnalysisState(state));
+
+    expect(restored.chartScale.y).toMatchObject({
+      mode: "fixed",
+      fixedMin: "20",
+      fixedMax: "10",
+      applied: { mode: "fixed", min: -1, max: 100 }
+    });
+  });
+
+  it("rejects schema 2 scale state when the required applied bounds are missing", () => {
+    const serialized = JSON.parse(JSON.stringify(serializeAnalysisState(createTestAnalysisState())));
+    delete serialized.chartScale.y.applied;
+
+    expect(() => deserializeAnalysisState(serialized)).toThrow("chartScale.y.applied is invalid");
+  });
+
   it("rejects unsupported schema versions and missing required fields", () => {
     const serialized = serializeAnalysisState(createTestAnalysisState());
 

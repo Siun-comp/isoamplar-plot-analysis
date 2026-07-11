@@ -1,8 +1,8 @@
 import { enableMapSet } from "immer";
 import { immer } from "zustand/middleware/immer";
 import { create } from "zustand";
-import type { AxisId, ChartScaleState, ScaleMode, ScalePresetId } from "../chart/chartScale";
-import { createDefaultChartScale } from "../chart/chartScale";
+import type { AxisId, AxisScaleState, ChartScaleState, ScaleMode, ScalePresetId } from "../chart/chartScale";
+import { createDefaultChartScale, getAppliedAxisScaleForDraft } from "../chart/chartScale";
 import type { BuiltInStylePresetId } from "../chart/chartStyle";
 import { createDefaultStyleRules, createPresetOverrides } from "../chart/chartStyle";
 import {
@@ -497,6 +497,7 @@ export const useAppStore = create<AppStore>()(
     setAxisScaleMode: (axis, mode) => {
       set((state) => {
         state.chartScale[axis].mode = mode;
+        applyValidAxisDraft(state.chartScale[axis]);
         state.chartScaleReturnStack = [];
         markDirtyAndPersistActive(state);
       });
@@ -508,6 +509,7 @@ export const useAppStore = create<AppStore>()(
         } else {
           state.chartScale[axis].fixedMax = value;
         }
+        applyValidAxisDraft(state.chartScale[axis]);
         state.chartScaleReturnStack = [];
         markDirtyAndPersistActive(state);
       });
@@ -520,6 +522,8 @@ export const useAppStore = create<AppStore>()(
         state.chartScale.y.mode = "fixed";
         state.chartScale.y.fixedMin = bounds.yMin;
         state.chartScale.y.fixedMax = bounds.yMax;
+        applyValidAxisDraft(state.chartScale.x);
+        applyValidAxisDraft(state.chartScale.y);
         state.chartScaleReturnStack = [];
         markDirtyAndPersistActive(state);
       });
@@ -540,6 +544,8 @@ export const useAppStore = create<AppStore>()(
         state.chartScale.y.mode = "fixed";
         state.chartScale.y.fixedMin = bounds.yMin;
         state.chartScale.y.fixedMax = bounds.yMax;
+        applyValidAxisDraft(state.chartScale.x);
+        applyValidAxisDraft(state.chartScale.y);
         markDirtyAndPersistActive(state);
       });
     },
@@ -555,6 +561,8 @@ export const useAppStore = create<AppStore>()(
       set((state) => {
         state.chartScale.x.mode = "auto";
         state.chartScale.y.mode = "auto";
+        applyValidAxisDraft(state.chartScale.x);
+        applyValidAxisDraft(state.chartScale.y);
         state.chartScaleReturnStack = [];
         markDirtyAndPersistActive(state);
       });
@@ -567,6 +575,7 @@ export const useAppStore = create<AppStore>()(
           max: ""
         };
         state.chartScale[axis][preset][field] = value;
+        applyValidAxisDraft(state.chartScale[axis]);
         state.chartScaleReturnStack = [];
         markDirtyAndPersistActive(state);
       });
@@ -1320,6 +1329,11 @@ function inferOverrideSource(override: CurveStyleOverride): CurveStyleOverrideSo
   if (sources.includes("custom")) return "custom";
   if (sources.includes("preset")) return "preset";
   return undefined;
+}
+
+function applyValidAxisDraft(state: AxisScaleState) {
+  const applied = getAppliedAxisScaleForDraft(state);
+  if (applied) state.applied = applied;
 }
 
 function clonePlain<T>(value: T): T {

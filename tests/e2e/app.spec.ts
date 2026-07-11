@@ -140,6 +140,24 @@ test("uploads an xlsx workbook and keeps reagent-first collapsed selection", asy
   await expect(yAxis.getByRole("button", { name: "Auto" })).toHaveClass(/is-active/);
   await expect(page.getByRole("button", { name: "Previous scale" })).toBeDisabled();
 
+  await yAxis.getByRole("button", { name: "Fixed" }).click();
+  const yFixedInputs = yAxis.getByRole("spinbutton");
+  await yFixedInputs.nth(0).fill("-1");
+  await yFixedInputs.nth(1).fill("100");
+  await expect(yAxis.getByText("Applied: Fixed -1 - 100")).toBeVisible();
+  await yFixedInputs.nth(1).fill("-2");
+  await expect(yAxis.getByText(/last valid scale remains applied/i)).toBeVisible();
+  const exportSummary = page.locator(".settings-accordion > details > summary", {
+    hasText: "Export",
+  });
+  const exportDetails = exportSummary.locator("..");
+  if ((await exportDetails.getAttribute("open")) === null) {
+    await exportSummary.click();
+  }
+  await expect(exportDetails).toHaveAttribute("open", "");
+  await expect(page.getByRole("button", { name: "Save PNG" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Analysis XLSX" })).toBeEnabled();
+
   const chartWrap = page.locator(".chart-canvas-wrap");
   const before = await chartWrap.boundingBox();
   await expect(page.getByRole("region", { name: "Custom legend" })).toBeVisible();
@@ -152,8 +170,8 @@ test("uploads an xlsx workbook and keeps reagent-first collapsed selection", asy
   await expect(page.getByLabel("A2 │ 검체 1 marker type", { exact: true })).toHaveValue("circle");
   await expect(page.locator('.custom-legend [data-marker-type="circle"]')).toHaveCount(1);
   await page.screenshot({ path: testInfo.outputPath("phase-r8-style-legend-panel.png"), fullPage: false });
-  await page.locator(".settings-accordion summary", { hasText: "Export" }).click();
   await page.getByLabel("Image export layout").selectOption("legendOnly");
+  await expect(page.getByRole("button", { name: "Save PNG" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Copy selected layout PNG to clipboard" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Copy report legend Excel cells" })).toBeVisible();
   await page.getByText("Legend file save").click();

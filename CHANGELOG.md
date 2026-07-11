@@ -25,6 +25,8 @@ Update this file when user visible behavior, documentation baseline, release rea
 ## [Unreleased]
 
 ### Added
+- Added explicit Applied scale status and actionable invalid-draft feedback for X/Y Fixed and P1/P2 controls.
+- Added Analysis XLSX schema 2 scale continuity with automatic schema 1 migration.
 - Implemented Quick Paste Import for small comparison datasets with full-table and single-specimen modes, tab-separated or single-column input, read-only preview, source-position warnings, warning acknowledgement, append/new-analysis actions, and no in-app cell editing.
 - Added mixed Excel/paste source provenance to Analysis XLSX hidden restore data and visible Settings/ImportedData sheets, including source type, immutable source ID, source name, source column, and paste input mode.
 - Added Quick Paste parser, UI, store, Analysis XLSX, chart, legend, and plotted-CSV regression coverage.
@@ -37,6 +39,9 @@ Update this file when user visible behavior, documentation baseline, release rea
 - Added direct parser regression coverage for missing specimen headers, missing reagent headers, both headers missing, and uneven curve lengths.
 
 ### Changed
+- Scale editing now preserves the last valid applied bounds while an active draft is incomplete or reversed. Plot-bearing PNG/JPEG/clipboard output is blocked until corrected, while Legend-only, report legends, plotted CSV, and Analysis XLSX remain available.
+- Box zoom bounds now preserve size-aware significant digits instead of fixed 2/3-decimal rounding.
+- Replaced accepted-size min/max and row-width argument spreads with iterative reductions in Quick Paste, Excel parsing, curve statistics, chart domains, dataset append, plotted CSV, and Analysis XLSX review generation.
 - Quick Paste accepts Excel-style Tab copies and unambiguous single-column input; comma/CSV tables are rejected to prevent silent delimiter corruption.
 - Analysis runtime operations now use transient instance IDs and revisions so stale paste previews and mid-save/mid-replace changes cannot overwrite or close the wrong analysis.
 - Updated functional requirements, I/O rules, test plan, and decisions D037-D040 to treat Quick Paste Import as an implemented post-MVP import path while keeping CSV file import, manual entry, and in-app editing excluded.
@@ -55,6 +60,7 @@ Update this file when user visible behavior, documentation baseline, release rea
 - Fixed nested Style popover triggers inheriting accordion summary sizing, tightened icon reset buttons, and removed an obsolete hidden legend clipboard button wrapper from Export controls.
 - Fixed the preview legend visibility label mojibake and applied Auto compact legend labels consistently to the chart preview legend and plot/legend image exports.
 - Tightened the Legend Labels reset control and stacked the Export Legend header to prevent narrow-panel text overlap.
+- Analysis XLSX schema 2 files with missing required applied scale state are now rejected as corrupt instead of being silently reconstructed as legacy state.
 - Created initial documentation scaffold.
 - Added agent operating rules and context compression protocol.
 - Added initial project charter in Korean.

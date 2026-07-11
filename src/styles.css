@@ -518,6 +518,10 @@ select:focus-visible,
   color: #b42318;
 }
 
+.warning-text {
+  color: #8a5a00;
+}
+
 .analysis-tabs {
   display: grid;
   gap: 10px;
@@ -1266,6 +1270,12 @@ select:focus-visible,
 
 .scale-auto-domain {
   color: #617085;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.scale-applied-status {
+  color: #24364f;
   font-size: 12px;
   font-weight: 700;
 }

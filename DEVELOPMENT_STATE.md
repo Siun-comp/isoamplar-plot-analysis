@@ -14,13 +14,13 @@ Active
 - Active branch: `codex/audit-remediation`; it does not trigger the Pages deploy workflow.
 - Last published rollback: `9e77ad23ec8e863d3d05e7c8508ceb4729372155` on `main`.
 - Pre-remediation checkpoint: commit `319daa901221b4d5811eafb44f82319ddcedf296`, tag `checkpoint/audit-remediation-baseline-20260711`.
-- Phase S0 is complete. Phase S1 evidence foundation is implemented and verified locally; user review is the remaining gate before any S1 commit.
-- No S2 or later product remediation has started. Current known-red defects remain intentionally reproduced by `npm run test:audit:red`.
+- Phase S0 is complete. Phase S1 evidence foundation was committed as `1e30717` after local verification and expert review.
+- Phase S2 numeric/scale remediation is complete on the active branch after full verification and final independent expert GO review.
 - S1 adds synthetic-only fixed `.xlsx`/BIFF8 `.xls` fixtures, SHA-256 manifest, normalized/target snapshots, raster evidence helper, Target/Known-red acceptance criteria, traceability, and a read-only non-deploying CI workflow.
 - Product runtime behavior is unchanged by S1. No parser, chart, state, export, UI, dependency, or Pages deployment behavior was modified.
-- Latest S1 verification: regular suite 22 files / 172 tests passed with 7 target TODOs; five isolated known-red probes reproduced; deterministic fixture regeneration changed 0 of 14 generated source/snapshot files; build passed; fresh Chromium 5 tests passed; all 25 `dist` files matched the pre-browser SHA-256 manifest; `npm audit --omit=dev` found 0 vulnerabilities.
+- Latest S2 verification: regular suite 24 files / 190 tests passed with 7 target TODOs; three remaining isolated known-red probes reproduced; build passed; fresh Chromium passed 15/15 across three repetitions plus a final 5/5 run after boundary hardening; the synthetic desktop scale-draft screenshot had no console/page errors or horizontal overflow; `npm audit --omit=dev` found 0 vulnerabilities.
 - User data remains browser-local. No real workbook, patient/specimen record, or actual fluorescence dataset is checked into S1 fixtures.
-- Do not stage, commit, push, or deploy S1 until the user reviews the local result and explicitly approves the S1 commit.
+- The user has granted standing approval for subsequent remediation phase commits. Continue phases sequentially, but do not push or deploy until the plan reaches the corresponding release phase.
 
 ## Compression-Safe Summary
 - IsoAmplar Plot Analysis implementation has moved beyond the initial MVP into release-validation and real-data hardening after Phase 8 plus the 2026-07-08/09 UI/analysis refinement, GitHub Pages deployment, app icon, and staged UX refinement passes.
@@ -45,36 +45,46 @@ Active
 - The latest UI consistency pass normalizes button/form-control sizing across top tabs, import actions, selection controls, chart tools, scale controls, legend controls, and export controls; status badges remain intentionally smaller. It also scopes settings accordion summary styling so nested Style color/line popover triggers stay compact, tightens reset-icon button padding, and removes an obsolete hidden Export legend button wrapper.
 - Quick Paste Import Phases Q0-Q6 are implemented from `docs/10_QUICK_PASTE_IMPORT_PLAN_KR.md`. It supports full-table and single-specimen input, tab-separated and single-column text, read-only preview, paginated source-position warnings with acknowledgement, stale/target revision guards for append and new-analysis actions, per-import source identity, mixed-source Analysis XLSX continuity, and the existing chart/export pipeline. Comma/CSV tables are rejected to prevent silent delimiter corruption.
 - A 2026-07-11 code/data-integrity/desktop-UX audit is complete in `docs/11_GPT56_PROJECT_AUDIT_KR.md`. Mobile was explicitly excluded. No P0 issue was identified; Stabilization A prioritizes invalid Fixed-scale export fallback, exported-legend identity truncation, Excel formatted-header identity, actionable Excel warnings, browser refresh/close protection, and accepted-size Quick Paste crash prevention. The audit also records P2 state/export/performance risks, documentation drift, and workflow candidates such as Warning Center, explicit save commands, Named Views, and optional export preflight.
-- The audit remediation plan is drafted in `docs/12_AUDIT_REMEDIATION_IMPLEMENTATION_PLAN_KR.md`. It defines sequential Phases S0-S11, proposed AC-PCR-045~053/AC-QP-021 evidence, per-phase copyable prompts, desktop-only quality gates, and 19 unresolved user-decision gates. Four post-draft expert reviews were integrated. No remediation product code has been implemented from this plan.
+- The audit remediation plan is active in `docs/12_AUDIT_REMEDIATION_IMPLEMENTATION_PLAN_KR.md`. Phase S0 and S1 are committed; S2 is implemented and locally verified. Later phases remain sequential and pending.
 
 ## Current Goal
-Phase S0 is complete at checkpoint `319daa9`. Phase S1 evidence foundation is implemented locally and undergoing final expert review. Provide the local review URL and evidence summary, then obtain explicit approval before the S1 commit. Do not start S2, push, or deploy before that review.
+Begin Phase S3 legend identity and raster-consistency remediation without an additional approval pause. Stop only for a genuine user business decision.
 
 ## Current Milestone
 M9 - Release validation and real-data hardening.
 
 ## Last Completed Step
-Completed the local S1 verification cycle: deterministic fixed fixture regeneration, passing normalized projections, isolated known-red probes, regular regression, TypeScript/Vite build, and fresh exact-dist Chromium verification all passed. Final expert review and user approval remain before S1 commit.
+Completed Phase S2: applied-scale retention, plot-only export blocking, strict schema-2 state plus schema-1 migration, iterative numeric safety, boundary tests, build, fresh Chromium E2E, synthetic desktop review, and final independent expert re-audit all passed with a GO verdict.
 
 ## Latest Changed Files
-- `.github/workflows/s1-ci.yml`
-- `.gitignore`
-- `package.json`
-- `playwright.config.ts`
-- `vitest.audit.config.ts`
-- `tests/fixtures/`
-- `tests/data/parseExcel.fixture.test.ts`
-- `tests/audit/`
-- `tests/e2e/helpers/rasterEvidence.ts`
-- `tests/helpers/rasterEvidence.test.ts`
-- `docs/07_FIXTURE_SNAPSHOT_PLAN_KR.md`
-- `docs/13_AUDIT_REMEDIATION_TRACEABILITY.md`
+- `src/chart/chartScale.ts`
+- `src/chart/chartScale.test.ts`
+- `src/data/numericRange.ts`
+- `src/data/normalizePcrData.ts`
+- `src/data/parseExcel.ts`
+- `src/data/parsePastedTable.ts`
+- `src/analysis/analysisState.ts`
+- `src/analysis/analysisWorkbook.ts`
+- `src/app/appStore.ts`
+- `src/ui/SettingsPanel.tsx`
+- `src/ui/ChartPanel.tsx`
+- `tests/e2e/app.spec.ts`
+- `tests/fixtures/generatedCases.test.ts`
+- `docs/03_INPUT_OUTPUT_SPEC_EN.md`
 - `docs/04_TEST_PLAN_ACCEPTANCE_EN.md`
-- `docs/12_AUDIT_REMEDIATION_IMPLEMENTATION_PLAN_KR.md`
-- `DEVELOPMENT_STATE.md`
-- `docs/gui_mockups/screenshots/s1_fixture_import.png`
+- `docs/13_AUDIT_REMEDIATION_TRACEABILITY.md`
+- `docs/gui_mockups/screenshots/s2_scale_draft_applied.png`
 
 ## Implemented
+- Audit remediation S2:
+  - separates editable scale drafts from the last valid applied scale
+  - keeps the applied plot stable for incomplete or invalid-order active drafts
+  - blocks only plot-bearing PNG/JPEG/chart-clipboard output while an active scale draft is invalid
+  - leaves Legend-only output, plotted CSV, and Analysis XLSX available
+  - persists schema-v2 draft/applied scale state and migrates legacy schema-v1 Analysis XLSX state
+  - rejects schema-v2 Analysis XLSX files that omit required applied scale state instead of silently reconstructing it
+  - preserves significant digits in Box zoom bounds and the previous-scale return stack
+  - replaces scale/parser/export large-array spreads with bounded iterative range/row processing in the S2-owned paths
 - Quick Paste Import:
   - full-table row 1 specimen / row 2 reagent / row 3+ fluorescence mode
   - single-specimen name field plus pasted row 1 reagent / row 2+ fluorescence mode
@@ -471,6 +481,7 @@ Completed the local S1 verification cycle: deterministic fixed fixture regenerat
 - 2026-07-11 post-draft expert re-audit completed and was integrated into `docs/11_GPT56_PROJECT_AUDIT_KR.md`; no product source files were changed by the audit.
 - Phase S0 pre-remediation verification on `codex/audit-remediation`: `npm run test` passed 19 files / 162 tests; `npm run build` passed; exact fresh command `$env:CI='1'; npm run test:e2e` passed 5 Chromium tests after stopping the prior preview server; `npm audit --omit=dev` found 0 vulnerabilities. Separate production-preview smoke at 1280x720 and 1920x1080 returned HTTP 200 with the expected app title, zero console warnings/errors, zero page errors, and zero non-app-origin requests; screenshots are local test artifacts under `test-results/`. The three new Quick Paste screenshots use only `Synthetic Sample`, `Assay`, `Control`, and generated values; expert review found their `.png` files initially contained JPEG/JFIF bytes, so all three were losslessly re-encoded to real PNG signatures before checkpointing. The 15-page guide PDF text contained none of the scanned prior workbook/disease/date-like example terms. Approved checkpoint target: branch `codex/audit-remediation`, tag `checkpoint/audit-remediation-baseline-20260711`, last-published rollback SHA `9e77ad23ec8e863d3d05e7c8508ceb4729372155`.
 - Phase S1 final local verification: deterministic fixture regeneration changed 0 of 14 generated source/snapshot files and left `tests/fixtures/manifest.json` byte-identical; `npm run test` passed 22 files / 172 tests with 7 explicit Target TODOs; `npm run test:audit:red` passed 5 exact defect-signature probes; `npm run build` passed; `$env:CI='1'; npm run test:e2e -- --project=chromium --fail-on-flaky-tests --reporter=line` passed 5 tests from a fresh 4173 preview server; complete pre/post manifests for all 25 files in the tested `dist` were byte-identical. A negative-control check added a temporary 26th file and confirmed the complete-tree comparison failed, then removed it and reconfirmed 25-file equality. `npm audit --omit=dev` found 0 vulnerabilities. The first build attempt generated all assets but ended with a non-reproducible Node 24.14.1 Windows `libuv` shutdown assertion; an immediate clean rerun exited 0 and the same output hashes were verified. The synthetic FX-002 desktop evidence screenshot is `docs/gui_mockups/screenshots/s1_fixture_import.png`; it rendered two curves at 1920x1080 with no console/page errors or horizontal overflow.
+- Phase S2 final local verification: `npm run test` passed 24 files / 190 tests with 7 explicit Target TODOs; `npm run test:audit:red` passed the 3 remaining exact defect-signature probes; `npm run build` passed; fresh CI-mode Chromium E2E passed 15/15 across three repetitions and a final post-hardening 5/5 run; `npm audit --omit=dev` found 0 vulnerabilities. Focused scale/state/workbook/export tests passed 6 files / 93 tests after adding active invalid P1/P2, equal-bound, Box zoom adjacent-bound, schema-2 corruption rejection, and full schema-1 workbook migration coverage. The synthetic FX-002 screenshot `docs/gui_mockups/screenshots/s2_scale_draft_applied.png` confirms an invalid Y draft retains the last valid applied Fixed scale, disables plot-bearing image output, and keeps Analysis XLSX available at 1920x1080 with zero console/page errors and no horizontal overflow.
 - First-user PDF guide synthetic-data regeneration: passed. The guide was rebuilt from local-app screenshots using generated synthetic labels/data only, output as a 15-page PDF, checked with `pypdf` for page count/metadata/text extraction, searched for user-like sensitive labels (`RSV`, date-like labels, `_old`, `_new`), rendered through Poppler to PNG pages, and visually reviewed for layout, Korean text rendering, tables, screenshots, and troubleshooting pages.
 - GitHub Pages deployment: active at `https://siun-comp.github.io/isoamplar-plot-analysis/`.
 - Playwright checks include upload-first smoke, generated `.xlsx` upload, append `.xlsx` import, reagent-first collapsed state, virtualized single-curve selection row, search bulk select, Style-panel marker basis/group marker smoke, fixed hover readout smoke, chart canvas visibility, nonwhite pixel count, chart viewport height stability after settings expansion, and sticky chart panel behavior.
@@ -483,11 +494,11 @@ Completed the local S1 verification cycle: deterministic fixed fixture regenerat
   - `docs/gui_mockups/screenshots/phase-r12_hover_warning_mobile.png`
 
 ## Known Gaps
-- Phase S1 evidence/CI infrastructure is implemented locally, but none of the S2-S11 product remediations have been implemented yet.
-- The P1 items identified in `docs/11_GPT56_PROJECT_AUDIT_KR.md` are audit findings only and are not yet implemented: invalid Fixed-scale fallback/export, exported-legend identity truncation, Excel formatted-header identity, actionable Excel warnings, browser refresh/close protection, and accepted-size Quick Paste spread failure.
+- Phase S2 is implemented locally; S3-S11 product remediations remain pending.
+- S2 resolves invalid Fixed-scale fallback/export ambiguity and direct large-array spread hazards in its scale/parser/export paths. Exported-legend identity truncation, Excel formatted-header identity, actionable Excel warnings, browser refresh/close protection, and later performance/UX work remain for their scheduled phases.
 - The audit also reproduced a CSS defect where Legend `Labels` does not hide the `Order` panel, plus laptop-height sticky-chart and dense individual-style/legend-editor limitations. These remain unmodified pending user prioritization.
 - Clipboard image copy and rich Excel-cell legend paste have not been manually verified in Chrome/Edge on the final deployment origin.
-- S1 fixed fixture files and snapshots now exist locally but are not committed yet; S2-S8 target criteria remain known red by design.
+- Phase S1 fixtures are committed. Three S3-S8 target defects remain isolated as known-red probes by design.
 - Public URL technical smoke used generated `.xlsx` workbooks. Real `C:\Users\siunj\Desktop\graph_TEST.xlsx` has been inspected read-only but has not yet been uploaded through the finished UI in this session; final domain judgement for real labels/curve counts remains a user/manual validation item.
 - Performance budgets for max file size, row count, specimen count, imported curve count, and rendered curve count remain undecided.
 - P1/P2 scale presets are user-editable per analysis session and represented in AnalysisState; they can be preserved through explicit Analysis XLSX export/import but not automatic browser-session persistence.
@@ -513,6 +524,6 @@ Completed the local S1 verification cycle: deterministic fixed fixture regenerat
 - Local production preview: `http://127.0.0.1:4173/`
 
 ## Next 3 Tasks
-1. Complete final S1 expert review and correct any evidence/CI/documentation blockers.
-2. Provide `http://127.0.0.1:4173/`, S1 verification results, fixture manifest, and traceability matrix for user inspection.
-3. After explicit user approval, commit S1 as one evidence-foundation change; do not push/deploy, and do not start S2 before that approval.
+1. Audit the current shared legend projection, text measurement, wrapping, and collision behavior against Phase S3.
+2. Implement curveId-safe measured legend layout and identity-collision handling across preview and legend-bearing exports.
+3. Add unit/raster/browser evidence, update traceability and acceptance status, obtain expert GO, and commit S3 without pushing or deploying.

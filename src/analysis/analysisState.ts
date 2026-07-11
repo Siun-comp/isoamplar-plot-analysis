@@ -1,4 +1,4 @@
-import type { ChartScaleState } from "../chart/chartScale";
+import { getAppliedAxisScaleForDraft, type AxisScaleState, type ChartScaleState } from "../chart/chartScale";
 import type {
   Curve,
   CurveSource,
@@ -17,7 +17,8 @@ import type {
   StyleRules
 } from "../data/types";
 
-export const ANALYSIS_STATE_SCHEMA_VERSION = 1;
+export const ANALYSIS_STATE_SCHEMA_VERSION = 2;
+const LEGACY_ANALYSIS_STATE_SCHEMA_VERSION = 1;
 
 export type SourceFileSummary = {
   sourceKind?: DatasetSourceKind;
@@ -231,7 +232,10 @@ export function validateSerializedAnalysisState(payload: unknown): SerializedAna
     throw new Error("Analysis state restore data must be an object.");
   }
 
-  if (payload.schemaVersion !== ANALYSIS_STATE_SCHEMA_VERSION) {
+  if (
+    payload.schemaVersion !== LEGACY_ANALYSIS_STATE_SCHEMA_VERSION &&
+    payload.schemaVersion !== ANALYSIS_STATE_SCHEMA_VERSION
+  ) {
     throw new Error("Unsupported Analysis XLSX schema version.");
   }
 
@@ -279,6 +283,7 @@ export function validateSerializedAnalysisState(payload: unknown): SerializedAna
 }
 
 function migrateSerializedAnalysisPayload(payload: Record<string, unknown>): Record<string, unknown> {
+  const isLegacySchema = payload.schemaVersion === LEGACY_ANALYSIS_STATE_SCHEMA_VERSION;
   const styleRules = isRecord(payload.styleRules)
     ? {
         ...payload.styleRules,
@@ -290,6 +295,8 @@ function migrateSerializedAnalysisPayload(payload: Record<string, unknown>): Rec
 
   return {
     ...payload,
+    schemaVersion: ANALYSIS_STATE_SCHEMA_VERSION,
+    chartScale: isLegacySchema ? migrateChartScale(payload.chartScale) : payload.chartScale,
     dataset: migrateDatasetProvenance(payload.dataset),
     sourceFiles: migrateSourceFileProvenance(payload.sourceFiles),
     styleRules,
@@ -305,6 +312,33 @@ function migrateSerializedAnalysisPayload(payload: Record<string, unknown>): Rec
         : createDefaultLegendSettings(),
     exportSettings: "exportSettings" in payload ? payload.exportSettings : createDefaultExportSettings()
   };
+}
+
+function migrateChartScale(value: unknown): unknown {
+  if (!isRecord(value)) return value;
+  return {
+    ...value,
+    x: migrateAxisScale(value.x),
+    y: migrateAxisScale(value.y)
+  };
+}
+
+function migrateAxisScale(value: unknown): unknown {
+  if (!isRecord(value) || isRecord(value.applied)) return value;
+  const mode = value.mode;
+  let applied: Record<string, unknown> = { mode: "auto", min: null, max: null };
+  if (mode === "fixed" || mode === "preset1" || mode === "preset2") {
+    const source =
+      mode === "fixed"
+        ? { min: value.fixedMin, max: value.fixedMax }
+        : isRecord(value[mode])
+          ? value[mode]
+          : null;
+    const min = source && typeof source.min === "string" && source.min.trim() !== "" ? Number(source.min) : NaN;
+    const max = source && typeof source.max === "string" && source.max.trim() !== "" ? Number(source.max) : NaN;
+    if (Number.isFinite(min) && Number.isFinite(max) && min < max) applied = { mode, min, max };
+  }
+  return { ...value, applied };
 }
 
 function migrateDatasetProvenance(value: unknown): unknown {
@@ -554,6 +588,35 @@ function validateAxisScale(value: unknown, path: string) {
   assertString(value.fixedMax, `${path}.fixedMax`);
   validateScalePreset(value.preset1, `${path}.preset1`);
   validateScalePreset(value.preset2, `${path}.preset2`);
+  validateAppliedAxisScale(value.applied, `${path}.applied`);
+
+  const expectedApplied = getAppliedAxisScaleForDraft(value as AxisScaleState);
+  if (expectedApplied && !sameAppliedAxisScale(expectedApplied, value.applied)) {
+    throw new Error(`${path}.applied does not match the valid active scale draft.`);
+  }
+}
+
+function validateAppliedAxisScale(value: unknown, path: string) {
+  if (!isRecord(value)) throw new Error(`${path} is invalid.`);
+  assertOneOf(value.mode, scaleModes, `${path}.mode`);
+  assertFiniteNumberOrNull(value.min, `${path}.min`);
+  assertFiniteNumberOrNull(value.max, `${path}.max`);
+  if (value.mode === "auto") {
+    if (value.min !== null || value.max !== null) throw new Error(`${path} Auto bounds must be null.`);
+    return;
+  }
+  if (typeof value.min !== "number" || typeof value.max !== "number" || value.min >= value.max) {
+    throw new Error(`${path} requires finite min < max.`);
+  }
+}
+
+function sameAppliedAxisScale(expected: AxisScaleState["applied"], actual: unknown) {
+  return (
+    isRecord(actual) &&
+    actual.mode === expected.mode &&
+    actual.min === expected.min &&
+    actual.max === expected.max
+  );
 }
 
 function validateScalePreset(value: unknown, path: string) {

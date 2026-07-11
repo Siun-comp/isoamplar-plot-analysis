@@ -79,12 +79,14 @@ function createUniqueCurveId(curveId: string, fileIndex: number, usedCurveIds: S
 }
 
 function getNextFileIndex(dataset: PcrDataset) {
-  const fileIds = dataset.curves
-    .map((curve) => curve.curveId.match(/^file(\d+)_/u)?.[1])
-    .filter((value): value is string => Boolean(value))
-    .map((value) => Number(value));
-
-  return fileIds.length === 0 ? 2 : Math.max(...fileIds) + 1;
+  let maxFileIndex = 1;
+  for (const curve of dataset.curves) {
+    const value = curve.curveId.match(/^file(\d+)_/u)?.[1];
+    if (!value) continue;
+    const fileIndex = Number(value);
+    if (Number.isFinite(fileIndex) && fileIndex > maxFileIndex) maxFileIndex = fileIndex;
+  }
+  return maxFileIndex + 1;
 }
 
 function createMergedFileName(baseFileName: string, fileIndex: number) {

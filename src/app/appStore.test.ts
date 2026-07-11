@@ -271,6 +271,7 @@ describe("app store style preset and legend order", () => {
 
     expect(option.yAxis.min).toBe(0);
     expect(option.yAxis.max).toBe(100);
+    expect(state.chartScale.y.applied).toEqual({ mode: "preset1", min: 0, max: 100 });
 
     useAppStore.getState().setCurvesSelected([firstCurveId], false);
     expect(useAppStore.getState().chartScale.y.mode).toBe("preset1");
@@ -298,12 +299,32 @@ describe("app store style preset and legend order", () => {
       mode: "fixed",
       fixedMin: "18.5",
       fixedMax: "42",
-      preset1: { label: "P1 overview", min: "1", max: "60" }
+      preset1: { label: "P1 overview", min: "1", max: "60" },
+      applied: { mode: "fixed", min: 18.5, max: 42 }
     });
     expect(state.chartScale.y).toMatchObject({
       mode: "fixed",
       fixedMin: "120000",
-      fixedMax: "900000"
+      fixedMax: "900000",
+      applied: { mode: "fixed", min: 120000, max: 900000 }
+    });
+  });
+
+  it("preserves applied bounds while an active draft becomes invalid", () => {
+    const dataset = createOneSpecimenEightReagentDataset();
+    useAppStore.getState().loadDataset(dataset);
+    useAppStore.getState().setAxisScaleMode("y", "fixed");
+    useAppStore.getState().setAxisFixedValue("y", "min", "-1");
+    useAppStore.getState().setAxisFixedValue("y", "max", "100");
+    expect(useAppStore.getState().chartScale.y.applied).toEqual({ mode: "fixed", min: -1, max: 100 });
+
+    useAppStore.getState().setAxisFixedValue("y", "max", "-2");
+
+    expect(useAppStore.getState().chartScale.y).toMatchObject({
+      mode: "fixed",
+      fixedMin: "-1",
+      fixedMax: "-2",
+      applied: { mode: "fixed", min: -1, max: 100 }
     });
   });
 

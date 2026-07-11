@@ -77,7 +77,7 @@ Analysis XLSX is a project/session restore file for IsoAmplar Plot Analysis. It 
 Workbook shape:
 
 - `README`: human-readable explanation that this file is for restoring an IsoAmplar analysis in the web app.
-- `Settings`: human-readable analysis name, export date, app version, selected count, scale/style/legend summary including current X/Y scale mode and fixed bounds, and source summary.
+- `Settings`: human-readable analysis name, export date, app version, selected count, scale/style/legend summary including X/Y draft mode/bounds and last valid applied mode/bounds, and source summary.
 - `ImportedData`: full normalized imported dataset for review, including curves that are not currently selected or plotted.
 - The visible `ImportedData` sheet shows original specimen/reagent labels, an Analysis label row, curve IDs, and raw fluorescence values so review remains traceable without mutating source labels.
 - `Warnings`: import warnings preserved from the analysis.
@@ -90,7 +90,7 @@ Restore payload must include:
 - Source metadata and source file summaries.
 - Import warnings.
 - Selected curve IDs, grouping mode, collapsed group IDs, search/filter state where applicable, and ordered curve IDs.
-- Chart scale state, including Fixed and P1/P2 values.
+- Chart scale state, including editable Fixed/P1/P2 drafts and the separate last valid applied mode/bounds used by preview and plot image export.
 - Style rules, including color/line/marker grouping rules, individual curve overrides with field-level custom/preset source metadata and Analysis labels, legend/export settings, legend label mode, export layout, and export counter.
 - Analysis name.
 
@@ -110,7 +110,7 @@ Routing policy:
 - `추가 선택` + Analysis XLSX: open as a new internal analysis tab.
 - Dirty tab close shows explicit options: Cancel, save Analysis XLSX then close, or close without saving. Dirty replacement never proceeds silently.
 
-If the hidden restore worksheet is missing, corrupt, chunk-damaged, or has an unsupported schema version, the app must show an actionable error and must not misinterpret the file as a normal PCR source workbook. Ordinary `.xlsx` source workbooks are treated as Analysis XLSX only when they contain the explicit IsoAmplar restore marker, so review-like sheet names such as `Settings` or `ImportedData` alone do not change routing. Restore may migrate older same-schema payloads by filling newly added non-destructive defaults such as group marker rules or legend/export settings.
+If the hidden restore worksheet is missing, corrupt, chunk-damaged, or has an unsupported schema version, the app must show an actionable error and must not misinterpret the file as a normal PCR source workbook. Ordinary `.xlsx` source workbooks are treated as Analysis XLSX only when they contain the explicit IsoAmplar restore marker, so review-like sheet names such as `Settings` or `ImportedData` alone do not change routing. Current Analysis XLSX uses schema 2. Schema 1 is migrated by deriving an explicit applied scale from its valid active draft; invalid legacy active drafts migrate with Auto as the prior applied behavior. Schema 2 requires explicit applied scale state and is rejected as corrupt if that state is absent. Restore may also fill non-destructive defaults such as provenance, group marker rules, or legend/export settings.
 
 ## Report / Plotted XLSX Rules
 Report/Plotted XLSX remains deferred and is separate from Analysis XLSX.

@@ -1,4 +1,5 @@
 import { createSimilarNameWarnings } from "./similarNameWarnings";
+import { getFiniteRange } from "./numericRange";
 import type { Curve, CurveStats, DatasetSourceKind, PcrDataset, PcrEntity, PcrWarning } from "./types";
 
 let sourceInstanceSequence = 0;
@@ -18,20 +19,19 @@ export function createPcrDatasetFromCurves(args: {
   const specimenMap = createEntityMap(curves, "specimen");
   const reagentMap = createEntityMap(curves, "reagent");
   const duplicateLabelWarnings = createDuplicateCurveLabelWarnings(curves);
-  const similarWarnings = [
-    ...createSimilarNameWarnings(
+  const similarWarnings = createSimilarNameWarnings(
       [...specimenMap.values()].map((entity) => entity.label),
       "specimen",
       createCurveIdsByLabel(curves, "specimen")
-    ),
-    ...createSimilarNameWarnings(
-      [...reagentMap.values()].map((entity) => entity.label),
-      "reagent",
-      createCurveIdsByLabel(curves, "reagent")
-    )
-  ];
+    ).concat(
+      createSimilarNameWarnings(
+        [...reagentMap.values()].map((entity) => entity.label),
+        "reagent",
+        createCurveIdsByLabel(curves, "reagent")
+      )
+    );
 
-  const warnings = [...(args.warnings ?? []), ...duplicateLabelWarnings, ...similarWarnings];
+  const warnings = (args.warnings ?? []).concat(duplicateLabelWarnings, similarWarnings);
 
   return {
     schemaVersion: 1,
@@ -82,13 +82,13 @@ function inferDatasetSourceKind(curves: Curve[]): DatasetSourceKind {
 }
 
 export function createStats(values: Array<number | null>): CurveStats {
-  const finiteValues = values.filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  const range = getFiniteRange(values);
 
   return {
     pointCount: values.length,
-    missingCount: values.length - finiteValues.length,
-    minY: finiteValues.length > 0 ? Math.min(...finiteValues) : null,
-    maxY: finiteValues.length > 0 ? Math.max(...finiteValues) : null
+    missingCount: values.length - (range?.count ?? 0),
+    minY: range?.min ?? null,
+    maxY: range?.max ?? null
   };
 }
 

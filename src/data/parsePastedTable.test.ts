@@ -41,7 +41,6 @@ describe("parsePastedTable", () => {
     expect(result.dataset.curves.map((curve) => curve.specimenLabel)).toEqual(["Specimen X", "Specimen X"]);
     expect(result.dataset.curves.map((curve) => curve.reagentLabel)).toEqual(["A1", "A2"]);
     expect(result.dataset.curves[0].x).toEqual([1, 2]);
-    expect(result.normalizedRows[0]).toEqual(["Specimen X", "Specimen X"]);
     expect(result.dataset.curves[0].source).toMatchObject({
       inputMode: "singleSpecimen",
       specimenCell: "Specimen name field",

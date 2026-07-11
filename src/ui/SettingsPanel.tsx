@@ -1,7 +1,14 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, SyntheticEvent } from "react";
-import type { AxisId, AxisScaleState, ScaleMode, ScalePresetId } from "../chart/chartScale";
-import { getAxisAutoDomain, isScalePresetConfigured } from "../chart/chartScale";
+import type {
+  AxisId,
+  AxisScaleIssue,
+  AxisScaleResolution,
+  AxisScaleState,
+  ScaleMode,
+  ScalePresetId
+} from "../chart/chartScale";
+import { isScalePresetConfigured } from "../chart/chartScale";
 import { defaultChartColors } from "../chart/chartStyle";
 import { buildPcrChartOption } from "../chart/chartConfig";
 import { buildChartProjection, type LegendItem } from "../chart/chartProjection";
@@ -85,8 +92,8 @@ export function SettingsPanel() {
     curveOverrides
   });
   const selectedCurves = chartProjection.visibleCurves;
-  const xAutoDomain = getAxisAutoDomain("x", selectedCurves);
-  const yAutoDomain = getAxisAutoDomain("y", selectedCurves);
+  const xAutoDomain = chartProjection.xScale.dataDomain;
+  const yAutoDomain = chartProjection.yScale.dataDomain;
   const specimenDefaultColors = createDefaultEntityColorMap(dataset?.specimens ?? []);
   const reagentDefaultColors = createDefaultEntityColorMap(dataset?.reagents ?? []);
   const setAnalysisLabel = (curveId: string, label: string) => {
@@ -111,6 +118,7 @@ export function SettingsPanel() {
           axis="x"
           label="X axis"
           state={chartScale.x}
+          resolution={chartProjection.xScale}
           autoDomain={xAutoDomain}
           onModeChange={setAxisScaleMode}
           onFixedValueChange={setAxisFixedValue}
@@ -120,6 +128,7 @@ export function SettingsPanel() {
           axis="y"
           label="Y axis"
           state={chartScale.y}
+          resolution={chartProjection.yScale}
           autoDomain={yAutoDomain}
           onModeChange={setAxisScaleMode}
           onFixedValueChange={setAxisFixedValue}
@@ -242,6 +251,7 @@ export function SettingsPanel() {
           searchQuery={searchQuery}
           selectionFilter={selectionFilter}
           chartScale={chartScale}
+          scaleIssues={chartProjection.scaleIssues}
           labelMode={labelMode}
           styleRules={styleRules}
           curveOverrides={curveOverrides}
@@ -275,6 +285,7 @@ function ExportControls({
   searchQuery,
   selectionFilter,
   chartScale,
+  scaleIssues,
   labelMode,
   styleRules,
   curveOverrides,
@@ -302,6 +313,7 @@ function ExportControls({
   searchQuery: string;
   selectionFilter: ReturnType<typeof useAppStore.getState>["selectionFilter"];
   chartScale: ReturnType<typeof useAppStore.getState>["chartScale"];
+  scaleIssues: AxisScaleIssue[];
   labelMode: GroupingMode;
   styleRules: ReturnType<typeof useAppStore.getState>["styleRules"];
   curveOverrides: ReturnType<typeof useAppStore.getState>["curveOverrides"];
@@ -327,9 +339,16 @@ function ExportControls({
   const csvResult = createPlottedDataCsv({ curves: selectedCurves, labelMode, styleRules, curveOverrides });
   const disabled = selectedCurves.length === 0 || busy;
   const analysisExportDisabled = !dataset || !selection || busy;
+  const blockingScaleIssues = scaleIssues.filter((issue) => issue.blocksPlotExport);
+  const plotImageScaleBlocked = exportSettings.imageLayout !== "legendOnly" && blockingScaleIssues.length > 0;
+  const plotScaleMessage = blockingScaleIssues.map((issue) => issue.message).join(" ");
 
   async function exportImage(type: ImageExportType) {
     if (!dataset) return;
+    if (exportSettings.imageLayout !== "legendOnly" && blockingScaleIssues.length > 0) {
+      setExportMessage(`Plot image export is blocked. ${plotScaleMessage} Edit Scale settings.`);
+      return;
+    }
     setBusy(true);
     setExportMessage(null);
     try {
@@ -361,6 +380,10 @@ function ExportControls({
 
   async function copyPng(layout: ImageExportLayout = exportSettings.imageLayout, successMessage = "Copied PNG image to clipboard.") {
     if (!dataset) return;
+    if (layout !== "legendOnly" && blockingScaleIssues.length > 0) {
+      setExportMessage(`Plot clipboard export is blocked. ${plotScaleMessage} Edit Scale settings.`);
+      return;
+    }
     setBusy(true);
     setExportMessage(null);
     try {
@@ -568,16 +591,21 @@ function ExportControls({
           </label>
         </div>
         <div className="export-button-grid">
-      <button type="button" aria-label="Save PNG" disabled={disabled} onClick={() => void exportImage("png")}>
+      <button type="button" aria-label="Save PNG" disabled={disabled || plotImageScaleBlocked} onClick={() => void exportImage("png")}>
         PNG 저장
       </button>
-      <button type="button" aria-label="Save JPEG" disabled={disabled} onClick={() => void exportImage("jpeg")}>
+      <button type="button" aria-label="Save JPEG" disabled={disabled || plotImageScaleBlocked} onClick={() => void exportImage("jpeg")}>
         JPEG 저장
       </button>
-      <button type="button" aria-label="Copy selected layout PNG to clipboard" disabled={disabled} onClick={() => void copyPng()}>
+      <button type="button" aria-label="Copy selected layout PNG to clipboard" disabled={disabled || plotImageScaleBlocked} onClick={() => void copyPng()}>
         클립보드 PNG
       </button>
         </div>
+        {plotImageScaleBlocked && (
+          <p className="error-text" role="status">
+            Plot image exports are blocked until the active Scale draft is valid. {plotScaleMessage}
+          </p>
+        )}
       </section>
       <section className="export-group" aria-label="Legend export">
         <div className="export-group-header export-group-header-stacked">
@@ -1484,6 +1512,7 @@ function ScaleAxisControl({
   axis,
   label,
   state,
+  resolution,
   autoDomain,
   onModeChange,
   onFixedValueChange,
@@ -1492,12 +1521,12 @@ function ScaleAxisControl({
   axis: AxisId;
   label: string;
   state: AxisScaleState;
+  resolution: AxisScaleResolution;
   autoDomain: { min: number; max: number } | null;
   onModeChange: (axis: AxisId, mode: ScaleMode) => void;
   onFixedValueChange: (axis: AxisId, bound: "min" | "max", value: string) => void;
   onPresetValueChange: (axis: AxisId, preset: ScalePresetId, field: "label" | "min" | "max", value: string) => void;
 }) {
-  const fixedInvalid = state.mode === "fixed" && !isValidFixedScale(state);
   const autoMin = autoDomain ? formatDomainValue(autoDomain.min) : "";
   const autoMax = autoDomain ? formatDomainValue(autoDomain.max) : "";
   const preset1Ready = isScalePresetConfigured(state.preset1);
@@ -1509,8 +1538,9 @@ function ScaleAxisControl({
         <strong>{label}</strong>
       </div>
       <p className="scale-auto-domain">
-        Auto range: {autoDomain ? `${autoMin} - ${autoMax}` : "선택된 데이터 없음"}
+        Selected raw data range: {autoDomain ? `${autoMin} - ${autoMax}` : "선택된 데이터 없음"}
       </p>
+      <p className="scale-applied-status">Applied: {formatAppliedScale(resolution)}</p>
       <div className="scale-mode-grid" role="radiogroup" aria-label={`${label} scale mode`}>
         <ScaleModeButton label="Auto" active={state.mode === "auto"} onClick={() => onModeChange(axis, "auto")} />
         <ScaleModeButton label="Fixed" active={state.mode === "fixed"} onClick={() => onModeChange(axis, "fixed")} />
@@ -1578,9 +1608,11 @@ function ScaleAxisControl({
           onPresetValueChange={onPresetValueChange}
         />
       </div>
-      {state.mode === "preset1" && !preset1Ready && <p>Preset P1에는 숫자 min &lt; max가 필요합니다.</p>}
-      {state.mode === "preset2" && !preset2Ready && <p>Preset P2에는 숫자 min &lt; max가 필요합니다.</p>}
-      {fixedInvalid && <p className="error-text">숫자 min &lt; max가 필요합니다.</p>}
+      {resolution.issue && (
+        <p className={resolution.issue.blocksPlotExport ? "error-text" : "warning-text"} role="status">
+          {resolution.issue.message}
+        </p>
+      )}
     </section>
   );
 }
@@ -1644,12 +1676,6 @@ function ScaleModeButton({
   );
 }
 
-function isValidFixedScale(state: AxisScaleState) {
-  const min = Number(state.fixedMin);
-  const max = Number(state.fixedMax);
-  return state.fixedMin.trim() !== "" && state.fixedMax.trim() !== "" && Number.isFinite(min) && Number.isFinite(max) && min < max;
-}
-
 function formatDomainValue(value: number) {
   if (value === 0) return "0";
   const absValue = Math.abs(value);
@@ -1657,4 +1683,10 @@ function formatDomainValue(value: number) {
     return Number(value.toPrecision(6)).toString();
   }
   return value.toExponential(3);
+}
+
+function formatAppliedScale(resolution: AxisScaleResolution) {
+  if (resolution.applied.mode === "auto") return "Auto";
+  const mode = resolution.applied.mode === "fixed" ? "Fixed" : resolution.applied.mode.toUpperCase();
+  return `${mode} ${formatDomainValue(resolution.applied.min!)} - ${formatDomainValue(resolution.applied.max!)}`;
 }

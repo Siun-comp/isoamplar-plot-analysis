@@ -28,20 +28,19 @@ export function createPlottedDataCsv(args: {
 
   const styleRules = args.styleRules ?? createDefaultStyleRules();
   const headers = createUniqueHeaders(curves, styleRules, args.curveOverrides ?? {}, args.labelMode);
-  const rows = [
-    ["Cycle", ...headers],
-    ...referenceX.map((cycle, rowIndex) => [
-      String(cycle),
-      ...curves.map((curve) => {
-        const value = curve.y[rowIndex];
-        return typeof value === "number" && Number.isFinite(value) ? String(value) : "";
-      })
-    ])
-  ];
+  const lines = [["Cycle"].concat(headers).map(csvEscape).join(",")];
+  for (let rowIndex = 0; rowIndex < referenceX.length; rowIndex += 1) {
+    const cells = [String(referenceX[rowIndex])];
+    for (const curve of curves) {
+      const value = curve.y[rowIndex];
+      cells.push(typeof value === "number" && Number.isFinite(value) ? String(value) : "");
+    }
+    lines.push(cells.map(csvEscape).join(","));
+  }
 
   return {
     ok: true,
-    csv: rows.map((row) => row.map(csvEscape).join(",")).join("\r\n")
+    csv: lines.join("\r\n")
   };
 }
 

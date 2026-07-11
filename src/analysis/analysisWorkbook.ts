@@ -119,7 +119,7 @@ function createReadmeRows() {
 
 function createSettingsRows(state: AnalysisState) {
   const selectedCount = state.selection.selectedCurveIds.size;
-  return [
+  const rows: unknown[][] = [
     ["Setting", "Value"],
     ["Analysis name", state.analysisName],
     ["Exported at", new Date().toISOString()],
@@ -130,15 +130,23 @@ function createSettingsRows(state: AnalysisState) {
     ["Worksheet", state.dataset.sheetName],
     ["Export counter", state.exportCounter],
     ["Grouping mode", state.selection.groupingMode],
-    ["X scale mode", state.chartScale.x.mode],
+    ["X scale draft mode", state.chartScale.x.mode],
     ["X fixed min", state.chartScale.x.fixedMin],
     ["X fixed max", state.chartScale.x.fixedMax],
-    ["Y scale mode", state.chartScale.y.mode],
+    ["X applied mode", state.chartScale.x.applied.mode],
+    ["X applied min", state.chartScale.x.applied.min ?? ""],
+    ["X applied max", state.chartScale.x.applied.max ?? ""],
+    ["Y scale draft mode", state.chartScale.y.mode],
     ["Y fixed min", state.chartScale.y.fixedMin],
     ["Y fixed max", state.chartScale.y.fixedMax],
+    ["Y applied mode", state.chartScale.y.applied.mode],
+    ["Y applied min", state.chartScale.y.applied.min ?? ""],
+    ["Y applied max", state.chartScale.y.applied.max ?? ""],
     [],
-    ["Source type", "Source ID", "Source name", "Sheet", "Sheet index", "Imported at", "Curve count"],
-    ...state.sourceFiles.map((sourceFile) => [
+    ["Source type", "Source ID", "Source name", "Sheet", "Sheet index", "Imported at", "Curve count"]
+  ];
+  for (const sourceFile of state.sourceFiles) {
+    rows.push([
       sourceFile.sourceKind ?? "excel",
       sourceFile.sourceInstanceId ?? "",
       sourceFile.fileName,
@@ -146,33 +154,38 @@ function createSettingsRows(state: AnalysisState) {
       sourceFile.sheetIndex,
       sourceFile.importedAtIso,
       sourceFile.curveCount
-    ])
-  ];
+    ]);
+  }
+  return rows;
 }
 
 function createImportedDataRows(curves: Curve[], curveOverrides: AnalysisState["curveOverrides"]) {
-  const maxPoints = Math.max(0, ...curves.map((curve) => curve.x.length));
-  return [
-    ["Cycle", ...curves.map((curve) => curve.specimenLabel)],
-    ["Reagent", ...curves.map((curve) => curve.reagentLabel)],
-    ["Analysis label", ...curves.map((curve) => curveOverrides[curve.curveId]?.displayName ?? "")],
-    ["Curve ID", ...curves.map((curve) => curve.curveId)],
-    ["Source type", ...curves.map((curve) => curve.source.sourceKind ?? "excel")],
-    ["Source name", ...curves.map((curve) => curve.source.fileName)],
-    ["Source ID", ...curves.map((curve) => curve.source.sourceInstanceId ?? "")],
-    ["Source column", ...curves.map((curve) => curve.source.columnLetter)],
-    ["Paste input mode", ...curves.map((curve) => curve.source.inputMode ?? "")],
-    ...Array.from({ length: maxPoints }, (_, index) => [
-      curves[0]?.x[index] ?? index + 1,
-      ...curves.map((curve) => curve.y[index] ?? "")
-    ])
+  const maxPoints = curves.reduce((max, curve) => (curve.x.length > max ? curve.x.length : max), 0);
+  const rows: unknown[][] = [
+    ["Cycle"].concat(curves.map((curve) => curve.specimenLabel)),
+    ["Reagent"].concat(curves.map((curve) => curve.reagentLabel)),
+    ["Analysis label"].concat(curves.map((curve) => curveOverrides[curve.curveId]?.displayName ?? "")),
+    ["Curve ID"].concat(curves.map((curve) => curve.curveId)),
+    ["Source type"].concat(curves.map((curve) => curve.source.sourceKind ?? "excel")),
+    ["Source name"].concat(curves.map((curve) => curve.source.fileName)),
+    ["Source ID"].concat(curves.map((curve) => curve.source.sourceInstanceId ?? "")),
+    ["Source column"].concat(curves.map((curve) => curve.source.columnLetter)),
+    ["Paste input mode"].concat(curves.map((curve) => curve.source.inputMode ?? ""))
   ];
+  for (let index = 0; index < maxPoints; index += 1) {
+    const row: unknown[] = [curves[0]?.x[index] ?? index + 1];
+    for (const curve of curves) row.push(curve.y[index] ?? "");
+    rows.push(row);
+  }
+  return rows;
 }
 
 function createWarningsRows(warnings: PcrWarning[]) {
-  return [
-    ["Code", "Severity", "Scope", "Message", "Curve IDs", "Labels", "Source cell", "Source range", "Sheet", "Column", "Raw value"],
-    ...warnings.map((warning) => [
+  const rows: unknown[][] = [
+    ["Code", "Severity", "Scope", "Message", "Curve IDs", "Labels", "Source cell", "Source range", "Sheet", "Column", "Raw value"]
+  ];
+  for (const warning of warnings) {
+    rows.push([
       warning.code,
       warning.severity,
       warning.scope,
@@ -184,20 +197,22 @@ function createWarningsRows(warnings: PcrWarning[]) {
       warning.sheetName ?? "",
       warning.columnLetter ?? "",
       warning.rawValue === undefined ? "" : JSON.stringify(warning.rawValue)
-    ])
-  ];
+    ]);
+  }
+  return rows;
 }
 
 function createRestoreRows(serialized: SerializedAnalysisState) {
   const json = JSON.stringify(serialized);
   const chunks = chunkString(json, CHUNK_SIZE);
-  return [
+  const rows: unknown[][] = [
     [ANALYSIS_RESTORE_MARKER],
     ["schemaVersion", ANALYSIS_STATE_SCHEMA_VERSION],
     ["chunkCount", chunks.length],
-    ["chunkIndex", "jsonChunk"],
-    ...chunks.map((chunk, index) => [index, chunk])
+    ["chunkIndex", "jsonChunk"]
   ];
+  for (let index = 0; index < chunks.length; index += 1) rows.push([index, chunks[index]]);
+  return rows;
 }
 
 function readSerializedAnalysisState(worksheet: XLSX.WorkSheet, xlsx: XlsxModule) {
@@ -207,7 +222,7 @@ function readSerializedAnalysisState(worksheet: XLSX.WorkSheet, xlsx: XlsxModule
   }
 
   const schemaVersion = rows.find((row) => row[0] === "schemaVersion")?.[1];
-  if (schemaVersion !== ANALYSIS_STATE_SCHEMA_VERSION) {
+  if (schemaVersion !== 1 && schemaVersion !== ANALYSIS_STATE_SCHEMA_VERSION) {
     throw new Error("Unsupported Analysis XLSX schema version.");
   }
 

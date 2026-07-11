@@ -16,7 +16,6 @@ export type ParsePastedTableSuccess = {
   ok: true;
   dataset: PcrDataset;
   delimiter: PasteDelimiter;
-  normalizedRows: string[][];
 };
 
 export type ParsePastedTableFailure = {
@@ -69,19 +68,19 @@ export function parsePastedTable(text: string, options: ParsePastedTableOptions)
     return invalidPaste("단일 검체 모드에서는 검체명을 입력해야 합니다.");
   }
 
-  const columnCount = Math.max(0, ...rows.map((row) => row.length));
+  const columnCount = rows.reduce((max, row) => (row.length > max ? row.length : max), 0);
   if (columnCount === 0) {
     return invalidPaste("붙여넣은 표에서 데이터 열을 찾을 수 없습니다.");
   }
 
-  if (rows.length * columnCount > QUICK_PASTE_MAX_CELLS) {
+  if (columnCount > Math.floor(QUICK_PASTE_MAX_CELLS / rows.length)) {
     return invalidPaste("붙여넣은 표의 cell 수가 브라우저 안전 한도를 초과했습니다. 대량 데이터는 Excel 파일로 가져오십시오.");
   }
 
   const normalizedRows = rows.map((row) => normalizeRow(row, columnCount));
   const fullTableRows =
     options.mode === "singleSpecimen"
-      ? [Array.from({ length: columnCount }, () => specimenLabel), ...normalizedRows]
+      ? [Array.from({ length: columnCount }, () => specimenLabel)].concat(normalizedRows)
       : normalizedRows;
   const candidateColumns = findCandidateColumns(fullTableRows, columnCount);
 
@@ -104,14 +103,14 @@ export function parsePastedTable(text: string, options: ParsePastedTableOptions)
       lastDataRow
     })
   );
-  const curveWarnings = curves.flatMap((curve) => curve.warnings);
+  const curveWarnings: PcrWarning[] = [];
+  for (const curve of curves) {
+    for (const warning of curve.warnings) curveWarnings.push(warning);
+  }
 
   return {
     ok: true,
     delimiter: delimiterResult.delimiter,
-    normalizedRows: fullTableRows
-      .slice(0, lastDataRow + 1)
-      .map((row) => candidateColumns.map((columnIndex) => row[columnIndex] ?? "")),
     dataset: createPcrDatasetFromCurves({
       curves,
       fileName: sourceName,
