@@ -16,12 +16,24 @@ export type ParsePastedTableSuccess = {
   ok: true;
   dataset: PcrDataset;
   delimiter: PasteDelimiter;
+  summary: PasteTableSummary;
 };
 
 export type ParsePastedTableFailure = {
   ok: false;
+  errorKind: "validation" | "unexpected";
   error: PcrWarning;
   warnings: PcrWarning[];
+};
+
+export type PasteTableSummary = {
+  rowCount: number;
+  columnCount: number;
+  cellCount: number;
+  curveCount: number;
+  cycleCount: number;
+  sourceCharacterCount: number;
+  estimatedWorkingMemoryBytes: number;
 };
 
 export type ParsePastedTableResult = ParsePastedTableSuccess | ParsePastedTableFailure;
@@ -33,6 +45,17 @@ export const QUICK_PASTE_LARGE_CELL_WARNING = 10_000;
 const decimalNumberPattern = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/u;
 
 export function parsePastedTable(text: string, options: ParsePastedTableOptions): ParsePastedTableResult {
+  try {
+    return parsePastedTableUnsafe(text, options);
+  } catch {
+    return invalidPaste(
+      "붙여넣기 데이터를 처리하는 중 예기치 않은 오류가 발생했습니다. 현재 분석은 변경되지 않았습니다. 입력을 확인한 뒤 다시 시도하십시오.",
+      "unexpected"
+    );
+  }
+}
+
+function parsePastedTableUnsafe(text: string, options: ParsePastedTableOptions): ParsePastedTableResult {
   if (text.length > QUICK_PASTE_MAX_CHARACTERS) {
     return invalidPaste("붙여넣은 데이터가 브라우저 안전 한도를 초과했습니다. 대량 데이터는 Excel 파일로 가져오십시오.");
   }
@@ -103,10 +126,8 @@ export function parsePastedTable(text: string, options: ParsePastedTableOptions)
       lastDataRow
     })
   );
-  const curveWarnings: PcrWarning[] = [];
-  for (const curve of curves) {
-    for (const warning of curve.warnings) curveWarnings.push(warning);
-  }
+  let warningCount = 0;
+  for (const curve of curves) warningCount += curve.warnings.length;
 
   return {
     ok: true,
@@ -117,14 +138,45 @@ export function parsePastedTable(text: string, options: ParsePastedTableOptions)
       sheetName: "Paste",
       cycleCount: lastDataRow - 1,
       sourceKind: "paste",
-      importedAtIso: options.importedAtIso,
-      warnings: curveWarnings
+      importedAtIso: options.importedAtIso
+    }),
+    summary: createPasteTableSummary({
+      text,
+      rowCount: rows.length,
+      columnCount,
+      curveCount: curves.length,
+      cycleCount: lastDataRow - 1,
+      warningCount
     })
+  };
+}
+
+function createPasteTableSummary(args: {
+  text: string;
+  rowCount: number;
+  columnCount: number;
+  curveCount: number;
+  cycleCount: number;
+  warningCount: number;
+}): PasteTableSummary {
+  const cellCount = args.rowCount * args.columnCount;
+  const pointCount = args.curveCount * args.cycleCount;
+  return {
+    rowCount: args.rowCount,
+    columnCount: args.columnCount,
+    cellCount,
+    curveCount: args.curveCount,
+    cycleCount: args.cycleCount,
+    sourceCharacterCount: args.text.length,
+    estimatedWorkingMemoryBytes:
+      args.text.length * 6 + cellCount * 48 + pointCount * 24 + args.curveCount * 1024 + args.warningCount * 768
   };
 }
 
 export function renamePastedDatasetSource(dataset: PcrDataset, sourceName: string): PcrDataset {
   const nextSourceName = sourceName.trim() || "Paste import";
+  if (dataset.sourceFileName === nextSourceName) return dataset;
+
   const curves = dataset.curves.map((curve) => ({
     ...curve,
     source: {
@@ -346,14 +398,14 @@ function isBlankText(value: string | undefined) {
   return value === undefined || value.trim() === "";
 }
 
-function invalidPaste(message: string): ParsePastedTableFailure {
+function invalidPaste(message: string, errorKind: ParsePastedTableFailure["errorKind"] = "validation"): ParsePastedTableFailure {
   const error = createWarning({
     code: "INVALID_PASTED_TABLE",
     severity: "error",
     scope: "import",
     message
   });
-  return { ok: false, error, warnings: [error] };
+  return { ok: false, errorKind, error, warnings: [error] };
 }
 
 function createWarning(warning: PcrWarning): PcrWarning {

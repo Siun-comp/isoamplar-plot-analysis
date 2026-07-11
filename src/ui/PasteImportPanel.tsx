@@ -8,6 +8,7 @@ import {
 } from "../data/parsePastedTable";
 import type { PasteInputMode } from "../data/types";
 import { WarningInspector } from "./WarningInspector";
+import { LocalizedErrorBoundary } from "./LocalizedErrorBoundary";
 
 type PasteImportPanelProps = {
   disabled?: boolean;
@@ -51,17 +52,18 @@ export function PasteImportPanel({ disabled = false }: PasteImportPanelProps) {
   const [acknowledgedNullWarnings, setAcknowledgedNullWarnings] = useState(false);
   const [announcement, setAnnouncement] = useState("");
   const [formRevision, setFormRevision] = useState(0);
+  const [dialogRecoveryRevision, setDialogRecoveryRevision] = useState(0);
 
   const stalePreview = Boolean(preview && preview.formRevision !== formRevision);
-  const nullWarnings = useMemo(
-    () =>
-      preview?.dataset.warnings.filter(
-        (warning) => warning.code === "EMPTY_FLUORESCENCE_CELL" || warning.code === "NON_NUMERIC_FLUORESCENCE"
-      ) ?? [],
-    [preview]
-  );
+  const nullWarningCount = useMemo(() => {
+    let count = 0;
+    for (const warning of preview?.dataset.warnings ?? []) {
+      if (warning.code === "EMPTY_FLUORESCENCE_CELL" || warning.code === "NON_NUMERIC_FLUORESCENCE") count += 1;
+    }
+    return count;
+  }, [preview]);
   const canImport = Boolean(
-    preview && !stalePreview && sourceName.trim() && (nullWarnings.length === 0 || acknowledgedNullWarnings)
+    preview && !stalePreview && sourceName.trim() && (nullWarningCount === 0 || acknowledgedNullWarnings)
   );
 
   useEffect(() => {
@@ -74,7 +76,7 @@ export function PasteImportPanel({ disabled = false }: PasteImportPanelProps) {
       else dialog.setAttribute("open", "");
     }
     textareaRef.current?.focus();
-  }, [isOpen]);
+  }, [dialogRecoveryRevision, isOpen]);
 
   function openDialog() {
     const pasteCount = sourceFiles.filter((source) => source.sheetName === "Paste").length;
@@ -134,39 +136,43 @@ export function PasteImportPanel({ disabled = false }: PasteImportPanelProps) {
 
   function importPreview(destination: "append" | "newAnalysis") {
     if (!preview || !canImport) return;
-    const dataset = renamePastedDatasetSource(preview.dataset, sourceName);
-    const result =
-      destination === "append"
-        ? appendPastedDataset(
-            dataset,
-            preview.targetAnalysisId,
-            preview.targetRuntimeInstanceId,
-            preview.targetRevision
-          )
-        : openPastedDatasetInNewAnalysis(
-            dataset,
-            preview.targetAnalysisId,
-            preview.targetRuntimeInstanceId,
-            preview.targetRevision
-          );
+    try {
+      const dataset = renamePastedDatasetSource(preview.dataset, sourceName);
+      const result =
+        destination === "append"
+          ? appendPastedDataset(
+              dataset,
+              preview.targetAnalysisId,
+              preview.targetRuntimeInstanceId,
+              preview.targetRevision
+            )
+          : openPastedDatasetInNewAnalysis(
+              dataset,
+              preview.targetAnalysisId,
+              preview.targetRuntimeInstanceId,
+              preview.targetRevision
+            );
 
-    if (!result.ok) {
-      setActionError(result.message);
-      return;
+      if (!result.ok) {
+        setActionError(result.message);
+        return;
+      }
+
+      const destinationLabel =
+        destination === "append" ? `${preview.targetAnalysisName} 분석` : `${sourceName.trim()} 새 분석`;
+      setAnnouncement(
+        `${destinationLabel}에 측정 곡선 ${dataset.curves.length}개를 가져왔습니다. 새 곡선은 선택되지 않은 상태입니다.`
+      );
+      setSourceText("");
+      setSpecimenLabel("");
+      setSourceName("");
+      setPreview(null);
+      setAcknowledgedNullWarnings(false);
+      setFormRevision(0);
+      closeDialog();
+    } catch {
+      setActionError("붙여넣기 데이터를 가져오는 중 예기치 않은 오류가 발생했습니다. 현재 분석은 변경되지 않았습니다.");
     }
-
-    const destinationLabel =
-      destination === "append" ? `${preview.targetAnalysisName} 분석` : `${sourceName.trim()} 새 분석`;
-    setAnnouncement(
-      `${destinationLabel}에 측정 곡선 ${dataset.curves.length}개를 가져왔습니다. 새 곡선은 선택되지 않은 상태입니다.`
-    );
-    setSourceText("");
-    setSpecimenLabel("");
-    setSourceName("");
-    setPreview(null);
-    setAcknowledgedNullWarnings(false);
-    setFormRevision(0);
-    closeDialog();
   }
 
   return (
@@ -178,6 +184,17 @@ export function PasteImportPanel({ disabled = false }: PasteImportPanelProps) {
         {announcement}
       </span>
       {isOpen && (
+        <LocalizedErrorBoundary
+          resetKey={`${inputMode}:${formRevision}`}
+          fallback={(reset) => (
+            <section className="paste-error-panel" role="alert">
+              <strong>붙여넣기 입력 화면을 표시하지 못했습니다</strong>
+              <p>현재 분석과 입력 원문은 유지되었습니다.</p>
+              <button type="button" onClick={() => { setDialogRecoveryRevision((revision) => revision + 1); reset(); }}>다시 시도</button>
+              <button type="button" onClick={closeDialog}>붙여넣기 입력 닫기</button>
+            </section>
+          )}
+        >
         <dialog
           ref={dialogRef}
           className="paste-import-dialog"
@@ -297,7 +314,7 @@ export function PasteImportPanel({ disabled = false }: PasteImportPanelProps) {
               <PastePreviewSection
                 preview={preview}
                 stale={stalePreview}
-                nullWarningCount={nullWarnings.length}
+                nullWarningCount={nullWarningCount}
                 acknowledged={acknowledgedNullWarnings}
                 onAcknowledgedChange={setAcknowledgedNullWarnings}
               />
@@ -320,6 +337,7 @@ export function PasteImportPanel({ disabled = false }: PasteImportPanelProps) {
             </button>
           </div>
         </dialog>
+        </LocalizedErrorBoundary>
       )}
     </>
   );
@@ -342,9 +360,14 @@ function PastePreviewSection(props: {
       <div className="paste-preview-summary">
         <strong>미리보기</strong>
         <span>구분 방식 {delimiterLabel}</span>
-        <span>측정 곡선 {preview.dataset.curves.length}개</span>
-        <span>Cycle {preview.dataset.cycleCount}개</span>
-        <span>경고 {preview.dataset.warnings.length}개</span>
+        <span>행 {preview.summary.rowCount.toLocaleString()}개</span>
+        <span>열 {preview.summary.columnCount.toLocaleString()}개</span>
+        <span>Cell {preview.summary.cellCount.toLocaleString()}개</span>
+        <span>문자 {preview.summary.sourceCharacterCount.toLocaleString()}개</span>
+        <span>측정 곡선 {preview.summary.curveCount.toLocaleString()}개</span>
+        <span>Cycle {preview.summary.cycleCount.toLocaleString()}개</span>
+        <span>예상 최소 작업 메모리 약 {formatMemoryEstimate(preview.summary.estimatedWorkingMemoryBytes)}</span>
+        <span>경고 {preview.dataset.warnings.length.toLocaleString()}개</span>
       </div>
       <p className="paste-target">추가 대상: {preview.targetAnalysisName}</p>
       {isLargePastedDataset(preview.dataset) && (
@@ -354,14 +377,14 @@ function PastePreviewSection(props: {
       <div className="paste-preview-table-wrap" tabIndex={0} aria-label="읽기 전용 데이터 미리보기 표">
         <table className="paste-preview-table">
           <caption>
-            전체 {preview.dataset.curves.length}개 곡선 중 {curves.length}개, {preview.dataset.cycleCount}개 Cycle 중 {cycles.length}개 표시
+            전체 {preview.dataset.curves.length.toLocaleString()}개 곡선 중 {curves.length.toLocaleString()}개, {preview.dataset.cycleCount.toLocaleString()}개 Cycle 중 {cycles.length.toLocaleString()}개 표시
           </caption>
           <thead>
             <tr>
               <th scope="row">검체명</th>
               {curves.map((curve) => (
                 <th key={`${curve.curveId}-specimen`} scope="col">
-                  {curve.specimenLabel || "(비어 있음)"}
+                  {formatPreviewLabel(curve.specimenLabel || "(비어 있음)")}
                 </th>
               ))}
             </tr>
@@ -369,7 +392,7 @@ function PastePreviewSection(props: {
               <th scope="row">시약명</th>
               {curves.map((curve) => (
                 <th key={`${curve.curveId}-reagent`} scope="col">
-                  {curve.reagentLabel || "(비어 있음)"}
+                  {formatPreviewLabel(curve.reagentLabel || "(비어 있음)")}
                 </th>
               ))}
             </tr>
@@ -400,4 +423,14 @@ function PastePreviewSection(props: {
       )}
     </section>
   );
+}
+
+function formatMemoryEstimate(bytes: number) {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.ceil(bytes / 1024)).toLocaleString()} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatPreviewLabel(label: string) {
+  const limit = 120;
+  return label.length <= limit ? label : `${label.slice(0, limit)}…`;
 }

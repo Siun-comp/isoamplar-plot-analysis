@@ -1,11 +1,14 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import { App } from "../app/App";
 import { useAppStore } from "../app/appStore";
 
 describe("Quick Paste Import UI", () => {
+  const originalAppendPastedDataset = useAppStore.getState().appendPastedDataset;
+
   beforeEach(() => {
+    useAppStore.setState({ appendPastedDataset: originalAppendPastedDataset });
     useAppStore.getState().reset();
   });
 
@@ -26,6 +29,10 @@ describe("Quick Paste Import UI", () => {
     expect(useAppStore.getState().dataset).toBeNull();
     expect(within(dialog).getByText("측정 곡선 2개")).toBeInTheDocument();
     expect(within(dialog).getByText("Cycle 2개")).toBeInTheDocument();
+    expect(within(dialog).getByText("행 4개")).toBeInTheDocument();
+    expect(within(dialog).getByText("열 2개")).toBeInTheDocument();
+    expect(within(dialog).getByText("Cell 8개")).toBeInTheDocument();
+    expect(within(dialog).getByText(/예상 최소 작업 메모리 약/u)).toBeInTheDocument();
     expect(within(dialog).getByRole("table")).toBeInTheDocument();
     expect(within(dialog).queryByRole("gridcell")).not.toBeInTheDocument();
 
@@ -159,4 +166,84 @@ describe("Quick Paste Import UI", () => {
     expect(useAppStore.getState().dataset).toBeNull();
     expect(within(dialog).getByRole("button", { name: "현재 분석에 추가" })).toBeDisabled();
   });
+
+  it("contains an unexpected append failure without changing the current analysis", async () => {
+    const user = userEvent.setup();
+    useAppStore.setState({
+      appendPastedDataset: () => {
+        throw new Error("synthetic append failure");
+      }
+    });
+    render(<App />);
+    const beforeRevision = useAppStore.getState().revision;
+    await user.click(screen.getByRole("button", { name: "붙여넣기 입력" }));
+    const dialog = screen.getByRole("dialog", { name: "소량 표 붙여넣기" });
+    await user.type(within(dialog).getByRole("textbox", { name: "표 데이터" }), "S1{enter}A1{enter}0.1");
+    await user.click(within(dialog).getByRole("button", { name: "미리보기 생성" }));
+    await user.click(within(dialog).getByRole("button", { name: "현재 분석에 추가" }));
+
+    expect(within(dialog).getByText(/예기치 않은 오류.*현재 분석은 변경되지 않았습니다/u)).toBeInTheDocument();
+    expect(useAppStore.getState().dataset).toBeNull();
+    expect(useAppStore.getState().revision).toBe(beforeRevision);
+    act(() => useAppStore.setState({ appendPastedDataset: originalAppendPastedDataset }));
+  });
+
+  it("renders the accepted 3 by 83,333 wide preview with bounded visible rows", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "붙여넣기 입력" }));
+    const dialog = screen.getByRole("dialog", { name: "소량 표 붙여넣기" });
+    const textarea = within(dialog).getByRole("textbox", { name: "표 데이터" });
+    const row = Array.from({ length: 83_333 }, () => "S").join("\t");
+    const reagent = Array.from({ length: 83_333 }, () => "A").join("\t");
+    const values = Array.from({ length: 83_333 }, () => "0").join("\t");
+    fireEvent.change(textarea, { target: { value: `${row}\n${reagent}\n${values}` } });
+
+    await user.click(within(dialog).getByRole("button", { name: "미리보기 생성" }));
+
+    expect(within(dialog).getByText("열 83,333개")).toBeInTheDocument();
+    expect(within(dialog).getByText("Cell 249,999개")).toBeInTheDocument();
+    expect(within(dialog).getByText("측정 곡선 83,333개")).toBeInTheDocument();
+    expect(within(dialog).getByText(/전체 83,333개 곡선 중 12개/u)).toBeInTheDocument();
+    expect(within(dialog).getByText(/1 \/ 3334 · 전체 83,333개/u)).toBeInTheDocument();
+  }, 60_000);
+
+  it("renders the accepted 250,000 by 1 tall preview with bounded visible cycles", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "붙여넣기 입력" }));
+    const dialog = screen.getByRole("dialog", { name: "소량 표 붙여넣기" });
+    const textarea = within(dialog).getByRole("textbox", { name: "표 데이터" });
+    const sourceText = ["S", "A", ...Array.from({ length: 249_998 }, () => "0")].join("\n");
+    fireEvent.change(textarea, { target: { value: sourceText } });
+
+    await user.click(within(dialog).getByRole("button", { name: "미리보기 생성" }));
+
+    expect(within(dialog).getByText("행 250,000개")).toBeInTheDocument();
+    expect(within(dialog).getByText("Cell 250,000개")).toBeInTheDocument();
+    expect(within(dialog).getByText("Cycle 249,998개")).toBeInTheDocument();
+    expect(within(dialog).getByText(/249,998개 Cycle 중 10개 표시/u)).toBeInTheDocument();
+  }, 60_000);
+
+  it("renders the accepted 500 by 500 empty-heavy preview without expanding all warnings", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "붙여넣기 입력" }));
+    const dialog = screen.getByRole("dialog", { name: "소량 표 붙여넣기" });
+    const textarea = within(dialog).getByRole("textbox", { name: "표 데이터" });
+    const header = Array.from({ length: 500 }, () => "S").join("\t");
+    const reagent = Array.from({ length: 500 }, () => "A").join("\t");
+    const blankRow = Array.from({ length: 500 }, () => "").join("\t");
+    const finalRow = Array.from({ length: 500 }, () => "0").join("\t");
+    fireEvent.change(textarea, {
+      target: { value: [header, reagent, ...Array.from({ length: 497 }, () => blankRow), finalRow].join("\n") }
+    });
+
+    await user.click(within(dialog).getByRole("button", { name: "미리보기 생성" }));
+
+    expect(within(dialog).getByText("Cell 250,000개")).toBeInTheDocument();
+    expect(within(dialog).getByText("경고 248,501개")).toBeInTheDocument();
+    expect(within(dialog).getByText("1 / 9941")).toBeInTheDocument();
+    expect(within(dialog).getByRole("checkbox", { name: /빈 값으로 가져오며 그래프에는 간격/u })).toBeInTheDocument();
+  }, 60_000);
 });

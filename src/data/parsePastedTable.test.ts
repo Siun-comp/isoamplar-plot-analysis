@@ -19,6 +19,15 @@ describe("parsePastedTable", () => {
     ]);
     expect(result.dataset.curves[0].y).toEqual([-0.2, 1.25]);
     expect(result.dataset.curves[2].y).toEqual([200, 300]);
+    expect(result.summary).toMatchObject({
+      rowCount: 4,
+      columnCount: 3,
+      cellCount: 12,
+      curveCount: 3,
+      cycleCount: 2,
+      sourceCharacterCount: expect.any(Number),
+      estimatedWorkingMemoryBytes: expect.any(Number)
+    });
     expect(result.dataset.curves[0].source).toMatchObject({
       sourceKind: "paste",
       fileName: "Paste import 1",
@@ -148,6 +157,23 @@ describe("parsePastedTable", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.code).toBe("INVALID_PASTED_TABLE");
+    expect(result.errorKind).toBe("validation");
+  });
+
+  it("converts unexpected parser exceptions into a typed failure", () => {
+    const options = {
+      mode: "fullTable" as const,
+      get sourceName(): string {
+        throw new Error("synthetic parser failure");
+      }
+    };
+
+    const result = parsePastedTable("S1\nA1\n0.1", options);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errorKind).toBe("unexpected");
+    expect(result.error.message).toContain("현재 분석은 변경되지 않았습니다");
   });
 
   it("keeps source names and specimen labels out of curve identity", () => {

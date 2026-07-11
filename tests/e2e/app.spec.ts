@@ -52,6 +52,25 @@ test("previews and imports full-table and single-specimen pasted data", async ({
   await expect(page.getByText("선택 0")).toBeVisible();
 });
 
+test("previews every documented Quick Paste boundary shape in Chromium", async ({ page }) => {
+  test.setTimeout(120_000);
+
+  const tall = ["S", "A", ...Array.from({ length: 249_998 }, () => "0")].join("\n");
+  await previewBoundaryPaste(page, tall, "행 250,000개", "Cycle 249,998개");
+
+  const wideHeader = Array.from({ length: 83_333 }, () => "S").join("\t");
+  const wideReagent = Array.from({ length: 83_333 }, () => "A").join("\t");
+  const wideValues = Array.from({ length: 83_333 }, () => "0").join("\t");
+  await previewBoundaryPaste(page, `${wideHeader}\n${wideReagent}\n${wideValues}`, "열 83,333개", "측정 곡선 83,333개");
+
+  const balancedHeader = Array.from({ length: 500 }, () => "S").join("\t");
+  const balancedReagent = Array.from({ length: 500 }, () => "A").join("\t");
+  const blankRow = Array.from({ length: 500 }, () => "").join("\t");
+  const finalRow = Array.from({ length: 500 }, () => "0").join("\t");
+  const emptyHeavy = [balancedHeader, balancedReagent, ...Array.from({ length: 497 }, () => blankRow), finalRow].join("\n");
+  await previewBoundaryPaste(page, emptyHeavy, "Cell 250,000개", "경고 248,501개");
+});
+
 test("uploads an xlsx workbook and keeps reagent-first collapsed selection", async ({ page }, testInfo) => {
   const workbookPath = testInfo.outputPath("phase3-upload.xlsx");
   const appendWorkbookPath = testInfo.outputPath("phase3-append.xlsx");
@@ -460,4 +479,19 @@ async function applyBoxZoom(page: Page, canvasLocator: Locator) {
   await page.mouse.down();
   await page.mouse.move((box?.x ?? 0) + (box?.width ?? 0) * 0.72, (box?.y ?? 0) + (box?.height ?? 0) * 0.62, { steps: 8 });
   await page.mouse.up();
+}
+
+async function previewBoundaryPaste(page: Page, sourceText: string, firstExpected: string, secondExpected: string) {
+  await page.goto("/");
+  await page.getByRole("button", { name: "붙여넣기 입력" }).click();
+  const dialog = page.getByRole("dialog", { name: "소량 표 붙여넣기" });
+  await dialog.getByRole("textbox", { name: "표 데이터" }).evaluate((element, value) => {
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+    setter?.call(element, value);
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+  }, sourceText);
+  await dialog.getByRole("button", { name: "미리보기 생성" }).click();
+  await expect(dialog.getByText(firstExpected, { exact: true })).toBeVisible();
+  await expect(dialog.getByText(secondExpected, { exact: true })).toBeVisible();
+  await expect(dialog.getByRole("table")).toBeVisible();
 }

@@ -1,7 +1,7 @@
 import { createSimilarNameWarnings } from "./similarNameWarnings";
 import { getFiniteRange } from "./numericRange";
 import type { Curve, CurveStats, DatasetSourceKind, PcrDataset, PcrEntity, PcrWarning } from "./types";
-import { normalizeWarningProvenance } from "./warningProvenance";
+import { createWarningProvenanceIndex, normalizeWarningProvenanceWithIndex } from "./warningProvenance";
 
 let sourceInstanceSequence = 0;
 
@@ -21,9 +21,10 @@ export function createPcrDatasetFromCurves(args: {
     sourceKind,
     args.sourceInstanceId ?? createImportedSourceInstanceId(sourceKind)
   );
+  const provenanceIndex = createWarningProvenanceIndex(sourcedCurves);
   const curves = sourcedCurves.map((curve) => ({
     ...curve,
-    warnings: normalizeWarningProvenance(curve.warnings, sourcedCurves)
+    warnings: normalizeWarningProvenanceWithIndex(curve.warnings, sourcedCurves, provenanceIndex)
   }));
   const orderedCurveIds = curves.map((curve) => curve.curveId);
   const specimenMap = createEntityMap(curves, "specimen");
@@ -42,10 +43,16 @@ export function createPcrDatasetFromCurves(args: {
       )
     );
 
-  const warnings = normalizeWarningProvenance(
-    (args.warnings ?? []).concat(formattedIdentityWarnings, duplicateLabelWarnings, similarWarnings),
-    curves
+  const baseWarnings =
+    args.warnings === undefined
+      ? curves.flatMap((curve) => curve.warnings)
+      : normalizeWarningProvenanceWithIndex(args.warnings, curves, provenanceIndex);
+  const generatedWarnings = normalizeWarningProvenanceWithIndex(
+    formattedIdentityWarnings.concat(duplicateLabelWarnings, similarWarnings),
+    curves,
+    provenanceIndex
   );
+  const warnings = baseWarnings.concat(generatedWarnings);
 
   return {
     schemaVersion: 2,
@@ -124,11 +131,25 @@ export function createStats(values: Array<number | null>): CurveStats {
 }
 
 export function createEntityId(kind: "specimen" | "reagent", label: string, fallbackKey?: string) {
-  const key =
-    label.trim().length > 0
-      ? Array.from(label).map((character) => character.codePointAt(0)?.toString(16)).join("_")
-      : fallbackKey;
+  const key = label.trim().length > 0 ? createBoundedLabelKey(label) : fallbackKey;
   return `${kind}:${key || "missing"}`;
+}
+
+function createBoundedLabelKey(label: string) {
+  if (label.length <= 256) {
+    const parts: string[] = [];
+    for (const character of label) parts.push(character.codePointAt(0)?.toString(16) ?? "0");
+    return parts.join("_");
+  }
+
+  let hashA = 0x811c9dc5;
+  let hashB = 0x9e3779b9;
+  for (let index = 0; index < label.length; index += 1) {
+    const code = label.charCodeAt(index);
+    hashA = Math.imul(hashA ^ code, 0x01000193);
+    hashB = Math.imul(hashB ^ code, 0x85ebca6b);
+  }
+  return `long_${label.length}_${(hashA >>> 0).toString(16)}_${(hashB >>> 0).toString(16)}`;
 }
 
 function createEntityMap(curves: Curve[], kind: "specimen" | "reagent") {

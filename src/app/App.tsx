@@ -5,10 +5,13 @@ import { DataSelectionPanel } from "../ui/DataSelectionPanel";
 import { SettingsPanel } from "../ui/SettingsPanel";
 import { useAppStore } from "./appStore";
 import { WarningNavigationProvider } from "../ui/WarningNavigationContext";
+import { LocalizedErrorBoundary } from "../ui/LocalizedErrorBoundary";
+import { AnalysisWorkspaceRecovery } from "../ui/AnalysisWorkspaceRecovery";
 
 export function App() {
   const groupingMode = useAppStore((state) => state.selection?.groupingMode ?? "reagent");
   const activeAnalysisId = useAppStore((state) => state.activeAnalysisId);
+  const runtimeInstanceId = useAppStore((state) => state.runtimeInstanceId);
   const groupingLabel = groupingMode === "reagent" ? "시약별" : "검체별";
 
   return (
@@ -27,6 +30,10 @@ export function App() {
 
       <DataImportPanel />
 
+      <LocalizedErrorBoundary
+        resetKey={`${activeAnalysisId}:${runtimeInstanceId}`}
+        fallback={(reset) => <AnalysisWorkspaceRecovery onRetry={reset} />}
+      >
       <section
         id="analysis-workspace"
         className="workspace"
@@ -57,6 +64,7 @@ export function App() {
           <SettingsPanel />
         </aside>
       </section>
+      </LocalizedErrorBoundary>
     </main>
     </WarningNavigationProvider>
   );

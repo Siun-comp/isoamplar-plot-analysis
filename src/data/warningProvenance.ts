@@ -17,31 +17,70 @@ export function inferWarningHandling(code: PcrWarning["code"]): WarningHandling 
 }
 
 export function normalizeWarningProvenance(warnings: PcrWarning[], curves: Curve[]): PcrWarning[] {
-  const curvesById = new Map(curves.map((curve) => [curve.curveId, curve]));
+  return normalizeWarningProvenanceWithIndex(warnings, curves, createWarningProvenanceIndex(curves));
+}
+
+export type WarningProvenanceIndex = ReturnType<typeof createWarningProvenanceIndex>;
+
+export function createWarningProvenanceIndex(curves: Curve[]) {
+  const curvesById = new Map<string, Curve>();
+  const curvesByLocation = new Map<string, Curve>();
+  for (const curve of curves) {
+    curvesById.set(curve.curveId, curve);
+    curvesByLocation.set(`${curve.source.sheetName}\u0000${curve.source.columnLetter}`, curve);
+  }
+  return { curvesById, curvesByLocation };
+}
+
+export function normalizeWarningProvenanceWithIndex(
+  warnings: PcrWarning[],
+  curves: Curve[],
+  index: WarningProvenanceIndex
+): PcrWarning[] {
+  const { curvesById, curvesByLocation } = index;
   return warnings.map((warning) => {
     const sourceRefs = [...(warning.sourceRefs ?? [])];
+    const sourceRefIndexes = new Map<string, number>();
+    const sourceColumnIndexes = new Map<string, number>();
+    const legacySourceRefIndexes = new Map<string, number>();
+    sourceRefs.forEach((sourceRef, sourceIndex) => {
+      sourceRefIndexes.set(createSourceLocationKey(sourceRef), sourceIndex);
+      if (sourceRef.sourceInstanceId && sourceRef.columnLetter) {
+        sourceColumnIndexes.set(`${sourceRef.sourceInstanceId}\u0000${sourceRef.columnLetter}`, sourceIndex);
+      } else if (!sourceRef.sourceInstanceId) {
+        legacySourceRefIndexes.set(createLegacySourceLocationKey(sourceRef), sourceIndex);
+      }
+    });
     for (const curveId of warning.curveIds ?? []) {
       const curve = curvesById.get(curveId);
       if (!curve) continue;
       const sourceRef = createCurveSourceRef(curve, warning);
-      const existingIndex = sourceRefs.findIndex(
-        (candidate) =>
-          isSameSourceLocation(candidate, sourceRef) ||
-          (candidate.sourceInstanceId === sourceRef.sourceInstanceId && candidate.columnLetter === sourceRef.columnLetter)
-      );
-      if (existingIndex >= 0) {
+      const existingIndex =
+        sourceRefIndexes.get(createSourceLocationKey(sourceRef)) ??
+        (sourceRef.sourceInstanceId && sourceRef.columnLetter
+          ? sourceColumnIndexes.get(`${sourceRef.sourceInstanceId}\u0000${sourceRef.columnLetter}`)
+          : undefined) ??
+        legacySourceRefIndexes.get(createLegacySourceLocationKey(sourceRef));
+      if (existingIndex !== undefined) {
         sourceRefs[existingIndex] = { ...sourceRef, ...sourceRefs[existingIndex], sourceInstanceId: sourceRef.sourceInstanceId };
       } else {
-        sourceRefs.push(sourceRef);
+        const nextIndex = sourceRefs.push(sourceRef) - 1;
+        sourceRefIndexes.set(createSourceLocationKey(sourceRef), nextIndex);
+        if (sourceRef.sourceInstanceId && sourceRef.columnLetter) {
+          sourceColumnIndexes.set(`${sourceRef.sourceInstanceId}\u0000${sourceRef.columnLetter}`, nextIndex);
+        }
       }
     }
 
     if (sourceRefs.length === 0 && hasLegacyLocation(warning)) {
-      const curve = curves.find(
-        (candidate) =>
-          (!warning.sheetName || candidate.source.sheetName === warning.sheetName) &&
-          (!warning.columnLetter || candidate.source.columnLetter === warning.columnLetter)
-      );
+      const curve =
+        warning.sheetName && warning.columnLetter
+          ? curvesByLocation.get(`${warning.sheetName}\u0000${warning.columnLetter}`)
+          : curves.find(
+              (candidate) =>
+                (!warning.sheetName || candidate.source.sheetName === warning.sheetName) &&
+                (!warning.columnLetter || candidate.source.columnLetter === warning.columnLetter)
+            );
       if (curve) sourceRefs.push(createCurveSourceRef(curve, warning));
     }
 
@@ -87,13 +126,23 @@ function hasLegacyLocation(warning: PcrWarning) {
   return Boolean(warning.sourceCell || warning.sourceRange || warning.sheetName || warning.columnLetter);
 }
 
-function isSameSourceLocation(left: WarningSourceRef, right: WarningSourceRef) {
-  return (
-    (!left.sourceInstanceId || !right.sourceInstanceId || left.sourceInstanceId === right.sourceInstanceId) &&
-    left.sourceName === right.sourceName &&
-    left.worksheet === right.worksheet &&
-    left.cell === right.cell &&
-    left.range === right.range &&
-    left.columnLetter === right.columnLetter
-  );
+function createSourceLocationKey(source: WarningSourceRef) {
+  return [
+    source.sourceInstanceId ?? "",
+    source.sourceName,
+    source.worksheet ?? "",
+    source.cell ?? "",
+    source.range ?? "",
+    source.columnLetter ?? ""
+  ].join("\u0000");
+}
+
+function createLegacySourceLocationKey(source: WarningSourceRef) {
+  return [
+    source.sourceName,
+    source.worksheet ?? "",
+    source.cell ?? "",
+    source.range ?? "",
+    source.columnLetter ?? ""
+  ].join("\u0000");
 }

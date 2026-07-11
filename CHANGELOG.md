@@ -25,6 +25,8 @@ Update this file when user visible behavior, documentation baseline, release rea
 ## [Unreleased]
 
 ### Added
+- Added Quick Paste size diagnostics for rows, columns, cells, source characters, curves, cycles, warnings, and approximate minimum working memory before import.
+- Added localized recovery boundaries for the Quick Paste dialog and active analysis workspace, keeping the app shell, other analysis tabs, and Analysis XLSX recovery available after catchable render failures.
 - Added a shared, filterable Warning Inspector for Excel and Quick Paste with source/cell evidence, handling outcome, affected curves, bounded pagination, and transient location reveal.
 - Added visible `HeaderProvenance` and expanded `Warnings` review sheets to Analysis XLSX schema 3, with schema 1/2 migration and strict current-schema validation.
 - Added curveId/source-aware legend identity validation, measured two-line preview/raster layout, and actionable collision warnings that leave Plot-only output available.
@@ -43,6 +45,7 @@ Update this file when user visible behavior, documentation baseline, release rea
 - Added direct parser regression coverage for missing specimen headers, missing reagent headers, both headers missing, and uneven curve lengths.
 
 ### Changed
+- Quick Paste warning provenance normalization and preview rendering now use indexed/iterative paths that complete the documented 250,000-cell tall, wide, and empty-heavy boundary matrix without introducing a lower hard cap.
 - Excel specimen/reagent identity now follows SheetJS-formatted display values recomputed from raw value/type/number format while preserving raw/display/type/format/formula/cache provenance; cached formulas are never recalculated.
 - Repeated imports with the same filename now remain source-distinct in warning filters and Analysis XLSX evidence, while file-signature mismatch remains diagnostic rather than changing import policy.
 - Preview, standard legend, report legend, and rich Excel legend paths now retain one ordered curveId/style projection; raster labels preserve both leading context and distinguishing endings with explicit ellipsis.
@@ -59,6 +62,8 @@ Update this file when user visible behavior, documentation baseline, release rea
 - Normalized command-button and form-control sizing across analysis tabs, import actions, selection filters, chart tools, scale presets, legend controls, and export controls while keeping status badges intentionally smaller.
 
 ### Fixed
+- Catchable Quick Paste parser/import failures now preserve the current analysis and return actionable local errors; retrying a recovered paste dialog correctly reopens it without discarding the entered source text.
+- Long Quick Paste headers keep their full source identity while using bounded internal IDs and shortened preview-only labels, avoiding multi-megabyte DOM labels without changing imported data.
 - Dataset-level warnings now participate in the warning filter and tree badges, and warning navigation no longer mutates selection, order, style, search/filter, collapse, revision, or dirty state.
 - Warning Inspector collapse state now remains under user control across filter changes, and repeated same-name sources are visibly numbered.
 - Quick Paste warning details are now paginated so every source cell remains inspectable without rendering an unbounded list, and the mobile dialog keeps all import actions visible while only its body scrolls.

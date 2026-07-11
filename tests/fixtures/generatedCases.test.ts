@@ -66,6 +66,69 @@ describe("generated audit fixture descriptors", () => {
     if (!overLimit.ok) expect(overLimit.error.message).toContain("cell 수");
   });
 
+  it("parses the 3 by 83,333 supported wide boundary without quadratic warning normalization", () => {
+    const result = parsePastedTable(createQuickPasteText(3, 83_333), {
+      mode: "fullTable",
+      sourceName: "Generated wide acceptance fixture",
+      importedAtIso: "2026-07-11T00:00:00.000Z"
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.summary).toMatchObject({ rowCount: 3, columnCount: 83_333, cellCount: 249_999, curveCount: 83_333, cycleCount: 1 });
+    expect(result.dataset.curves).toHaveLength(83_333);
+    expect(result.dataset.curves[0].y).toEqual([0]);
+    expect(result.dataset.curves[83_332].y).toEqual([0]);
+  }, 60_000);
+
+  it("keeps a valid exact-character-boundary header while bounding its internal entity ID", () => {
+    const suffix = "\nA\n0";
+    const text = `${"H".repeat(2_000_000 - suffix.length)}${suffix}`;
+    const result = parsePastedTable(text, {
+      mode: "fullTable",
+      sourceName: "Generated character boundary fixture"
+    });
+
+    expect(text).toHaveLength(2_000_000);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.dataset.curves[0].specimenLabel).toHaveLength(2_000_000 - suffix.length);
+    expect(result.dataset.curves[0].specimenId.length).toBeLessThan(80);
+    expect(result.summary.sourceCharacterCount).toBe(2_000_000);
+  }, 60_000);
+
+  it("parses an accepted 500 by 500 empty-heavy table with source-addressable null gaps", () => {
+    const header = Array.from({ length: 500 }, () => "S").join("\t");
+    const reagent = Array.from({ length: 500 }, () => "A").join("\t");
+    const blankRow = Array.from({ length: 500 }, () => "").join("\t");
+    const finalRow = Array.from({ length: 500 }, () => "0").join("\t");
+    const text = [header, reagent, ...Array.from({ length: 497 }, () => blankRow), finalRow].join("\n");
+    const result = parsePastedTable(text, { mode: "fullTable", sourceName: "Generated empty-heavy fixture" });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.summary).toMatchObject({ rowCount: 500, columnCount: 500, cellCount: 250_000, curveCount: 500, cycleCount: 498 });
+    expect(result.dataset.warnings.filter((warning) => warning.code === "EMPTY_FLUORESCENCE_CELL")).toHaveLength(248_500);
+    expect(result.dataset.curves[0].y[0]).toBeNull();
+    expect(result.dataset.curves[499].y[497]).toBe(0);
+  }, 60_000);
+
+  it("rejects exact character and cell overflow as typed validation failures", () => {
+    const tooManyCharacters = parsePastedTable(`${"H".repeat(1_999_997)}\nA\n0`, {
+      mode: "fullTable",
+      sourceName: "Character overflow"
+    });
+    const tooManyCells = parsePastedTable(createQuickPasteText(250_001, 1), {
+      mode: "fullTable",
+      sourceName: "Cell overflow"
+    });
+
+    expect(tooManyCharacters.ok).toBe(false);
+    if (!tooManyCharacters.ok) expect(tooManyCharacters.errorKind).toBe("validation");
+    expect(tooManyCells.ok).toBe(false);
+    if (!tooManyCells.ok) expect(tooManyCells.errorKind).toBe("validation");
+  }, 60_000);
+
   it("covers invalid/valid scale, identity collision, multi-source cycles, and malformed restore cases", () => {
     expect(scaleEvidenceCases.map((entry) => entry.id)).toEqual([
       "fixed-reversed",

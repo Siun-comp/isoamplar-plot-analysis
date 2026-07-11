@@ -128,4 +128,27 @@ describe("WarningInspector", () => {
 
     expect(screen.getByRole("button", { name: "데이터 선택에서 위치 보기" })).toBeDisabled();
   });
+
+  it("paginates source evidence within one high-cardinality warning", async () => {
+    const user = userEvent.setup();
+    const warning: PcrWarning = {
+      ...warnings[0],
+      sourceRefs: Array.from({ length: 26 }, (_, index) => ({
+        ...warnings[0].sourceRefs![0],
+        columnLetter: `C${index + 1}`,
+        cell: `A${index + 1}`
+      }))
+    };
+    render(
+      <WarningNavigationProvider>
+        <WarningInspector warnings={[warning]} defaultOpen />
+      </WarningNavigationProvider>
+    );
+
+    expect(screen.getByText("1 / 2 · 전체 26개")).toBeInTheDocument();
+    expect(screen.getByText("Data · A1 · C1")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "다음 위치" }));
+    expect(screen.getByText("Data · A26 · C26")).toBeInTheDocument();
+    expect(screen.queryByText("Data · A1 · C1")).not.toBeInTheDocument();
+  });
 });

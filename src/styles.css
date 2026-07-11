@@ -370,6 +370,35 @@ select:focus-visible,
   background: #f8fafc;
 }
 
+.paste-error-panel,
+.workspace-error-panel {
+  border: 1px solid #c96b5c;
+  background: #fff8f6;
+  padding: 16px;
+}
+
+.paste-error-panel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.paste-error-panel p {
+  margin: 0;
+}
+
+.workspace-error-panel {
+  grid-column: 1 / -1;
+  min-height: 260px;
+}
+
+.workspace-error-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .paste-preview.is-stale {
   opacity: 0.62;
 }

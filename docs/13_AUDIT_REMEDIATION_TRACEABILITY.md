@@ -2,7 +2,7 @@
 
 ## Status
 
-- Phase: S4 Excel header identity and common Warning Inspector complete; final independent data-integrity and desktop-UX verdicts GO
+- Phase: S5 Quick Paste accepted-envelope safety and localized error containment complete; final independent data/performance and desktop-UX verdicts GO
 - Updated: 2026-07-11
 - Product acceptance state: Target / Known red unless explicitly marked passing baseline
 - Data policy: synthetic-only fixtures and generated values
@@ -30,7 +30,7 @@
 | U-P2-01 inactive Legend panel visible | FR-008, D035 | AC-PCR-052A | Synthetic selected curves with Legend Order/Labels tabs | Frontend QA: `tests/audit/auditEvidence.todo.test.ts` | Accessibility QA: display and accessibility tree | Target TODO | S8 |
 | U-P2-03 sticky plot unavailable at desktop height | FR-020, D032 | AC-PCR-052B | Generated 24-curve long-label workspace | Frontend QA: viewport measurement TODO | Desktop QA: plot bounding box and horizontal overflow | Target TODO; UD-08 decision pending | S8 |
 | CI/release drift | FR-013, D002, D003 | RQ-CI-001 | Fixed fixture manifest and exact built `dist` | Release QA: `.github/workflows/s1-ci.yml` | Release owner: artifact hash, workflow evidence, later Pages smoke | Partial foundation; raster/network/Pages remain open | S10 |
-| C-P1-06 accepted Quick Paste stack overflow | FR-003, D037, D041 | AC-QP-021 | Exact 250,000 x 1 and 500 x 500 generated inputs; over-limit 501 x 500; remaining wide descriptor | Parser QA: `tests/fixtures/generatedCases.test.ts`, `src/data/parsePastedTable.test.ts`; iterative stats/domain coverage | Desktop QA: full wide/character/UI responsiveness matrix remains S5 | Partial passing S2: prior RangeError removed; exact tall/balanced/cell-over-limit execute | S2/S5 |
+| C-P1-06 accepted Quick Paste stack overflow | FR-003, D037, D041, D044 | AC-QP-021 | Exact 250,000 x 1, 3 x 83,333, 500 x 500 empty-heavy, 2,000,000-character inputs; exact over-limit rejection | Parser/UI QA: `tests/fixtures/generatedCases.test.ts`, `src/data/parsePastedTable.test.ts`, `src/ui/PasteImportPanel.test.tsx`, localized boundary tests | Desktop QA: fresh Chromium and in-app production preview summary/overflow/log inspection | Passing S5: accepted envelope previews, out-of-envelope/parser/import/render failures remain controlled, current analysis and app shell are preserved | S2/S5 |
 
 ## Fixed Evidence Files
 
@@ -66,7 +66,7 @@ S1 completes when fixed hashes, passing baseline tests, isolated known-red probe
 - Export parity: component tests verify PNG, JPEG, and chart clipboard receive identical applied X/Y bounds; Legend-only, report legends, plotted CSV, and Analysis XLSX remain available.
 - Persistence: Analysis XLSX schema 2 stores and requires draft/applied scales; schema 2 missing-applied corruption rejection, full schema 1 workbook migration, and invalid-draft roundtrip are covered.
 - Numeric safety: iterative finite reductions replace unbounded min/max and row-width spreads in accepted parser, stats, chart domain, merge, plotted CSV, and workbook paths.
-- Boundary evidence: exact 250,000 x 1 and 500 x 500 Quick Paste cases parse; 501 x 500 rejects before import. Full 3 x 83,333 and character/UI responsiveness evidence remains S5.
+- Boundary evidence: exact 250,000 x 1 and 500 x 500 Quick Paste cases parse; 501 x 500 rejects before import. Phase S5 completes the 3 x 83,333 and exact-character/UI responsiveness matrix.
 - Box zoom: round-trip numeric formatting preserves small, negative, exponential, large, and adjacent distinct bounds with `min < max`; Previous scale snapshots retain draft and applied state.
 - Automated regression: `npm run test` passed 24 files / 190 tests with 7 Target TODOs; `npm run test:audit:red` now contains 3 remaining exact defect signatures.
 - Production/browser: `npm run build` passed; fresh CI-mode Chromium passed 15/15 tests across three repetitions, including invalid draft, applied-range retention, plot-image blocking, Analysis XLSX availability, Legend-only image allowance, and deterministic Export disclosure handling.
@@ -98,3 +98,13 @@ S1 completes when fixed hashes, passing baseline tests, isolated known-red probe
 - Production/browser: `npm run build` passed; fresh CI-mode Chromium passed 6/6, including formatted identity, actionable warning detail/navigation, and Analysis XLSX sheet/schema readback. In-app production preview had zero replacement characters, no horizontal overflow, and zero console warnings/errors.
 - Desktop visuals: `docs/gui_mockups/screenshots/s4_warning_desktop.png`, `s4_warning_inspector.png`, and `s4_warning_navigation.png` use generated synthetic workbook values only. The full-page evidence shows the inspector and three-column analysis workspace together without horizontal overflow.
 - Independent re-audit: initial NO-GO findings for nonnumeric provenance, blank source IDs, append warning duplication, pagination/detail drift, preview-only Quick Paste navigation, same-name source display, and listbox semantics were fixed and regression-tested. Final data-integrity and desktop-UX verdicts are GO; only documented coverage-depth residuals remain.
+
+## S5 Local Verification Evidence
+
+- Accepted-envelope execution: generated exact tall `250,000 x 1`, wide `3 x 83,333`, empty-heavy `500 x 500`, and exact 2,000,000-character inputs complete parsing; 250,001-cell and 2,000,001-character inputs reject before state mutation.
+- Shape safety: warning provenance uses one reusable curve/location index, long entity labels use bounded deterministic IDs, preview headers are shortened only at render time, and warning source evidence renders 25 locations per page.
+- State containment: parser and append exceptions return controlled Korean messages; localized Quick Paste and active-workspace boundaries preserve analysis revision/dirty/order, expose retry, leave tabs/import available, and keep Analysis XLSX recovery enabled when data exists.
+- Preview diagnostics: row, column, cell, source-character, curve, cycle, warning, and approximate minimum working-memory values are shown before import. The estimate is advisory and no lower hard cap was introduced.
+- Automated regression: deterministic file-serial execution made the standard `npm run test` gate pass twice consecutively at 30 files / 231 tests with 6 later-phase TODOs; `npm run test:audit:red` contains the one scheduled S7 CSV-safety signature; `npm run build` passed.
+- Browser verification: a fresh CI-mode Chromium production preview passed 7/7, including tall `250,000 x 1`, wide `3 x 83,333`, and empty-heavy `500 x 500` previews using one paste-equivalent input event. In-app production preview showed the synthetic two-curve summary with no horizontal overflow and zero console warnings/errors.
+- Independent re-audit: initial NO-GO findings for parallel-suite resource contention, missing maximum-envelope Chromium evidence, and shallow recovery assertions were fixed. Integration tests now execute Analysis XLSX recovery save and tab switching, and retain non-default single-specimen mode, specimen name, source text, and revision after dialog retry. Final data/performance and desktop-UX verdicts are GO with no remaining S5 blocker.

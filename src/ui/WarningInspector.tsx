@@ -4,6 +4,7 @@ import type { PcrWarning, WarningHandling } from "../data/types";
 import { useWarningNavigation } from "./WarningNavigationContext";
 
 const pageSize = 25;
+const sourcePageSize = 25;
 
 export function WarningInspector({
   warnings,
@@ -22,11 +23,15 @@ export function WarningInspector({
   const [code, setCode] = useState("all");
   const [page, setPage] = useState(0);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const sources = useMemo(
-    () =>
-      [...new Map(warnings.flatMap((warning) => warning.sourceRefs ?? []).map((source) => [source.sourceInstanceId ?? source.sourceName, source])).values()],
-    [warnings]
-  );
+  const sources = useMemo(() => {
+    const uniqueSources = new Map<string, NonNullable<PcrWarning["sourceRefs"]>[number]>();
+    for (const warning of warnings) {
+      for (const source of warning.sourceRefs ?? []) {
+        uniqueSources.set(source.sourceInstanceId ?? source.sourceName, source);
+      }
+    }
+    return [...uniqueSources.values()];
+  }, [warnings]);
   const sourceOptions = useMemo(() => {
     const totals = new Map<string, number>();
     const occurrences = new Map<string, number>();
@@ -43,7 +48,11 @@ export function WarningInspector({
     });
   }, [sources]);
   const sourceLabels = useMemo(() => new Map(sourceOptions.map((source) => [source.key, source.label])), [sourceOptions]);
-  const codes = useMemo(() => [...new Set(warnings.map((warning) => warning.code))].sort(), [warnings]);
+  const codes = useMemo(() => {
+    const uniqueCodes = new Set<PcrWarning["code"]>();
+    for (const warning of warnings) uniqueCodes.add(warning.code);
+    return [...uniqueCodes].sort();
+  }, [warnings]);
   const filtered = useMemo(
     () =>
       warnings.filter((warning) => {
@@ -180,6 +189,17 @@ function WarningDetail({
   enableNavigation: boolean;
   onReveal: () => void;
 }) {
+  const [sourcePage, setSourcePage] = useState(0);
+  const sourceRefs = warning.sourceRefs ?? [];
+  const sourcePageCount = Math.max(1, Math.ceil(sourceRefs.length / sourcePageSize));
+  const currentSourcePage = Math.min(sourcePage, sourcePageCount - 1);
+  const visibleSourceRefs = sourceRefs.slice(
+    currentSourcePage * sourcePageSize,
+    (currentSourcePage + 1) * sourcePageSize
+  );
+
+  useEffect(() => setSourcePage(0), [warning]);
+
   return (
     <section className="warning-detail" aria-label="선택한 경고 상세">
       <div className="warning-detail-heading">
@@ -190,7 +210,7 @@ function WarningDetail({
         <span>{formatHandling(warning.handling)}</span>
       </div>
       <p>{warning.message}</p>
-      {(warning.sourceRefs ?? []).map((source, index) => (
+      {visibleSourceRefs.map((source, index) => (
         <dl className="warning-source-detail" key={`${source.sourceInstanceId ?? source.sourceName}-${source.cell ?? source.range ?? index}`}>
           <div><dt>원본</dt><dd>{getSourceLabel(source, sourceLabels)}</dd></div>
           <div><dt>위치</dt><dd>{[source.worksheet, source.cell ?? source.range, source.columnLetter].filter(Boolean).join(" · ") || "원본 전체"}</dd></div>
@@ -201,6 +221,21 @@ function WarningDetail({
           {source.formulaCacheStatus && <div><dt>Cache</dt><dd>{source.formulaCacheStatus}</dd></div>}
         </dl>
       ))}
+      {sourcePageCount > 1 && (
+        <div className="warning-pagination" aria-label="경고 원본 위치 페이지">
+          <button type="button" disabled={currentSourcePage === 0} onClick={() => setSourcePage((value) => Math.max(0, value - 1))}>
+            이전 위치
+          </button>
+          <span>{currentSourcePage + 1} / {sourcePageCount} · 전체 {sourceRefs.length.toLocaleString()}개</span>
+          <button
+            type="button"
+            disabled={currentSourcePage >= sourcePageCount - 1}
+            onClick={() => setSourcePage((value) => Math.min(sourcePageCount - 1, value + 1))}
+          >
+            다음 위치
+          </button>
+        </div>
+      )}
       {warning.labels?.length ? <p className="warning-related">관련 라벨: {warning.labels.join(", ")}</p> : null}
       <button type="button" disabled={!enableNavigation || !warning.curveIds?.length} onClick={onReveal}>
         데이터 선택에서 위치 보기
