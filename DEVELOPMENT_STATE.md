@@ -12,7 +12,7 @@ Active
 ## CURRENT TRUTH
 
 - Active branch: `codex/audit-remediation`; it does not trigger the Pages deploy workflow.
-- Current working extension: Selection Sets and Selected Data XLSX are implemented and locally release-verified from `docs/16_SELECTION_SETS_AND_SELECTED_DATA_XLSX_PLAN_KR.md`; commit, main promotion, and Pages verification remain.
+- Current working extension: Selection Sets and Selected Data XLSX are implemented and locally release-verified from `docs/16_SELECTION_SETS_AND_SELECTED_DATA_XLSX_PLAN_KR.md`. Feature commit `046b42b` passed branch CI and Pages deployment; public synthetic smoke then exposed a 1280px long-label overflow, which is fixed locally and awaiting its follow-up commit/deployment.
 - Current published product artifact source: `eae3281fb8f9bbbd900fab528be3e094b93b555a`, tag `release-20260711-audit-remediation-r1`. Evidence-only commits may follow it on `main` without changing the verified dist hash.
 - Pre-release rollback anchor: `9e77ad23ec8e863d3d05e7c8508ceb4729372155`.
 - Pre-remediation checkpoint: commit `319daa901221b4d5811eafb44f82319ddcedf296`, tag `checkpoint/audit-remediation-baseline-20260711`.
@@ -68,7 +68,7 @@ Commit, promote, deploy, and publicly verify the locally approved Selection Sets
 M10 - Repeated-selection workflow and Excel follow-up export.
 
 ## Last Completed Step
-Implemented and locally release-verified Selection Sets, Analysis XLSX schema 4 continuity, Selected Data XLSX, output-role rejection, compact desktop controls, and synthetic guide screenshots. Final gates passed Vitest 37 files / 293 tests, audit 1/1, production build, fresh Chromium 12/12 with fail-on-flaky enabled, dependency audit with 0 vulnerabilities, PDF render review, and diff whitespace check. Independent state/data, XLSX, and desktop UX re-audits all returned GO after their findings were fixed.
+Implemented and locally release-verified Selection Sets, Analysis XLSX schema 4 continuity, Selected Data XLSX, output-role rejection, compact desktop controls, and synthetic guide screenshots. Final gates passed Vitest 37 files / 293 tests, audit 1/1, production build, fresh Chromium 12/12 with fail-on-flaky enabled, dependency audit with 0 vulnerabilities, PDF render review, and diff whitespace check. Independent state/data, XLSX, and desktop UX re-audits all returned GO after their findings were fixed. Feature commit `046b42b` passed branch CI run `29160373284` and Pages run `29160447976`; public synthetic import/Selection Set/Selected Data XLSX checks passed, and a discovered 1280px long-label overflow is covered by the follow-up browser regression.
 
 ## Latest Changed Files
 - `docs/16_SELECTION_SETS_AND_SELECTED_DATA_XLSX_PLAN_KR.md`

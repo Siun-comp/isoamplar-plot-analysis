@@ -795,7 +795,7 @@ test("roundtrips dataset selection scale style and labels through Analysis XLSX"
 });
 
 test("switches named Selection Sets and exports role-safe Selected Data XLSX", async ({ page }, testInfo) => {
-  const sourcePath = testInfo.outputPath("selection-sets-source.xlsx");
+  const sourcePath = testInfo.outputPath("synthetic_public_smoke_comparison_source.xlsx");
   const analysisPath = testInfo.outputPath("selection-sets-analysis.xlsx");
   const selectedDataPath = testInfo.outputPath("selection-sets-selected-data.xlsx");
   writeDenseWorkbookFixture(sourcePath, 5, 12);
@@ -850,6 +850,7 @@ test("switches named Selection Sets and exports role-safe Selected Data XLSX", a
 
   const exportSummary = page.locator(".settings-accordion > details > summary", { hasText: "Export" });
   if ((await exportSummary.locator("..").getAttribute("open")) === null) await exportSummary.click();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   await page.locator(".settings-panel").screenshot({
     path: testInfo.outputPath("selected-data-export-panel.png"),
     animations: "disabled"

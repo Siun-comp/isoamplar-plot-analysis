@@ -9,6 +9,7 @@
 - Rejected Selected Data XLSX from original-open, append, and saved-analysis restore paths before analysis mutation; retained Plotted CSV under `기타 형식` as a secondary output.
 - Updated the Korean first-user guide with synthetic-only Selection Set and Selected Data XLSX workflows and screenshots.
 - Hardened schema 4 against missing and wrong-typed Selection Set fields, reset editor intent across analysis tabs, froze rename/delete targets, distinguished active and candidate sets, showed update add/remove counts, restored focus after inline confirmations, and verified 120-character names without horizontal overflow.
+- Contained long source/curve labels inside the settings accordion after public 1280px smoke exposed a 6px document-level overflow, and added a long synthetic filename browser regression.
 
 ## 2026-07-11 - Audit remediation S11 documentation and release preparation
 

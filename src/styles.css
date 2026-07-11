@@ -1626,11 +1626,14 @@ select:focus-visible,
 
 .settings-accordion {
   display: grid;
+  min-width: 0;
   gap: 10px;
   padding: 14px;
 }
 
 .settings-accordion > details {
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid #e3e8ef;
   border-radius: 8px;
   background: #fbfcfe;
@@ -1797,6 +1800,7 @@ select:focus-visible,
 
 .group-style-editor,
 .individual-editor {
+  min-width: 0;
   overflow-x: auto;
 }
 
