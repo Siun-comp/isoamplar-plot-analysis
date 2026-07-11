@@ -118,10 +118,164 @@ describe("parseExcelWorkbook", () => {
     if (!result.ok) return;
     expect(result.dataset.curves[0].y).toEqual([0.2, null, null]);
     expect(result.dataset.curves[1].y).toEqual([2, 3, 4]);
+    expect(result.dataset.curves[1].warnings[0]).toMatchObject({
+      code: "FORMULA_CACHED_VALUE_USED",
+      handling: "kept",
+      sourceCell: "B3"
+    });
     expect(result.dataset.curves[0].warnings.map((warning) => warning.code)).toEqual([
       "NON_NUMERIC_FLUORESCENCE",
       "FORMULA_WITHOUT_CACHED_VALUE"
     ]);
+    expect(result.dataset.curves[0].warnings[0].sourceRefs?.[0]).toMatchObject({
+      sourceInstanceId: expect.any(String),
+      sourceName: "cell-warnings.xlsx",
+      sourceKind: "excel",
+      worksheet: "Sheet1",
+      cell: "A4",
+      rawValue: "text",
+      displayValue: "text",
+      cellType: "s",
+      formulaCacheStatus: "not-formula"
+    });
+  });
+
+  it("preserves Excel-formatted header identity and raw provenance without trusting stale cell.w", () => {
+    const worksheet: XLSX.WorkSheet = {
+      A1: { t: "n", v: 1, z: "000", w: "STALE" },
+      A2: { t: "n", v: 46037, z: "yyyy-mm-dd" },
+      A3: { t: "n", v: 10 },
+      B1: { t: "n", v: 123000, z: "0.00E+00" },
+      B2: { t: "s", v: "  Assay / α  " },
+      B3: { t: "n", v: 20 },
+      "!ref": "A1:B3"
+    };
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Formatted");
+
+    const result = parseWorkbook(workbook, "formatted.xlsx", XLSX);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.dataset.curves.map((curve) => [curve.specimenLabel, curve.reagentLabel])).toEqual([
+      ["001", "2026-01-15"],
+      ["1.23E+05", "  Assay / α  "]
+    ]);
+    expect(result.dataset.curves[0].source.specimenHeader).toMatchObject({
+      rawValue: 1,
+      displayValue: "001",
+      cellType: "n",
+      numberFormat: "000",
+      formulaCacheStatus: "not-formula"
+    });
+    expect(result.dataset.curves[0].source.reagentHeader?.rawValue).toBe(46037);
+    expect(result.dataset.curves[0].y).toEqual([10]);
+  });
+
+  it("falls back to raw identity rather than stale cell.w when formatting throws", () => {
+    const worksheet: XLSX.WorkSheet = {
+      A1: { t: "n", v: 1, z: "000", w: "STALE" },
+      A2: { t: "s", v: "R1" },
+      A3: { t: "n", v: 10 },
+      "!ref": "A1:A3"
+    };
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Formatted");
+    const throwingXlsx = {
+      ...XLSX,
+      utils: { ...XLSX.utils, format_cell: () => { throw new Error("format failed"); } }
+    } as typeof XLSX;
+
+    const result = parseWorkbook(workbook, "formatted.xlsx", throwingXlsx);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.dataset.curves[0].specimenLabel).toBe("1");
+    expect(result.dataset.curves[0].source.specimenHeader?.displayValue).toBe("1");
+  });
+
+  it("preserves formatted header identity in a BIFF .xls workbook", async () => {
+    const worksheet: XLSX.WorkSheet = {
+      A1: { t: "n", v: 1, z: "000" },
+      A2: { t: "n", v: 123000, z: "0.00E+00" },
+      A3: { t: "n", v: 10 },
+      "!ref": "A1:A3"
+    };
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Formatted");
+
+    const result = await parseExcelWorkbook(writeWorkbook(workbook, "biff8"), "formatted.xls");
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.dataset.curves[0]).toMatchObject({ specimenLabel: "001", reagentLabel: "1.23E+05" });
+    expect(result.dataset.curves[0].source.specimenHeader).toMatchObject({
+      rawValue: 1,
+      displayValue: "001",
+      numberFormat: "000"
+    });
+  });
+
+  it("warns when different raw headers collapse to the same displayed identity", () => {
+    const worksheet: XLSX.WorkSheet = {
+      A1: { t: "n", v: 1, z: "000" },
+      A2: { t: "s", v: "R1" },
+      A3: { t: "n", v: 10 },
+      B1: { t: "s", v: "001" },
+      B2: { t: "s", v: "R1" },
+      B3: { t: "n", v: 20 },
+      "!ref": "A1:B3"
+    };
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+
+    const result = parseWorkbook(workbook, "collision.xlsx", XLSX);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const warning = result.dataset.warnings.find((candidate) => candidate.code === "FORMATTED_HEADER_IDENTITY_COLLISION");
+    expect(warning?.curveIds).toEqual(["sheet0_col_A", "sheet0_col_B"]);
+    expect(warning?.handling).toBe("kept");
+    expect(warning?.sourceRefs).toHaveLength(2);
+    expect(new Set(warning?.sourceRefs?.map((sourceRef) => sourceRef.sourceInstanceId)).size).toBe(1);
+  });
+
+  it("records cached formula provenance without recalculating or changing its numeric value", () => {
+    const worksheet: XLSX.WorkSheet = {
+      A1: { t: "s", v: "Displayed specimen", f: "\"Displayed specimen\"" },
+      A2: { t: "s", v: "R1" },
+      A3: { t: "n", v: 42, f: "40+2", z: "0.0" },
+      "!ref": "A1:A3"
+    };
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Formula");
+
+    const result = parseWorkbook(workbook, "formula.xlsx", XLSX);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.dataset.curves[0].specimenLabel).toBe("Displayed specimen");
+    expect(result.dataset.curves[0].y).toEqual([42]);
+    expect(result.dataset.curves[0].source.specimenHeader).toMatchObject({
+      formulaText: "\"Displayed specimen\"",
+      formulaCacheStatus: "used"
+    });
+    const cachedWarnings = result.dataset.warnings.filter((warning) => warning.code === "FORMULA_CACHED_VALUE_USED");
+    expect(cachedWarnings.map((warning) => warning.sourceCell)).toEqual(["A1", "A3"]);
+    expect(cachedWarnings.every((warning) => warning.sourceRefs?.[0]?.sourceInstanceId)).toBe(true);
+  });
+
+  it("diagnoses extension and workbook signature mismatch without blocking import", async () => {
+    const buffer = createWorkbookBuffer([["S1"], ["R1"], [1]], "xlsx");
+
+    const result = await parseExcelWorkbook(buffer, "disguised.xls");
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.dataset.warnings.find((warning) => warning.code === "FILE_SIGNATURE_MISMATCH")).toMatchObject({
+      severity: "warning",
+      handling: "kept"
+    });
   });
 
   it("imports columns with missing specimen or reagent headers and reports header warnings", () => {

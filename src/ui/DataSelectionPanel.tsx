@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useRef } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { SelectionFilter } from "../data/types";
 import { useAppStore } from "../app/appStore";
@@ -8,6 +8,7 @@ import { buildSelectionTree } from "../selection/buildTrees";
 import { getFilteredCurveIds, getMatchedCurveIds } from "../selection/searchCurves";
 import { IndeterminateCheckbox } from "./IndeterminateCheckbox";
 import { SegmentedControl } from "./SegmentedControl";
+import { useWarningNavigation } from "./WarningNavigationContext";
 
 const groupingOptions: Array<{ value: GroupingMode; label: string }> = [
   { value: "reagent", label: "시약별" },
@@ -23,6 +24,7 @@ const filterOptions: Array<{ value: SelectionFilter; label: string }> = [
 
 export function DataSelectionPanel() {
   const dataset = useAppStore((state) => state.dataset);
+  const activeAnalysisId = useAppStore((state) => state.activeAnalysisId);
   const selection = useAppStore((state) => state.selection);
   const searchQuery = useAppStore((state) => state.searchQuery);
   const selectionFilter = useAppStore((state) => state.selectionFilter);
@@ -35,11 +37,21 @@ export function DataSelectionPanel() {
   const setAllGroupsCollapsed = useAppStore((state) => state.setAllGroupsCollapsed);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const treeScrollRef = useRef<HTMLDivElement>(null);
+  const { target: warningTarget, clearWarningReveal } = useWarningNavigation();
+  const warningRevealActive = Boolean(warningTarget && warningTarget.analysisId === activeAnalysisId && dataset);
+  const revealedCurveIds = useMemo(
+    () =>
+      warningRevealActive
+        ? new Set(warningTarget?.curveIds.filter((curveId) => dataset?.curves.some((curve) => curve.curveId === curveId)) ?? [])
+        : new Set<string>(),
+    [dataset, warningRevealActive, warningTarget]
+  );
 
   const filteredCurveIds = useMemo(() => {
     if (!dataset || !selection) return new Set<string>();
+    if (warningRevealActive) return revealedCurveIds;
     return getFilteredCurveIds(dataset, getMatchedCurveIds(dataset, deferredSearchQuery), selection.selectedCurveIds, selectionFilter);
-  }, [dataset, deferredSearchQuery, selection, selectionFilter]);
+  }, [dataset, deferredSearchQuery, revealedCurveIds, selection, selectionFilter, warningRevealActive]);
 
   const tree = useMemo(() => {
     if (!dataset || !selection) return [];
@@ -47,10 +59,10 @@ export function DataSelectionPanel() {
       dataset,
       groupingMode: selection.groupingMode,
       selectedCurveIds: selection.selectedCurveIds,
-      collapsedGroupIds: selection.collapsedGroupIds,
+      collapsedGroupIds: warningRevealActive ? new Set() : selection.collapsedGroupIds,
       includedCurveIds: filteredCurveIds
     });
-  }, [dataset, filteredCurveIds, selection]);
+  }, [dataset, filteredCurveIds, selection, warningRevealActive]);
   const rowVirtualizer = useVirtualizer({
     count: tree.length,
     getScrollElement: () => treeScrollRef.current,
@@ -59,6 +71,19 @@ export function DataSelectionPanel() {
     overscan: 6
   });
   const useVirtualTree = import.meta.env.MODE !== "test";
+
+  useEffect(() => {
+    if (warningTarget && warningTarget.analysisId !== activeAnalysisId) clearWarningReveal();
+  }, [activeAnalysisId, clearWarningReveal, warningTarget]);
+
+  useEffect(() => {
+    if (!warningRevealActive || tree.length === 0) return;
+    rowVirtualizer.scrollToIndex(0, { align: "start" });
+    const frame = window.requestAnimationFrame(() => {
+      treeScrollRef.current?.querySelector<HTMLElement>("[data-warning-focus='true']")?.scrollIntoView?.({ block: "center" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [rowVirtualizer, tree.length, warningRevealActive, warningTarget?.requestId]);
 
   if (!dataset || !selection) {
     return (
@@ -79,6 +104,13 @@ export function DataSelectionPanel() {
         options={groupingOptions}
         onChange={setGroupingMode}
       />
+
+      {warningRevealActive && (
+        <div className="warning-reveal-banner" role="status">
+          <span>{warningTarget?.warningLabel} 관련 데이터 {revealedCurveIds.size}개를 임시 표시 중</span>
+          <button type="button" onClick={clearWarningReveal}>원래 보기</button>
+        </div>
+      )}
 
       <label className="field-label" htmlFor="curve-search">
         검색
@@ -143,7 +175,7 @@ export function DataSelectionPanel() {
                 </div>
                 {!group.collapsed &&
                   group.subgroups.map((subgroup) =>
-                    renderSubgroupRows({ subgroup, setCurvesSelected, toggleCurve })
+                    renderSubgroupRows({ subgroup, setCurvesSelected, toggleCurve, revealedCurveIds })
                   )}
               </section>
             ))}
@@ -179,7 +211,7 @@ export function DataSelectionPanel() {
                   </div>
                   {!group.collapsed &&
                     group.subgroups.map((subgroup) =>
-                      renderSubgroupRows({ subgroup, setCurvesSelected, toggleCurve })
+                      renderSubgroupRows({ subgroup, setCurvesSelected, toggleCurve, revealedCurveIds })
                     )}
                 </section>
               );
@@ -196,18 +228,26 @@ type TreeSubgroup = ReturnType<typeof buildSelectionTree>[number]["subgroups"][n
 function renderSubgroupRows({
   subgroup,
   setCurvesSelected,
-  toggleCurve
+  toggleCurve,
+  revealedCurveIds
 }: {
   subgroup: TreeSubgroup;
   setCurvesSelected: (curveIds: Iterable<string>, selected: boolean) => void;
   toggleCurve: (curveId: string) => void;
+  revealedCurveIds: Set<string>;
 }) {
   if (subgroup.curves.length === 1) {
     const curve = subgroup.curves[0];
     return (
-      <label className="tree-row single-curve-row" key={subgroup.groupId}>
+      <label
+        className={`tree-row single-curve-row ${revealedCurveIds.has(curve.curveId) ? "is-warning-focus" : ""}`}
+        data-curve-id={curve.curveId}
+        data-warning-focus={revealedCurveIds.has(curve.curveId)}
+        key={subgroup.groupId}
+      >
         <input
           type="checkbox"
+          aria-label={`${curve.label} 선택 · ${curve.sourceLabel}`}
           checked={curve.selected}
           onChange={() => toggleCurve(curve.curveId)}
         />
@@ -229,9 +269,15 @@ function renderSubgroupRows({
         <span className="count-badge">{subgroup.selectedCount}/{subgroup.totalCount}</span>
       </div>
       {subgroup.curves.map((curve) => (
-        <label className="tree-row curve-row" key={curve.curveId}>
+        <label
+          className={`tree-row curve-row ${revealedCurveIds.has(curve.curveId) ? "is-warning-focus" : ""}`}
+          data-curve-id={curve.curveId}
+          data-warning-focus={revealedCurveIds.has(curve.curveId)}
+          key={curve.curveId}
+        >
           <input
             type="checkbox"
+            aria-label={`${curve.label} 선택 · ${curve.sourceLabel}`}
             checked={curve.selected}
             onChange={() => toggleCurve(curve.curveId)}
           />

@@ -55,7 +55,7 @@ function writeFormattedHeadersFixture() {
   writeJson(join(expectedRoot, "FX-001-formatted-headers.target.json"), {
     schemaVersion: 1,
     fixtureId: "FX-001",
-    result: "target-known-red",
+    result: "ok",
     headers: [
       headerTarget("A1", "001", "n", 1, "000"),
       headerTarget("A2", "Assay Code", "s", "Assay Code", null),
@@ -66,7 +66,7 @@ function writeFormattedHeadersFixture() {
       headerTarget("D1", "한글 검체 / 특수｜기호", "s", "한글 검체 / 특수｜기호", null),
       headerTarget("D2", "시약 β", "s", "시약 β", null)
     ],
-    note: "Target snapshot for AC-PCR-047. The current parser is expected to remain red until S4."
+    note: "Passing S4 target for Excel display-text identity and raw header provenance."
   });
   return {
     fixtureId: "FX-001",
@@ -76,7 +76,7 @@ function writeFormattedHeadersFixture() {
     extension: ".xlsx",
     sheetNames: ["Data"],
     expected: "expected/FX-001-formatted-headers.target.json",
-    status: "known-red",
+    status: "active",
     covers: ["AC-PCR-047", "C-P1-03"],
     purpose: "Excel display text versus raw header identity."
   };
@@ -116,6 +116,7 @@ function writeWarningFixture() {
     ["not-a-number", 0.4, 0.5],
     [0.6, 0.7, 0.8]
   ]);
+  worksheet.C4 = { t: "n", v: 0.5, f: "0.2+0.3" };
   worksheet.C5 = { t: "n", f: "SUM(C3:C4)" };
   worksheet["!merges"] = [XLSX.utils.decode_range("B1:C1")];
   const file = "source/FX-004-warning-cells.xlsx";
@@ -123,21 +124,44 @@ function writeWarningFixture() {
   writeJson(join(expectedRoot, "FX-004-warning-cells.json"), {
     schemaVersion: 1,
     fixtureId: "FX-004",
-    result: "partial-current-contract",
+    result: "ok",
     cycleCount: 3,
     curves: [
       { curveId: "sheet0_col_A", y: [0.1, null, 0.6], warningCodes: ["MISSING_SPECIMEN_LABEL", "NON_NUMERIC_FLUORESCENCE"] },
       { curveId: "sheet0_col_B", y: [0.2, 0.4, 0.7], warningCodes: ["MISSING_REAGENT_LABEL"] },
-      { curveId: "sheet0_col_C", y: [0.3, 0.5, null], warningCodes: ["FORMULA_WITHOUT_CACHED_VALUE"] }
+      {
+        curveId: "sheet0_col_C",
+        y: [0.3, 0.5, null],
+        warningCodes: ["FORMULA_CACHED_VALUE_USED", "FORMULA_WITHOUT_CACHED_VALUE"]
+      }
     ],
     requiredWarningEvidence: [
-      { code: "MISSING_SPECIMEN_LABEL", sourceCell: "A1", curveId: "sheet0_col_A" },
-      { code: "MISSING_REAGENT_LABEL", sourceCell: "B2", curveId: "sheet0_col_B" },
-      { code: "NON_NUMERIC_FLUORESCENCE", sourceCell: "A4", curveId: "sheet0_col_A" },
-      { code: "FORMULA_WITHOUT_CACHED_VALUE", sourceCell: "C5", curveId: "sheet0_col_C" },
-      { code: "MERGED_HEADER_CELL", sourceRange: "B1:C1" }
+      { code: "MISSING_SPECIMEN_LABEL", sourceCell: "A1", curveId: "sheet0_col_A", handling: "kept" },
+      { code: "MISSING_REAGENT_LABEL", sourceCell: "B2", curveId: "sheet0_col_B", handling: "kept" },
+      {
+        code: "NON_NUMERIC_FLUORESCENCE",
+        sourceCell: "A4",
+        curveId: "sheet0_col_A",
+        handling: "null-gap",
+        rawValue: "not-a-number"
+      },
+      {
+        code: "FORMULA_CACHED_VALUE_USED",
+        sourceCell: "C4",
+        curveId: "sheet0_col_C",
+        handling: "kept",
+        formulaCacheStatus: "used"
+      },
+      {
+        code: "FORMULA_WITHOUT_CACHED_VALUE",
+        sourceCell: "C5",
+        curveId: "sheet0_col_C",
+        handling: "null-gap",
+        formulaCacheStatus: "missing"
+      },
+      { code: "MERGED_HEADER_CELL", sourceRange: "B1:C1", handling: "kept" }
     ],
-    note: "S1 checks stable codes and locations. Full source provenance is AC-PCR-048/S4."
+    note: "Passing S4 warning provenance contract with handling, source identity, formula cache, and location evidence."
   });
   return {
     fixtureId: "FX-004",
@@ -147,7 +171,7 @@ function writeWarningFixture() {
     extension: ".xlsx",
     sheetNames: ["Data"],
     expected: "expected/FX-004-warning-cells.json",
-    status: "active-partial",
+    status: "active",
     covers: ["AC-PCR-002", "AC-PCR-048"],
     purpose: "Stable warning codes and source locations without user data."
   };
@@ -325,7 +349,7 @@ function equivalentExpected(fixtureId, fileName) {
       ignoredSheetNames: []
     },
     dataset: {
-      schemaVersion: 1,
+      schemaVersion: 2,
       sourceKind: "excel",
       sheetIndex: 0,
       cycleCount: 3,

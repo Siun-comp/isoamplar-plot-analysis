@@ -81,6 +81,7 @@ describe("Analysis XLSX workbook", () => {
     expect(workbook.SheetNames).toEqual([
       "README",
       "Settings",
+      "HeaderProvenance",
       "ImportedData",
       "Warnings",
       ANALYSIS_RESTORE_SHEET_NAME
@@ -92,6 +93,15 @@ describe("Analysis XLSX workbook", () => {
     expect(workbook.Sheets.ImportedData.A3?.v).toBe("Analysis label");
     expect(workbook.Sheets.ImportedData.B3?.v).toBe("Report A1");
     expect(workbook.Sheets.ImportedData.B4?.v).toBe(dataset.curves[0].curveId);
+    const headerRows = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets.HeaderProvenance, { header: 1, blankrows: false });
+    expect(headerRows[0]).toContain("Display value");
+    expect(headerRows[0]).toContain("Raw value");
+    expect(headerRows[0]).toContain("Formula cache");
+    expect(headerRows.some((row) => row[0] === dataset.curves[0].curveId && row[5] === "Specimen")).toBe(true);
+    const warningRows = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets.Warnings, { header: 1, blankrows: false });
+    expect(warningRows[0]).toContain("Handling");
+    expect(warningRows[0]).toContain("Source ID");
+    expect(warningRows[0]).toContain("Display value");
     const settingsRows = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets.Settings, { header: 1, blankrows: false });
     expect(settingsRows).toContainEqual(["X scale draft mode", "fixed"]);
     expect(settingsRows).toContainEqual(["X fixed min", "18.5"]);
@@ -371,6 +381,60 @@ describe("Analysis XLSX workbook", () => {
     expect(restored.analysis.chartScale.y.applied).toEqual({ mode: "auto", min: null, max: null });
   });
 
+  it("migrates schema 2 header and warning provenance through the full Analysis XLSX reader", () => {
+    const dataset = createOneSpecimenEightReagentDataset();
+    const state = createAnalysisState({
+      analysisId: "analysis-schema-2",
+      analysisName: "Legacy provenance",
+      dataset,
+      selection: createInitialSelectionState(dataset),
+      searchQuery: "",
+      selectionFilter: "all",
+      chartScale: createDefaultChartScale(),
+      styleRules: createDefaultStyleRules(),
+      curveOverrides: {},
+      exportCounter: 1,
+      importFileName: dataset.sourceFileName
+    });
+    const serialized = JSON.parse(JSON.stringify(serializeAnalysisState(state)));
+    serialized.schemaVersion = 2;
+    serialized.dataset.schemaVersion = 1;
+    delete serialized.dataset.curves[0].source.specimenHeader;
+    delete serialized.dataset.curves[0].source.reagentHeader;
+    const legacyWarning = {
+      code: "MISSING_SPECIMEN_LABEL",
+      severity: "warning",
+      scope: "header",
+      message: "Specimen header is empty.",
+      curveIds: [serialized.dataset.curves[0].curveId],
+      sourceCell: "A1",
+      columnLetter: "A"
+    };
+    serialized.dataset.curves[0].warnings = [legacyWarning];
+    serialized.dataset.warnings = [legacyWarning];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.aoa_to_sheet([
+        ["IsoAmplarAnalysis"],
+        ["schemaVersion", 2],
+        ["chunkCount", 1],
+        ["chunkIndex", "jsonChunk"],
+        [0, JSON.stringify(serialized)]
+      ]),
+      ANALYSIS_RESTORE_SHEET_NAME
+    );
+
+    const restored = readAnalysisWorkbook(workbook, XLSX);
+
+    expect(restored.kind).toBe("analysis");
+    if (restored.kind !== "analysis") return;
+    expect(restored.analysis.dataset.schemaVersion).toBe(2);
+    expect(restored.analysis.dataset.curves[0].source.specimenHeader).toMatchObject({ cellType: "legacy" });
+    expect(restored.analysis.dataset.warnings[0]).toMatchObject({ handling: "kept" });
+    expect(restored.analysis.dataset.warnings[0].sourceRefs?.[0]).toMatchObject({ cell: "A1", columnLetter: "A" });
+  });
+
   it("detects missing restore sheets and corrupt restore chunks", () => {
     const markerWorkbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(
@@ -402,6 +466,24 @@ describe("Analysis XLSX workbook", () => {
     expect(corrupt.kind).toBe("invalid-analysis");
     if (corrupt.kind === "invalid-analysis") {
       expect(corrupt.message).toContain("chunks are incomplete");
+    }
+
+    const schemaMismatchWorkbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      schemaMismatchWorkbook,
+      XLSX.utils.aoa_to_sheet([
+        ["IsoAmplarAnalysis"],
+        ["schemaVersion", 3],
+        ["chunkCount", 1],
+        ["chunkIndex", "jsonChunk"],
+        [0, JSON.stringify({ schemaVersion: 2 })]
+      ]),
+      ANALYSIS_RESTORE_SHEET_NAME
+    );
+    const schemaMismatch = readAnalysisWorkbook(schemaMismatchWorkbook, XLSX);
+    expect(schemaMismatch.kind).toBe("invalid-analysis");
+    if (schemaMismatch.kind === "invalid-analysis") {
+      expect(schemaMismatch.message).toContain("schema metadata does not match");
     }
 
     const duplicateChunkWorkbook = XLSX.utils.book_new();

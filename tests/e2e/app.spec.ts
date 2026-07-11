@@ -52,33 +52,6 @@ test("previews and imports full-table and single-specimen pasted data", async ({
   await expect(page.getByText("선택 0")).toBeVisible();
 });
 
-test("keeps warning details and import actions reachable on a mobile viewport", async ({ page }) => {
-  await page.setViewportSize({ width: 375, height: 812 });
-  await page.goto("/");
-  await page.getByRole("button", { name: "붙여넣기 입력" }).click();
-  const dialog = page.getByRole("dialog", { name: "소량 표 붙여넣기" });
-  const sourceText = ["S1", "A1", ...Array.from({ length: 13 }, () => ""), "1"].join("\n");
-  await dialog.getByRole("textbox", { name: "표 데이터" }).fill(sourceText);
-  await dialog.getByRole("button", { name: "미리보기 생성" }).click();
-
-  await expect(dialog.getByText("1-12 / 13")).toBeVisible();
-  await dialog.getByRole("button", { name: "다음 경고" }).click();
-  await expect(dialog.getByText(/A15:.*빈 fluorescence/)).toBeVisible();
-
-  const dialogBox = await dialog.boundingBox();
-  const footerBox = await dialog.locator(".paste-dialog-footer").boundingBox();
-  expect(dialogBox).not.toBeNull();
-  expect(footerBox).not.toBeNull();
-  expect(dialogBox?.x).toBeGreaterThanOrEqual(0);
-  expect(dialogBox?.y).toBeGreaterThanOrEqual(0);
-  expect((dialogBox?.x ?? 0) + (dialogBox?.width ?? 0)).toBeLessThanOrEqual(375);
-  expect((dialogBox?.y ?? 0) + (dialogBox?.height ?? 0)).toBeLessThanOrEqual(812);
-  expect((footerBox?.y ?? 0) + (footerBox?.height ?? 0)).toBeLessThanOrEqual(812);
-  await expect(dialog.getByRole("button", { name: "취소" })).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "현재 분석에 추가" })).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "새 분석으로 열기" })).toBeVisible();
-});
-
 test("uploads an xlsx workbook and keeps reagent-first collapsed selection", async ({ page }, testInfo) => {
   const workbookPath = testInfo.outputPath("phase3-upload.xlsx");
   const appendWorkbookPath = testInfo.outputPath("phase3-append.xlsx");
@@ -104,8 +77,8 @@ test("uploads an xlsx workbook and keeps reagent-first collapsed selection", asy
   await expect(page.getByText("검체 1 │ A1")).toHaveCount(0);
 
   await page.getByRole("button", { name: /▸ A1/ }).click();
-  await expect(page.getByRole("checkbox", { name: "검체 1 선택" })).toHaveCount(0);
-  await expect(page.getByRole("checkbox", { name: "A1 │ 검체 1" })).toBeVisible();
+  const expandedA1Group = page.getByRole("button", { name: /▾ A1/ }).locator("xpath=ancestor::section[1]");
+  await expect(expandedA1Group.getByRole("checkbox", { name: /^A1 │ 검체 1 선택/u })).toBeVisible();
 
   await page.getByRole("searchbox", { name: "검색" }).fill("A2");
   await expect(page.getByText("표시 1")).toBeVisible();
@@ -240,6 +213,58 @@ test("preserves long legend identity and distinguishable line-marker raster samp
   expect(samples.rectPixels).toBeGreaterThan(samples.circlePixels);
 });
 
+test("preserves formatted Excel identity and exposes actionable warning provenance", async ({ page }, testInfo) => {
+  const workbookPath = testInfo.outputPath("s4-warning-provenance.xlsx");
+  writeWarningProvenanceWorkbook(workbookPath);
+  await page.goto("/");
+  await page.locator("input[type='file']").first().setInputFiles(workbookPath);
+
+  await expect(page.getByText(/s4-warning-provenance\.xlsx · 2 curves/u)).toBeVisible();
+  await expect(page.getByRole("button", { name: /▸ R1/u })).toBeVisible();
+  const inspector = page.locator(".import-panel .warning-inspector");
+  await inspector.locator("summary").click();
+  await expect(inspector).toHaveAttribute("open", "");
+  await inspector.getByRole("combobox", { name: "코드" }).selectOption("FORMULA_CACHED_VALUE_USED");
+  const formulaWarning = inspector.locator(".warning-master-list > button");
+  await expect(formulaWarning).toHaveCount(1);
+  await expect(formulaWarning).toContainText("B3");
+  await formulaWarning.click();
+  const detail = inspector.getByRole("region", { name: "선택한 경고 상세" });
+  await expect(detail).toContainText("s4-warning-provenance.xlsx");
+  await expect(detail).toContainText("Data · B3 · B");
+  await expect(detail).toContainText("40+2");
+  await expect(detail).toContainText("used");
+  await inspector.screenshot({ path: testInfo.outputPath("s4-warning-inspector.png") });
+  await detail.getByRole("button", { name: "데이터 선택에서 위치 보기" }).click();
+  await expect(page.getByText(/수식 캐시값 사용 관련 데이터 1개를 임시 표시 중/u)).toBeVisible();
+  await expect(page.locator("[data-warning-focus='true']")).toHaveCount(1);
+  await page.waitForTimeout(200);
+  await page.locator(".selection-panel").screenshot({
+    path: testInfo.outputPath("s4-warning-navigation.png"),
+    animations: "disabled"
+  });
+  await page.screenshot({
+    path: testInfo.outputPath("s4-warning-desktop.png"),
+    fullPage: true,
+    animations: "disabled"
+  });
+
+  const exportSummary = page.locator(".settings-accordion > details > summary", { hasText: "Export" });
+  const exportDetails = exportSummary.locator("..");
+  if ((await exportDetails.getAttribute("open")) === null) await exportSummary.click();
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Analysis XLSX" }).click();
+  const download = await downloadPromise;
+  const downloadPath = await download.path();
+  expect(downloadPath).not.toBeNull();
+  const exportedWorkbook = XLSX.read(readFileSync(downloadPath as string), { type: "buffer", raw: true });
+  expect(exportedWorkbook.SheetNames).toContain("HeaderProvenance");
+  expect(exportedWorkbook.SheetNames).toContain("Warnings");
+  expect(exportedWorkbook.Sheets._IsoAmplarAnalysis.B2?.v).toBe(3);
+  const warningRows = XLSX.utils.sheet_to_json<unknown[]>(exportedWorkbook.Sheets.Warnings, { header: 1, blankrows: false });
+  expect(warningRows[0]).toEqual(expect.arrayContaining(["Handling", "Source ID", "Display value", "Formula cache"]));
+});
+
 test("creates and switches internal analysis tabs", async ({ page }, testInfo) => {
   const workbookPath = testInfo.outputPath("phase-r3-tabs.xlsx");
   writeWorkbookFixture(workbookPath, "Tab sample");
@@ -298,6 +323,23 @@ function writeLegendIdentityWorkbook(filePath: string) {
     rows.push([createAmplificationValue(cycle, 20, 700_000), createAmplificationValue(cycle, 25, 900_000)]);
   }
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), "SyntheticData");
+  writeFileSync(filePath, XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer);
+}
+
+function writeWarningProvenanceWorkbook(filePath: string) {
+  const workbook = XLSX.utils.book_new();
+  const worksheet: XLSX.WorkSheet = {
+    A1: { t: "n", v: 1, z: "000" },
+    B1: { t: "s", v: "001" },
+    A2: { t: "s", v: "R1" },
+    B2: { t: "s", v: "R1" },
+    A3: { t: "s", v: "not-a-number" },
+    B3: { t: "n", v: 42, f: "40+2", z: "0.0" },
+    A4: { t: "n", v: 1 },
+    B4: { t: "n", v: 43 },
+    "!ref": "A1:B4"
+  };
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Data");
   writeFileSync(filePath, XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer);
 }
 

@@ -170,7 +170,7 @@ describe("parsePastedTable", () => {
   });
 
   it("renames paste trace metadata without changing curve identity or values", () => {
-    const parsed = parsePastedTable("S1\nA1\n0.1", { mode: "fullTable", sourceName: "Before" });
+    const parsed = parsePastedTable("S1\nA1\nbad", { mode: "fullTable", sourceName: "Before" });
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
 
@@ -181,6 +181,8 @@ describe("parsePastedTable", () => {
     expect(renamed.curves[0].source.fileName).toBe("After");
     expect(parsed.dataset.sourceFileName).toBe("Before");
     expect(renamed.curves[0].sourceId).toBe(parsed.dataset.curves[0].sourceId);
+    expect(renamed.warnings[0].sourceRefs?.[0]?.sourceName).toBe("After");
+    expect(renamed.curves[0].warnings[0].sourceRefs?.[0]?.sourceName).toBe("After");
   });
 
   it("keeps physical column positions when an internal column is empty", () => {

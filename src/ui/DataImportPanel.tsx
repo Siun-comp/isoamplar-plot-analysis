@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useAppStore } from "../app/appStore";
 import { PasteImportPanel } from "./PasteImportPanel";
+import { WarningInspector } from "./WarningInspector";
 
 type PendingReplaceFile = {
   file: File;
@@ -123,6 +124,7 @@ export function DataImportPanel() {
         )}
         {dataset && importError && importStatus !== "error" && <span className="error-text">{importError}</span>}
       </div>
+      {dataset && <WarningInspector warnings={dataset.warnings} />}
       <dialog
         ref={confirmationDialogRef}
         className="confirmation-panel"

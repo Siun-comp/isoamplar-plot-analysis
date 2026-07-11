@@ -16,9 +16,11 @@ import type {
   SelectionState,
   StyleRules
 } from "../data/types";
+import { inferWarningHandling } from "../data/warningProvenance";
 
-export const ANALYSIS_STATE_SCHEMA_VERSION = 2;
+export const ANALYSIS_STATE_SCHEMA_VERSION = 3;
 const LEGACY_ANALYSIS_STATE_SCHEMA_VERSION = 1;
+const PREVIOUS_ANALYSIS_STATE_SCHEMA_VERSION = 2;
 
 export type SourceFileSummary = {
   sourceKind?: DatasetSourceKind;
@@ -88,6 +90,8 @@ const overrideSources = ["custom", "preset"] as const;
 const curveStyleFields = ["displayName", "color", "lineType", "markerType", "lineWidth", "visible"] as const;
 const warningSeverities = ["info", "warning", "error"] as const;
 const warningScopes = ["import", "dataset", "header", "curve", "cell", "export"] as const;
+const warningHandlings = ["kept", "null-gap", "ignored", "blocked"] as const;
+const formulaCacheStatuses = ["not-formula", "used", "missing"] as const;
 const importedSourceKinds = ["excel", "paste"] as const;
 const datasetSourceKinds = ["excel", "paste", "mixed"] as const;
 const pasteInputModes = ["fullTable", "singleSpecimen"] as const;
@@ -234,6 +238,7 @@ export function validateSerializedAnalysisState(payload: unknown): SerializedAna
 
   if (
     payload.schemaVersion !== LEGACY_ANALYSIS_STATE_SCHEMA_VERSION &&
+    payload.schemaVersion !== PREVIOUS_ANALYSIS_STATE_SCHEMA_VERSION &&
     payload.schemaVersion !== ANALYSIS_STATE_SCHEMA_VERSION
   ) {
     throw new Error("Unsupported Analysis XLSX schema version.");
@@ -284,6 +289,7 @@ export function validateSerializedAnalysisState(payload: unknown): SerializedAna
 
 function migrateSerializedAnalysisPayload(payload: Record<string, unknown>): Record<string, unknown> {
   const isLegacySchema = payload.schemaVersion === LEGACY_ANALYSIS_STATE_SCHEMA_VERSION;
+  const needsProvenanceMigration = payload.schemaVersion !== ANALYSIS_STATE_SCHEMA_VERSION;
   const styleRules = isRecord(payload.styleRules)
     ? {
         ...payload.styleRules,
@@ -297,8 +303,8 @@ function migrateSerializedAnalysisPayload(payload: Record<string, unknown>): Rec
     ...payload,
     schemaVersion: ANALYSIS_STATE_SCHEMA_VERSION,
     chartScale: isLegacySchema ? migrateChartScale(payload.chartScale) : payload.chartScale,
-    dataset: migrateDatasetProvenance(payload.dataset),
-    sourceFiles: migrateSourceFileProvenance(payload.sourceFiles),
+    dataset: needsProvenanceMigration ? migrateDatasetProvenance(payload.dataset) : payload.dataset,
+    sourceFiles: needsProvenanceMigration ? migrateSourceFileProvenance(payload.sourceFiles) : payload.sourceFiles,
     styleRules,
     legendSettings:
       "legendSettings" in payload && isRecord(payload.legendSettings)
@@ -343,9 +349,14 @@ function migrateAxisScale(value: unknown): unknown {
 
 function migrateDatasetProvenance(value: unknown): unknown {
   if (!isRecord(value)) return value;
-  const curves = Array.isArray(value.curves)
+  const sourcedCurves = Array.isArray(value.curves)
     ? value.curves.map((curve) => migrateCurveProvenance(curve))
     : value.curves;
+  const curves = Array.isArray(sourcedCurves)
+    ? sourcedCurves.map((curve) =>
+        isRecord(curve) ? { ...curve, warnings: migrateWarnings(curve.warnings, sourcedCurves) } : curve
+      )
+    : sourcedCurves;
   const curveSourceKinds = Array.isArray(curves)
     ? curves
         .map((curve) =>
@@ -359,8 +370,12 @@ function migrateDatasetProvenance(value: unknown): unknown {
 
   return {
     ...value,
+    schemaVersion: 2,
     sourceKind: "sourceKind" in value ? value.sourceKind : inferredSourceKind,
-    curves
+    curves,
+    warnings: migrateWarnings(value.warnings, Array.isArray(curves) ? curves : []),
+    specimens: migrateEntityWarnings(value.specimens, Array.isArray(curves) ? curves : []),
+    reagents: migrateEntityWarnings(value.reagents, Array.isArray(curves) ? curves : [])
   };
 }
 
@@ -380,9 +395,96 @@ function migrateCurveProvenance(value: unknown): unknown {
       sourceInstanceId:
         typeof source.sourceInstanceId === "string" && source.sourceInstanceId
           ? source.sourceInstanceId
-          : `legacy:${sourceKind}:${fileName}#${sheetIndex}:${sheetName}`
+          : `legacy:${sourceKind}:${fileName}#${sheetIndex}:${sheetName}`,
+      specimenHeader:
+        sourceKind === "excel"
+          ? migrateHeaderProvenance(source.specimenHeader, value.specimenLabel)
+          : source.specimenHeader,
+      reagentHeader:
+        sourceKind === "excel"
+          ? migrateHeaderProvenance(source.reagentHeader, value.reagentLabel)
+          : source.reagentHeader
     }
   };
+}
+
+function migrateHeaderProvenance(value: unknown, fallbackLabel: unknown) {
+  if (isRecord(value)) return value;
+  const displayValue = typeof fallbackLabel === "string" ? fallbackLabel : "";
+  return {
+    rawValue: displayValue,
+    displayValue,
+    cellType: "legacy",
+    formulaCacheStatus: "not-formula"
+  };
+}
+
+function migrateEntityWarnings(value: unknown, curves: unknown[]) {
+  if (!Array.isArray(value)) return value;
+  return value.map((entity) =>
+    isRecord(entity) ? { ...entity, warnings: migrateWarnings(entity.warnings, curves) } : entity
+  );
+}
+
+function migrateWarnings(value: unknown, curves: unknown[]) {
+  if (!Array.isArray(value)) return value;
+  return value.map((warning) => {
+    if (!isRecord(warning)) return warning;
+    const sourceRefs = Array.isArray(warning.sourceRefs)
+      ? warning.sourceRefs
+      : createLegacyWarningSourceRefs(warning, curves);
+    return {
+      ...warning,
+      handling:
+        typeof warning.handling === "string"
+          ? warning.handling
+          : inferWarningHandling(String(warning.code) as PcrWarning["code"]),
+      sourceRefs
+    };
+  });
+}
+
+function createLegacyWarningSourceRefs(warning: Record<string, unknown>, curves: unknown[]) {
+  const curveIds = Array.isArray(warning.curveIds)
+    ? new Set(warning.curveIds.filter((curveId): curveId is string => typeof curveId === "string"))
+    : new Set<string>();
+  const matchingCurves = curves.filter(
+    (curve) =>
+      isRecord(curve) &&
+      isRecord(curve.source) &&
+      (curveIds.size === 0 || (typeof curve.curveId === "string" && curveIds.has(curve.curveId)))
+  );
+  const locatedCurves = matchingCurves.length > 0 ? matchingCurves : curves.filter((curve) => isRecord(curve) && isRecord(curve.source)).slice(0, 1);
+  return locatedCurves.map((curve) => {
+    const source = (curve as Record<string, unknown>).source as Record<string, unknown>;
+    const sourceCell = typeof warning.sourceCell === "string" ? warning.sourceCell : undefined;
+    const header =
+      sourceCell === source.specimenCell && isRecord(source.specimenHeader)
+        ? source.specimenHeader
+        : sourceCell === source.reagentCell && isRecord(source.reagentHeader)
+          ? source.reagentHeader
+          : undefined;
+    return {
+      sourceInstanceId: typeof source.sourceInstanceId === "string" ? source.sourceInstanceId : undefined,
+      sourceName: typeof source.fileName === "string" ? source.fileName : "unknown",
+      sourceKind: source.sourceKind,
+      worksheet: typeof warning.sheetName === "string" ? warning.sheetName : source.sheetName,
+      cell: sourceCell,
+      range: typeof warning.sourceRange === "string" ? warning.sourceRange : undefined,
+      columnLetter: typeof warning.columnLetter === "string" ? warning.columnLetter : source.columnLetter,
+      rawValue: header?.rawValue ?? toPortableProvenanceValue(warning.rawValue),
+      displayValue: header?.displayValue,
+      cellType: header?.cellType,
+      numberFormat: header?.numberFormat,
+      formulaText: header?.formulaText,
+      formulaCacheStatus: header?.formulaCacheStatus
+    };
+  });
+}
+
+function toPortableProvenanceValue(value: unknown) {
+  if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") return value;
+  return value === undefined ? undefined : String(value);
 }
 
 function migrateSourceFileProvenance(value: unknown): unknown {
@@ -417,7 +519,7 @@ function validateDataset(value: unknown): asserts value is PcrDataset {
     throw new Error("Analysis state dataset restore data is invalid.");
   }
 
-  if (value.schemaVersion !== 1) {
+  if (value.schemaVersion !== 2) {
     throw new Error("Analysis state dataset schema version is invalid.");
   }
 
@@ -481,7 +583,7 @@ function validateCurveSource(value: unknown, path: string): asserts value is Cur
 
   assertString(value.fileName, `${path}.fileName`);
   assertOneOf(value.sourceKind, importedSourceKinds, `${path}.sourceKind`);
-  assertString(value.sourceInstanceId, `${path}.sourceInstanceId`);
+  assertNonBlankString(value.sourceInstanceId, `${path}.sourceInstanceId`);
   assertOptionalOneOf(value.inputMode, pasteInputModes, `${path}.inputMode`);
   assertString(value.sheetName, `${path}.sheetName`);
   assertNonNegativeInteger(value.sheetIndex, `${path}.sheetIndex`);
@@ -491,6 +593,20 @@ function validateCurveSource(value: unknown, path: string): asserts value is Cur
   assertString(value.reagentCell, `${path}.reagentCell`);
   assertString(value.dataStartCell, `${path}.dataStartCell`);
   assertString(value.dataEndCell, `${path}.dataEndCell`);
+  if (value.sourceKind === "excel") {
+    validateCellProvenance(value.specimenHeader, `${path}.specimenHeader`);
+    validateCellProvenance(value.reagentHeader, `${path}.reagentHeader`);
+  }
+}
+
+function validateCellProvenance(value: unknown, path: string) {
+  if (!isRecord(value)) throw new Error(`${path} is invalid.`);
+  assertOptionalPortableValue(value.rawValue, `${path}.rawValue`);
+  assertString(value.displayValue, `${path}.displayValue`);
+  assertOptionalString(value.cellType, `${path}.cellType`);
+  assertOptionalString(value.numberFormat, `${path}.numberFormat`);
+  assertOptionalString(value.formulaText, `${path}.formulaText`);
+  assertOptionalOneOf(value.formulaCacheStatus, formulaCacheStatuses, `${path}.formulaCacheStatus`);
 }
 
 function validateCurveStats(value: unknown, path: string): asserts value is CurveStats {
@@ -548,6 +664,29 @@ function validateWarnings(value: unknown, path: string): asserts value is PcrWar
     assertOptionalString(warning.sourceRange, `${warningPath}.sourceRange`);
     assertOptionalString(warning.sheetName, `${warningPath}.sheetName`);
     assertOptionalString(warning.columnLetter, `${warningPath}.columnLetter`);
+    assertOneOf(warning.handling, warningHandlings, `${warningPath}.handling`);
+    validateWarningSourceRefs(warning.sourceRefs, `${warningPath}.sourceRefs`);
+  });
+}
+
+function validateWarningSourceRefs(value: unknown, path: string) {
+  if (!Array.isArray(value) || value.length === 0) throw new Error(`${path} is invalid.`);
+  value.forEach((sourceRef, index) => {
+    const sourcePath = `${path}[${index}]`;
+    if (!isRecord(sourceRef)) throw new Error(`${sourcePath} is invalid.`);
+    assertNonBlankString(sourceRef.sourceInstanceId, `${sourcePath}.sourceInstanceId`);
+    assertString(sourceRef.sourceName, `${sourcePath}.sourceName`);
+    assertOneOf(sourceRef.sourceKind, importedSourceKinds, `${sourcePath}.sourceKind`);
+    assertOptionalString(sourceRef.worksheet, `${sourcePath}.worksheet`);
+    assertOptionalString(sourceRef.cell, `${sourcePath}.cell`);
+    assertOptionalString(sourceRef.range, `${sourcePath}.range`);
+    assertOptionalString(sourceRef.columnLetter, `${sourcePath}.columnLetter`);
+    assertOptionalPortableValue(sourceRef.rawValue, `${sourcePath}.rawValue`);
+    assertOptionalString(sourceRef.displayValue, `${sourcePath}.displayValue`);
+    assertOptionalString(sourceRef.cellType, `${sourcePath}.cellType`);
+    assertOptionalString(sourceRef.numberFormat, `${sourcePath}.numberFormat`);
+    assertOptionalString(sourceRef.formulaText, `${sourcePath}.formulaText`);
+    assertOptionalOneOf(sourceRef.formulaCacheStatus, formulaCacheStatuses, `${sourcePath}.formulaCacheStatus`);
   });
 }
 
@@ -716,7 +855,7 @@ function validateSourceFiles(value: unknown): asserts value is SourceFileSummary
     }
     assertString(sourceFile.fileName, `${path}.fileName`);
     assertOneOf(sourceFile.sourceKind, datasetSourceKinds, `${path}.sourceKind`);
-    assertString(sourceFile.sourceInstanceId, `${path}.sourceInstanceId`);
+    assertNonBlankString(sourceFile.sourceInstanceId, `${path}.sourceInstanceId`);
     assertString(sourceFile.sheetName, `${path}.sheetName`);
     assertNonNegativeInteger(sourceFile.sheetIndex, `${path}.sheetIndex`);
     assertString(sourceFile.importedAtIso, `${path}.importedAtIso`);
@@ -798,6 +937,13 @@ function assertString(value: unknown, path: string): asserts value is string {
   }
 }
 
+function assertNonBlankString(value: unknown, path: string): asserts value is string {
+  assertString(value, path);
+  if (value.trim() === "") {
+    throw new Error(`${path} must be a non-empty string.`);
+  }
+}
+
 function assertStringOrNull(value: unknown, path: string): asserts value is string | null {
   if (value !== null && typeof value !== "string") {
     throw new Error(`${path} must be a string or null.`);
@@ -807,6 +953,21 @@ function assertStringOrNull(value: unknown, path: string): asserts value is stri
 function assertOptionalString(value: unknown, path: string) {
   if (value !== undefined && typeof value !== "string") {
     throw new Error(`${path} must be a string.`);
+  }
+}
+
+function assertOptionalPortableValue(value: unknown, path: string) {
+  if (
+    value !== undefined &&
+    value !== null &&
+    typeof value !== "string" &&
+    typeof value !== "number" &&
+    typeof value !== "boolean"
+  ) {
+    throw new Error(`${path} must be a portable scalar value.`);
+  }
+  if (typeof value === "number" && !Number.isFinite(value)) {
+    throw new Error(`${path} must be finite.`);
   }
 }
 

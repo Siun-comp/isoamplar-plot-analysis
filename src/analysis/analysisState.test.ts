@@ -65,6 +65,8 @@ describe("analysis state serialization", () => {
     expect(serialized.selection.selectedCurveIds).toEqual([...state.selection.selectedCurveIds]);
     expect(restored.analysisName).toBe(state.analysisName);
     expect(restored.dataset.curves).toHaveLength(state.dataset.curves.length);
+    expect(restored.dataset.schemaVersion).toBe(2);
+    expect(restored.dataset.curves[0].source.specimenHeader).toEqual(state.dataset.curves[0].source.specimenHeader);
     expect(restored.selection.selectedCurveIds).toBeInstanceOf(Set);
     expect([...restored.selection.selectedCurveIds]).toEqual([...state.selection.selectedCurveIds]);
     expect([...restored.selection.collapsedGroupIds]).toEqual([...state.selection.collapsedGroupIds]);
@@ -136,6 +138,8 @@ describe("analysis state serialization", () => {
   it("restores default legend/export settings from older serialized payloads", () => {
     const serialized = serializeAnalysisState(createTestAnalysisState());
     const { legendSettings: _legendSettings, exportSettings: _exportSettings, ...legacyPayload } = serialized;
+    legacyPayload.schemaVersion = 2 as typeof legacyPayload.schemaVersion;
+    legacyPayload.dataset.schemaVersion = 1 as typeof legacyPayload.dataset.schemaVersion;
     const {
       markerBy: _markerBy,
       specimenMarkerTypes: _specimenMarkerTypes,
@@ -157,22 +161,45 @@ describe("analysis state serialization", () => {
 
   it("migrates legacy Analysis XLSX provenance fields to Excel source metadata", () => {
     const legacyPayload = JSON.parse(JSON.stringify(serializeAnalysisState(createTestAnalysisState())));
+    legacyPayload.schemaVersion = 2;
+    legacyPayload.dataset.schemaVersion = 1;
     delete legacyPayload.dataset.sourceKind;
     legacyPayload.dataset.curves.forEach((curve: { source: Record<string, unknown> }) => {
       delete curve.source.sourceKind;
       delete curve.source.sourceInstanceId;
+      delete curve.source.specimenHeader;
+      delete curve.source.reagentHeader;
     });
     legacyPayload.sourceFiles.forEach((source: Record<string, unknown>) => {
       delete source.sourceKind;
       delete source.sourceInstanceId;
     });
+    const legacyWarning = {
+      code: "MISSING_SPECIMEN_LABEL",
+      severity: "warning",
+      scope: "header",
+      message: "Specimen header is empty.",
+      curveIds: [legacyPayload.dataset.curves[0].curveId],
+      sourceCell: "A1",
+      columnLetter: "A"
+    };
+    legacyPayload.dataset.warnings = [legacyWarning];
+    legacyPayload.dataset.curves[0].warnings = [legacyWarning];
 
     const restored = deserializeAnalysisState(legacyPayload);
     expect(restored.dataset.sourceKind).toBe("excel");
     expect(restored.dataset.curves.every((curve) => curve.source.sourceKind === "excel")).toBe(true);
     expect(restored.dataset.curves.every((curve) => curve.source.sourceInstanceId?.startsWith("legacy:excel:"))).toBe(true);
+    expect(restored.dataset.schemaVersion).toBe(2);
+    expect(restored.dataset.curves[0].source.specimenHeader).toMatchObject({
+      rawValue: restored.dataset.curves[0].specimenLabel,
+      displayValue: restored.dataset.curves[0].specimenLabel,
+      cellType: "legacy"
+    });
     expect(restored.sourceFiles[0].sourceKind).toBe("excel");
     expect(restored.sourceFiles[0].sourceInstanceId).toMatch(/^legacy:excel:/u);
+    expect(restored.dataset.warnings[0]).toMatchObject({ handling: "kept" });
+    expect(restored.dataset.warnings[0].sourceRefs?.[0]).toMatchObject({ cell: "A1", columnLetter: "A" });
   });
 
   it("migrates schema 1 scale drafts to explicit applied scale state", () => {
@@ -293,7 +320,7 @@ describe("analysis state serialization", () => {
     expect(() =>
       deserializeAnalysisState({
         ...serialized,
-        dataset: { ...serialized.dataset, schemaVersion: 2 }
+        dataset: { ...serialized.dataset, schemaVersion: 1 }
       })
     ).toThrow("dataset schema version");
 
@@ -326,6 +353,46 @@ describe("analysis state serialization", () => {
         selection: { ...serialized.selection, orderedCurveIds: serialized.selection.orderedCurveIds.slice(1) }
       })
     ).toThrow("must match dataset curve IDs");
+  });
+
+  it("rejects schema 3 payloads that omit required Excel header or warning provenance", () => {
+    const serialized = JSON.parse(JSON.stringify(serializeAnalysisState(createTestAnalysisState())));
+    delete serialized.dataset.curves[0].source.specimenHeader;
+    expect(() => deserializeAnalysisState(serialized)).toThrow("specimenHeader");
+
+    const withWarning = JSON.parse(JSON.stringify(serializeAnalysisState(createTestAnalysisState())));
+    withWarning.dataset.warnings = [
+      {
+        code: "MISSING_SPECIMEN_LABEL",
+        severity: "warning",
+        scope: "header",
+        message: "Specimen header is empty.",
+        curveIds: [withWarning.dataset.curves[0].curveId]
+      }
+    ];
+    expect(() => deserializeAnalysisState(withWarning)).toThrow("handling");
+
+    const withEmptySourceRefs = JSON.parse(JSON.stringify(serializeAnalysisState(createTestAnalysisState())));
+    withEmptySourceRefs.dataset.warnings = [
+      {
+        code: "MISSING_SPECIMEN_LABEL",
+        severity: "warning",
+        scope: "header",
+        message: "Specimen header is empty.",
+        curveIds: [withEmptySourceRefs.dataset.curves[0].curveId],
+        handling: "kept",
+        sourceRefs: []
+      }
+    ];
+    expect(() => deserializeAnalysisState(withEmptySourceRefs)).toThrow("sourceRefs");
+
+    withEmptySourceRefs.dataset.warnings[0].sourceRefs = [{ sourceName: "source.xlsx" }];
+    expect(() => deserializeAnalysisState(withEmptySourceRefs)).toThrow("sourceInstanceId");
+
+    withEmptySourceRefs.dataset.warnings[0].sourceRefs = [
+      { sourceInstanceId: "   ", sourceName: "source.xlsx", sourceKind: "excel" }
+    ];
+    expect(() => deserializeAnalysisState(withEmptySourceRefs)).toThrow("non-empty string");
   });
 
   it("rejects invalid overrides and source file summaries", () => {

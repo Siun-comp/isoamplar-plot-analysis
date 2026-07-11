@@ -12,7 +12,7 @@
     "ignoredSheetNames": []
   },
   "dataset": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "sourceKind": "excel",
     "sheetIndex": 0,
     "cycleCount": 3,

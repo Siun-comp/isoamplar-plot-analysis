@@ -1,7 +1,12 @@
 import { createEntityId, createPcrDatasetFromCurves } from "./normalizePcrData";
 import type { Curve, PcrDataset, PcrWarning } from "./types";
 
-const regeneratedWarningCodes = new Set(["DUPLICATE_CURVE_LABEL", "SIMILAR_SPECIMEN_LABEL", "SIMILAR_REAGENT_LABEL"]);
+const regeneratedWarningCodes = new Set([
+  "DUPLICATE_CURVE_LABEL",
+  "SIMILAR_SPECIMEN_LABEL",
+  "SIMILAR_REAGENT_LABEL",
+  "FORMATTED_HEADER_IDENTITY_COLLISION"
+]);
 
 export type DatasetMergeResult = {
   dataset: PcrDataset;

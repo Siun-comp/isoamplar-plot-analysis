@@ -16,10 +16,11 @@ Active
 - Pre-remediation checkpoint: commit `319daa901221b4d5811eafb44f82319ddcedf296`, tag `checkpoint/audit-remediation-baseline-20260711`.
 - Phase S0 is complete. Phase S1 evidence foundation was committed as `1e30717` after local verification and expert review.
 - Phase S2 numeric/scale remediation is complete on the active branch after full verification and final independent expert GO review.
-- Phase S3 legend identity/raster remediation is complete after full local verification and final independent expert GO review; its phase commit is ready before S4 begins.
+- Phase S3 legend identity/raster remediation is committed as `723d83f` after full local verification and final independent expert GO review.
+- Phase S4 Excel header identity and common Warning Inspector remediation is complete after full automated, build, fresh Chromium, in-app browser, and independent expert verification; it is ready for its phase commit.
 - S1 adds synthetic-only fixed `.xlsx`/BIFF8 `.xls` fixtures, SHA-256 manifest, normalized/target snapshots, raster evidence helper, Target/Known-red acceptance criteria, traceability, and a read-only non-deploying CI workflow.
 - Product runtime behavior is unchanged by S1. No parser, chart, state, export, UI, dependency, or Pages deployment behavior was modified.
-- Latest S3 verification: regular suite 26 files / 199 tests passed with 7 target TODOs; two remaining isolated known-red probes reproduced; build passed; fresh Chromium passed 6/6 including downloaded legend PNG pixel/run evidence; local in-app browser had zero console warnings/errors, zero replacement characters, and no horizontal overflow; `npm audit --omit=dev` found 0 vulnerabilities.
+- Latest S4 verification: regular suite 27 files / 217 tests passed with 6 target TODOs; the one remaining isolated known-red probe belongs to S7 CSV safety; build passed; fresh Chromium passed 6/6; local in-app browser had zero console warnings/errors, zero replacement characters, and no horizontal overflow; `npm audit --omit=dev` found 0 vulnerabilities.
 - User data remains browser-local. No real workbook, patient/specimen record, or actual fluorescence dataset is checked into S1 fixtures.
 - The user has granted standing approval for subsequent remediation phase commits. Continue phases sequentially, but do not push or deploy until the plan reaches the corresponding release phase.
 
@@ -46,33 +47,39 @@ Active
 - The latest UI consistency pass normalizes button/form-control sizing across top tabs, import actions, selection controls, chart tools, scale controls, legend controls, and export controls; status badges remain intentionally smaller. It also scopes settings accordion summary styling so nested Style color/line popover triggers stay compact, tightens reset-icon button padding, and removes an obsolete hidden Export legend button wrapper.
 - Quick Paste Import Phases Q0-Q6 are implemented from `docs/10_QUICK_PASTE_IMPORT_PLAN_KR.md`. It supports full-table and single-specimen input, tab-separated and single-column text, read-only preview, paginated source-position warnings with acknowledgement, stale/target revision guards for append and new-analysis actions, per-import source identity, mixed-source Analysis XLSX continuity, and the existing chart/export pipeline. Comma/CSV tables are rejected to prevent silent delimiter corruption.
 - A 2026-07-11 code/data-integrity/desktop-UX audit is complete in `docs/11_GPT56_PROJECT_AUDIT_KR.md`. Mobile was explicitly excluded. No P0 issue was identified; Stabilization A prioritizes invalid Fixed-scale export fallback, exported-legend identity truncation, Excel formatted-header identity, actionable Excel warnings, browser refresh/close protection, and accepted-size Quick Paste crash prevention. The audit also records P2 state/export/performance risks, documentation drift, and workflow candidates such as Warning Center, explicit save commands, Named Views, and optional export preflight.
-- The audit remediation plan is active in `docs/12_AUDIT_REMEDIATION_IMPLEMENTATION_PLAN_KR.md`. Phases S0-S3 are complete through independent expert review. Later phases remain sequential and pending.
+- The audit remediation plan is active in `docs/12_AUDIT_REMEDIATION_IMPLEMENTATION_PLAN_KR.md`. Phases S0-S3 are committed; S4 is fully verified with final independent GO verdicts and ready for its phase commit. Later phases remain sequential and pending.
 
 ## Current Goal
-Commit the verified S3 legend remediation, then execute Phase S4 Excel header identity and Warning Inspector work without an additional approval pause. Stop only for a genuine user business decision.
+Commit the verified S4 Excel identity/Warning Inspector remediation, then begin Phase S5 Quick Paste safety and controlled error-boundary work. Stop only for a genuine user business decision.
 
 ## Current Milestone
 M9 - Release validation and real-data hardening.
 
 ## Last Completed Step
-Completed the S3 verification cycle and independent expert re-audit: measured two-line legend layout, suffix preservation, curve/source collision evidence, standard/report row bounds, 12-combination style matrix, downloaded PNG raster checks, full regression, build, fresh Chromium, desktop visuals, and local browser log/overflow inspection all passed. Final expert verdict: GO.
+Completed the S4 implementation, verification, and independent re-audit cycle. Initial expert NO-GO findings were fixed; formatted Excel identity/provenance, source-distinct warning evidence, shared Warning Inspector, state-neutral warning navigation, strict nonblank source identity, Analysis XLSX schema 3 migration/validation, full regression, build, fresh Chromium, desktop visuals, and local browser log/overflow inspection all passed. Final data-integrity and desktop-UX verdicts: GO.
 
 ## Latest Changed Files
-- `src/chart/legendLayout.ts`
-- `src/chart/legendLayout.test.ts`
-- `src/chart/chartProjection.ts`
-- `src/chart/chartProjection.test.ts`
-- `src/chart/exportChart.ts`
-- `src/chart/exportChart.test.ts`
-- `src/chart/chartConfig.ts`
-- `src/chart/reportLegend.test.ts`
-- `src/ui/CustomLegend.tsx`
-- `src/ui/CustomLegend.test.tsx`
+- `src/data/parseExcel.ts`
+- `src/data/normalizePcrData.ts`
+- `src/data/warningProvenance.ts`
+- `src/data/types.ts`
+- `src/warnings/warningIndex.ts`
+- `src/ui/WarningInspector.tsx`
+- `src/ui/WarningNavigationContext.tsx`
+- `src/ui/DataImportPanel.tsx`
+- `src/ui/PasteImportPanel.tsx`
+- `src/ui/DataSelectionPanel.tsx`
+- `src/analysis/analysisState.ts`
+- `src/analysis/analysisWorkbook.ts`
 - `tests/e2e/app.spec.ts`
-- `docs/gui_mockups/screenshots/s3_legend_identity_desktop.png`
-- `docs/gui_mockups/screenshots/s3_legend_export.png`
+- `tests/fixtures/source/FX-004-warning-cells.xlsx`
+- `docs/gui_mockups/screenshots/s4_warning_inspector.png`
+- `docs/gui_mockups/screenshots/s4_warning_navigation.png`
+- `docs/gui_mockups/screenshots/s4_warning_desktop.png`
 - `docs/02_FUNCTIONAL_REQUIREMENTS_EN.md`
+- `docs/03_INPUT_OUTPUT_SPEC_EN.md`
 - `docs/04_TEST_PLAN_ACCEPTANCE_EN.md`
+- `docs/07_FIXTURE_SNAPSHOT_PLAN_KR.md`
 - `docs/13_AUDIT_REMEDIATION_TRACEABILITY.md`
 - `DECISIONS.md`
 - `CHANGELOG.md`
@@ -97,6 +104,15 @@ Completed the S3 verification cycle and independent expert re-audit: measured tw
 - `docs/gui_mockups/screenshots/s2_scale_draft_applied.png`
 
 ## Implemented
+- Audit remediation S4:
+  - recomputes Excel header display identity from raw value/type/number format instead of trusting stale `cell.w`
+  - preserves header and warning raw/display/type/format/formula/cache provenance without changing raw fluorescence
+  - distinguishes every import source instance, including repeated same-name workbooks
+  - shares one filterable and paginated Warning Inspector between Excel and Quick Paste
+  - reveals affected warning curves transiently without mutating analysis selection/order/style/filter/collapse/revision/dirty state
+  - includes dataset-level warning evidence in warning filters and tree badges
+  - advances Analysis XLSX to schema 3 and normalized datasets to schema 2 with schema 1/2 migration and strict current-schema validation
+  - adds visible `HeaderProvenance` and expanded `Warnings` workbook review sheets
 - Audit remediation S3:
   - measures preview/raster legend text and lays it out in at most two bounded lines
   - preserves leading context and distinguishing lot/concentration/temperature-style endings with explicit ellipsis
@@ -524,11 +540,11 @@ Completed the S3 verification cycle and independent expert re-audit: measured tw
   - `docs/gui_mockups/screenshots/phase-r12_hover_warning_mobile.png`
 
 ## Known Gaps
-- Phase S3 is implemented locally; S4-S11 product remediations remain pending.
-- S2/S3 resolve invalid Fixed-scale fallback, direct large-array spread hazards in scoped paths, and exported-legend identity truncation/collision. Excel formatted-header identity, actionable Excel warnings, browser refresh/close protection, and later performance/UX work remain for their scheduled phases.
+- Phase S4 is fully verified and ready for its phase commit; S5-S11 product remediations remain pending.
+- S2-S4 resolve invalid Fixed-scale fallback, scoped large-array spread hazards, exported-legend identity loss, Excel formatted-header identity, and actionable source-aware warnings. Quick Paste error containment, browser refresh/close protection, and later state/export/performance/UX work remain for their scheduled phases.
 - The audit also reproduced a CSS defect where Legend `Labels` does not hide the `Order` panel, plus laptop-height sticky-chart and dense individual-style/legend-editor limitations. These remain unmodified pending user prioritization.
 - Clipboard image copy and rich Excel-cell legend paste have not been manually verified in Chrome/Edge on the final deployment origin.
-- Phase S1 fixtures are committed. Two S4-S8 target defects remain isolated as known-red probes by design.
+- Phase S1 fixtures are committed. One S7 CSV-safety defect remains isolated as a known-red probe by design.
 - Public URL technical smoke used generated `.xlsx` workbooks. Real `C:\Users\siunj\Desktop\graph_TEST.xlsx` has been inspected read-only but has not yet been uploaded through the finished UI in this session; final domain judgement for real labels/curve counts remains a user/manual validation item.
 - Performance budgets for max file size, row count, specimen count, imported curve count, and rendered curve count remain undecided.
 - P1/P2 scale presets are user-editable per analysis session and represented in AnalysisState; they can be preserved through explicit Analysis XLSX export/import but not automatic browser-session persistence.
@@ -554,6 +570,6 @@ Completed the S3 verification cycle and independent expert re-audit: measured tw
 - Local production preview: `http://127.0.0.1:4173/`
 
 ## Next 3 Tasks
-1. Commit S3 as one verified remediation phase without pushing or deploying.
-2. Read the S4 Excel formatted-header and Warning Inspector contract, then audit the current parser/UI paths.
-3. Implement and verify S4 in bounded parser, diagnostics, and UI increments with independent expert review.
+1. Commit the final independently approved S4 phase without pushing or deploying.
+2. Read the S5 Quick Paste safety/error-boundary contract and inventory current parser/UI failure paths.
+3. Implement and verify S5 in bounded parser, state-preservation, and workspace-containment increments with independent expert review.

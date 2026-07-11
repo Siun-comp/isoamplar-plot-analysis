@@ -22,10 +22,10 @@
 
 | ID | 형식 | 목적 | 상태 |
 |---|---|---|---|
-| FX-001 | OOXML `.xlsx` | `001`, 날짜, 과학표기, 공백, 한글/특수문자 header 표시 identity와 provenance target | Known red - S4 |
+| FX-001 | OOXML `.xlsx` | `001`, 날짜, 과학표기, 공백, 한글/특수문자 header 표시 identity와 provenance target | Passing S4 |
 | FX-002 | OOXML `.xlsx` | synthetic 한국어/특수문자 label, 음수 포함 raw fluorescence parity | Passing |
 | FX-003 | BIFF8 `.xls` | FX-002와 같은 normalized 결과 및 실제 compound signature | Passing |
-| FX-004 | OOXML `.xlsx` | 빈 header, nonnumeric, no-cache formula, merged header의 code/location/null gap | Partial passing; provenance target은 S4 |
+| FX-004 | OOXML `.xlsx` | 빈 header, nonnumeric, cached/no-cache formula, merged header의 code/location/handling/source provenance/null gap | Passing S4 |
 | FX-005 | OOXML `.xlsx` | first worksheet only와 ignored worksheet warning | Passing |
 | FX-006 | OOXML `.xlsx` | suffix만 다른 shared-prefix legend identity | Passing - S3 |
 | FX-007 | OOXML `.xlsx` | 0 근처 tiny/negative fluorescence scale precision | Passing - S2 |
@@ -84,7 +84,7 @@ FX-001의 target은 각 header에 다음을 요구한다.
 - number format
 - formula text 또는 `null`
 
-S1에서는 이 target을 현재 parser output으로 덮어쓰지 않는다. S4가 formatted display label과 raw provenance를 구현한 뒤 target을 passing snapshot으로 승격한다.
+S4에서 formatted display label과 raw provenance를 구현해 이 target을 passing snapshot으로 승격했다. `cell.w` 캐시는 권위값으로 사용하지 않고 format API 결과를 검증한다.
 
 ## 5. Warning Snapshot
 
@@ -95,7 +95,7 @@ FX-004는 S1에서 다음을 passing evidence로 고정한다.
 - affected curve ID
 - 전체 Y 배열과 `null` 위치
 
-source instance, source name, handling outcome, cross-source dedupe는 AC-PCR-048의 known-red 범위이며 S4 전에는 passing으로 표시하지 않는다.
+S4에서 source instance/name, handling outcome, formula cache, cross-source warning separation을 passing evidence로 승격했다.
 
 ## 6. Generated Fixture
 

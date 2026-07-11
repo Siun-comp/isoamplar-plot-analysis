@@ -15,6 +15,7 @@ export const ANALYSIS_RESTORE_SHEET_NAME = "_IsoAmplarAnalysis";
 export const ANALYSIS_RESTORE_MARKER = "IsoAmplarAnalysis";
 const READ_ME_SHEET_NAME = "README";
 const SETTINGS_SHEET_NAME = "Settings";
+const HEADER_PROVENANCE_SHEET_NAME = "HeaderProvenance";
 const IMPORTED_DATA_SHEET_NAME = "ImportedData";
 const WARNINGS_SHEET_NAME = "Warnings";
 const CHUNK_SIZE = 30000;
@@ -32,6 +33,7 @@ export async function exportAnalysisWorkbookBuffer(state: AnalysisState) {
 
   appendSheet(xlsx, workbook, READ_ME_SHEET_NAME, createReadmeRows());
   appendSheet(xlsx, workbook, SETTINGS_SHEET_NAME, createSettingsRows(state));
+  appendSheet(xlsx, workbook, HEADER_PROVENANCE_SHEET_NAME, createHeaderProvenanceRows(state.dataset.curves));
   appendSheet(xlsx, workbook, IMPORTED_DATA_SHEET_NAME, createImportedDataRows(state.dataset.curves, state.curveOverrides));
   appendSheet(xlsx, workbook, WARNINGS_SHEET_NAME, createWarningsRows(state.dataset.warnings));
   appendSheet(xlsx, workbook, ANALYSIS_RESTORE_SHEET_NAME, createRestoreRows(serializeAnalysisState(state)));
@@ -180,24 +182,104 @@ function createImportedDataRows(curves: Curve[], curveOverrides: AnalysisState["
   return rows;
 }
 
+function createHeaderProvenanceRows(curves: Curve[]) {
+  const rows: unknown[][] = [
+    [
+      "Curve ID",
+      "Source ID",
+      "Source name",
+      "Worksheet",
+      "Column",
+      "Header role",
+      "Cell",
+      "Display value",
+      "Raw value",
+      "Cell type",
+      "Number format",
+      "Formula",
+      "Formula cache"
+    ]
+  ];
+  for (const curve of curves) {
+    for (const [role, cell, provenance] of [
+      ["Specimen", curve.source.specimenCell, curve.source.specimenHeader],
+      ["Reagent", curve.source.reagentCell, curve.source.reagentHeader]
+    ] as const) {
+      rows.push([
+        curve.curveId,
+        curve.source.sourceInstanceId ?? "",
+        curve.source.fileName,
+        curve.source.sheetName,
+        curve.source.columnLetter,
+        role,
+        cell,
+        provenance?.displayValue ?? (role === "Specimen" ? curve.specimenLabel : curve.reagentLabel),
+        provenance?.rawValue === undefined ? "" : JSON.stringify(provenance.rawValue),
+        provenance?.cellType ?? "",
+        provenance?.numberFormat ?? "",
+        provenance?.formulaText ?? "",
+        provenance?.formulaCacheStatus ?? ""
+      ]);
+    }
+  }
+  return rows;
+}
+
 function createWarningsRows(warnings: PcrWarning[]) {
   const rows: unknown[][] = [
-    ["Code", "Severity", "Scope", "Message", "Curve IDs", "Labels", "Source cell", "Source range", "Sheet", "Column", "Raw value"]
+    [
+      "Code",
+      "Severity",
+      "Scope",
+      "Handling",
+      "Message",
+      "Curve IDs",
+      "Labels",
+      "Source ID",
+      "Source type",
+      "Source name",
+      "Worksheet",
+      "Cell",
+      "Range",
+      "Column",
+      "Raw value",
+      "Display value",
+      "Cell type",
+      "Number format",
+      "Formula",
+      "Formula cache"
+    ]
   ];
   for (const warning of warnings) {
-    rows.push([
-      warning.code,
-      warning.severity,
-      warning.scope,
-      warning.message,
-      warning.curveIds?.join(", ") ?? "",
-      warning.labels?.join(", ") ?? "",
-      warning.sourceCell ?? "",
-      warning.sourceRange ?? "",
-      warning.sheetName ?? "",
-      warning.columnLetter ?? "",
-      warning.rawValue === undefined ? "" : JSON.stringify(warning.rawValue)
-    ]);
+    const sourceRefs = warning.sourceRefs?.length ? warning.sourceRefs : [undefined];
+    for (const sourceRef of sourceRefs) {
+      rows.push([
+        warning.code,
+        warning.severity,
+        warning.scope,
+        warning.handling ?? "",
+        warning.message,
+        warning.curveIds?.join(", ") ?? "",
+        warning.labels?.join(", ") ?? "",
+        sourceRef?.sourceInstanceId ?? "",
+        sourceRef?.sourceKind ?? "",
+        sourceRef?.sourceName ?? "",
+        sourceRef?.worksheet ?? warning.sheetName ?? "",
+        sourceRef?.cell ?? warning.sourceCell ?? "",
+        sourceRef?.range ?? warning.sourceRange ?? "",
+        sourceRef?.columnLetter ?? warning.columnLetter ?? "",
+        sourceRef?.rawValue === undefined
+          ? warning.rawValue === undefined
+            ? ""
+            : JSON.stringify(warning.rawValue)
+          : JSON.stringify(sourceRef.rawValue),
+        sourceRef?.displayValue ?? "",
+        sourceRef?.cellType ?? "",
+        sourceRef?.numberFormat ?? "",
+        sourceRef?.formulaText ?? "",
+        sourceRef?.formulaCacheStatus ?? ""
+      ]);
+    }
   }
   return rows;
 }
@@ -222,7 +304,7 @@ function readSerializedAnalysisState(worksheet: XLSX.WorkSheet, xlsx: XlsxModule
   }
 
   const schemaVersion = rows.find((row) => row[0] === "schemaVersion")?.[1];
-  if (schemaVersion !== 1 && schemaVersion !== ANALYSIS_STATE_SCHEMA_VERSION) {
+  if (schemaVersion !== 1 && schemaVersion !== 2 && schemaVersion !== ANALYSIS_STATE_SCHEMA_VERSION) {
     throw new Error("Unsupported Analysis XLSX schema version.");
   }
 
@@ -250,7 +332,11 @@ function readSerializedAnalysisState(worksheet: XLSX.WorkSheet, xlsx: XlsxModule
     throw new Error("Analysis XLSX restore chunks are incomplete.");
   }
 
-  return JSON.parse(chunks.join("")) as SerializedAnalysisState;
+  const payload = JSON.parse(chunks.join("")) as { schemaVersion?: unknown };
+  if (!payload || typeof payload !== "object" || payload.schemaVersion !== schemaVersion) {
+    throw new Error("Analysis XLSX restore schema metadata does not match its payload.");
+  }
+  return payload as SerializedAnalysisState;
 }
 
 function hasIsoAmplarAnalysisMarker(workbook: XLSX.WorkBook) {

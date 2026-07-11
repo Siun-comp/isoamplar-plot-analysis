@@ -19,7 +19,7 @@
         "Data"
       ],
       "expected": "expected/FX-001-formatted-headers.target.json",
-      "status": "known-red",
+      "status": "active",
       "covers": [
         "AC-PCR-047",
         "C-P1-03"
@@ -81,15 +81,15 @@
         "Data"
       ],
       "expected": "expected/FX-004-warning-cells.json",
-      "status": "active-partial",
+      "status": "active",
       "covers": [
         "AC-PCR-002",
         "AC-PCR-048"
       ],
       "purpose": "Stable warning codes and source locations without user data.",
-      "byteLength": 8928,
+      "byteLength": 8941,
       "magicHex": "504b030414000000",
-      "sha256": "7174216b746b8f84f30659d37b5d88ea63e861cfeee99469793dbed8c7b4e16f"
+      "sha256": "631df84c3c92cfcd3c86e370bfb0c1cf0cb321eb87a2f05623751c6556b09605"
     },
     {
       "fixtureId": "FX-005",

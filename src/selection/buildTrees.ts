@@ -1,5 +1,6 @@
 import type { CheckState, Curve, GroupingMode, PcrDataset, TreeGroupNode } from "../data/types";
 import { formatCurveLabel } from "../data/curveLabels";
+import { getWarningsByCurveId } from "../warnings/warningIndex";
 
 export function buildSelectionTree(args: {
   dataset: PcrDataset;
@@ -10,6 +11,7 @@ export function buildSelectionTree(args: {
 }): TreeGroupNode[] {
   const { dataset, groupingMode, selectedCurveIds, collapsedGroupIds, includedCurveIds } = args;
   const curvesById = new Map(dataset.curves.map((curve) => [curve.curveId, curve]));
+  const warningsByCurveId = getWarningsByCurveId(dataset);
   const primaryGroups = new Map<string, Map<string, Curve[]>>();
 
   dataset.orderedCurveIds.forEach((curveId) => {
@@ -46,8 +48,9 @@ export function buildSelectionTree(args: {
           label: formatCurveLabel(curve, groupingMode),
           specimenLabel: curve.specimenLabel,
           reagentLabel: curve.reagentLabel,
+          sourceLabel: `${curve.source.fileName} · ${curve.source.sheetName} · ${curve.source.columnLetter}`,
           selected: selectedCurveIds.has(curve.curveId),
-          warningCount: curve.warnings.length
+          warningCount: warningsByCurveId.get(curve.curveId)?.length ?? 0
         }))
       };
     });

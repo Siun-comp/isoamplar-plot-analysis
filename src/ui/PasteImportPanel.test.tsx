@@ -84,7 +84,8 @@ describe("Quick Paste Import UI", () => {
 
     const appendButton = within(dialog).getByRole("button", { name: "현재 분석에 추가" });
     expect(appendButton).toBeDisabled();
-    expect(within(dialog).getByText(/A3:.*숫자가 아님/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: /숫자가 아닌 형광값.*A3/ })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "데이터 선택에서 위치 보기" })).toBeDisabled();
     await user.click(within(dialog).getByRole("checkbox", { name: /빈 값으로 가져오며 그래프에는 간격/ }));
     expect(appendButton).toBeEnabled();
   });
@@ -95,16 +96,16 @@ describe("Quick Paste Import UI", () => {
     await user.click(screen.getByRole("button", { name: "붙여넣기 입력" }));
     const dialog = screen.getByRole("dialog", { name: "소량 표 붙여넣기" });
     const textarea = within(dialog).getByRole("textbox", { name: "표 데이터" });
-    const sourceText = ["S1", "A1", ...Array.from({ length: 13 }, () => ""), "1"].join("\n");
+    const sourceText = ["S1", "A1", ...Array.from({ length: 26 }, () => ""), "1"].join("\n");
     await user.click(textarea);
     await user.paste(sourceText);
     await user.click(within(dialog).getByRole("button", { name: "미리보기 생성" }));
 
-    expect(within(dialog).getByText("1-12 / 13")).toBeInTheDocument();
-    expect(within(dialog).getByText(/A3:.*빈 fluorescence/)).toBeInTheDocument();
-    await user.click(within(dialog).getByRole("button", { name: "다음 경고" }));
-    expect(within(dialog).getByText("13-13 / 13")).toBeInTheDocument();
-    expect(within(dialog).getByText(/A15:.*빈 fluorescence/)).toBeInTheDocument();
+    expect(within(dialog).getByText("1 / 2")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: /빈 형광값.*A3/ })).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "다음" }));
+    expect(within(dialog).getByText("2 / 2")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: /빈 형광값.*A28/ })).toBeInTheDocument();
   });
 
   it("opens single-specimen input as an independent new analysis", async () => {

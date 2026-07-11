@@ -6,7 +6,7 @@ import {
   createTwentyOnePlusCurveDataset
 } from "./sampleData";
 import { buildSelectionTree } from "../selection/buildTrees";
-import { getMatchedCurveIds } from "../selection/searchCurves";
+import { getFilteredCurveIds, getMatchedCurveIds } from "../selection/searchCurves";
 import {
   createInitialSelectionState,
   setCurveSelection,
@@ -75,6 +75,22 @@ describe("PCR normalized sample data and selection utilities", () => {
     expect(dataset.specimens.map((specimen) => specimen.label)).toEqual(["Sample 1", "Sample-1"]);
     expect(new Set(dataset.specimens.map((specimen) => specimen.id)).size).toBe(2);
     expect(dataset.warnings.some((warning) => warning.code === "SIMILAR_SPECIMEN_LABEL")).toBe(true);
+  });
+
+  it("includes dataset-level warning curve IDs in the warning filter and tree badges", () => {
+    const dataset = createSimilarNameDataset();
+    const warningCurveIds = getFilteredCurveIds(dataset, getMatchedCurveIds(dataset, ""), new Set(), "warning");
+    const state = createInitialSelectionState(dataset);
+    const tree = buildSelectionTree({
+      dataset,
+      groupingMode: state.groupingMode,
+      selectedCurveIds: state.selectedCurveIds,
+      collapsedGroupIds: new Set(),
+      includedCurveIds: warningCurveIds
+    });
+
+    expect(warningCurveIds.size).toBeGreaterThan(0);
+    expect(tree.flatMap((group) => group.subgroups).flatMap((subgroup) => subgroup.curves).every((curve) => curve.warningCount > 0)).toBe(true);
   });
 
   it("supports all-dataset search and twenty-one-plus sample cases", () => {

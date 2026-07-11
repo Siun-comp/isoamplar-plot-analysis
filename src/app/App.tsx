@@ -4,6 +4,7 @@ import { DataImportPanel } from "../ui/DataImportPanel";
 import { DataSelectionPanel } from "../ui/DataSelectionPanel";
 import { SettingsPanel } from "../ui/SettingsPanel";
 import { useAppStore } from "./appStore";
+import { WarningNavigationProvider } from "../ui/WarningNavigationContext";
 
 export function App() {
   const groupingMode = useAppStore((state) => state.selection?.groupingMode ?? "reagent");
@@ -11,6 +12,7 @@ export function App() {
   const groupingLabel = groupingMode === "reagent" ? "시약별" : "검체별";
 
   return (
+    <WarningNavigationProvider>
     <main className="app-shell" aria-labelledby="app-title">
       <header className="top-bar">
         <div>
@@ -56,5 +58,6 @@ export function App() {
         </aside>
       </section>
     </main>
+    </WarningNavigationProvider>
   );
 }

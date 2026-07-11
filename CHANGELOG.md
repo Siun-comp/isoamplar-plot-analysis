@@ -25,6 +25,8 @@ Update this file when user visible behavior, documentation baseline, release rea
 ## [Unreleased]
 
 ### Added
+- Added a shared, filterable Warning Inspector for Excel and Quick Paste with source/cell evidence, handling outcome, affected curves, bounded pagination, and transient location reveal.
+- Added visible `HeaderProvenance` and expanded `Warnings` review sheets to Analysis XLSX schema 3, with schema 1/2 migration and strict current-schema validation.
 - Added curveId/source-aware legend identity validation, measured two-line preview/raster layout, and actionable collision warnings that leave Plot-only output available.
 - Added synthetic desktop/raster evidence for shared-prefix Lot A/B labels and distinguishable dashed/dotted plus circle/rect legend samples.
 - Added explicit Applied scale status and actionable invalid-draft feedback for X/Y Fixed and P1/P2 controls.
@@ -41,6 +43,8 @@ Update this file when user visible behavior, documentation baseline, release rea
 - Added direct parser regression coverage for missing specimen headers, missing reagent headers, both headers missing, and uneven curve lengths.
 
 ### Changed
+- Excel specimen/reagent identity now follows SheetJS-formatted display values recomputed from raw value/type/number format while preserving raw/display/type/format/formula/cache provenance; cached formulas are never recalculated.
+- Repeated imports with the same filename now remain source-distinct in warning filters and Analysis XLSX evidence, while file-signature mismatch remains diagnostic rather than changing import policy.
 - Preview, standard legend, report legend, and rich Excel legend paths now retain one ordered curveId/style projection; raster labels preserve both leading context and distinguishing endings with explicit ellipsis.
 - Legend raster exports keep the requested width/height and reject layouts that cannot fit safely instead of silently clipping or enlarging the canvas.
 - Scale editing now preserves the last valid applied bounds while an active draft is incomplete or reversed. Plot-bearing PNG/JPEG/clipboard output is blocked until corrected, while Legend-only, report legends, plotted CSV, and Analysis XLSX remain available.
@@ -55,6 +59,8 @@ Update this file when user visible behavior, documentation baseline, release rea
 - Normalized command-button and form-control sizing across analysis tabs, import actions, selection filters, chart tools, scale presets, legend controls, and export controls while keeping status badges intentionally smaller.
 
 ### Fixed
+- Dataset-level warnings now participate in the warning filter and tree badges, and warning navigation no longer mutates selection, order, style, search/filter, collapse, revision, or dirty state.
+- Warning Inspector collapse state now remains under user control across filter changes, and repeated same-name sources are visibly numbered.
 - Quick Paste warning details are now paginated so every source cell remains inspectable without rendering an unbounded list, and the mobile dialog keeps all import actions visible while only its body scrolls.
 - Stale Quick Paste previews can no longer create a new analysis after the captured target analysis changed, closed, or was replaced.
 - Repeated imports with identical file metadata now retain distinct immutable source-instance identities, and whitespace-only headers use positional fallback identities and readable display labels.

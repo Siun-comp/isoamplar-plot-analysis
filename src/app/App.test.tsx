@@ -10,7 +10,12 @@ import {
 } from "../chart/exportChart";
 import { formatCurveLabel } from "../data/curveLabels";
 import { appendPcrDataset } from "../data/mergeDatasets";
-import { createOneSpecimenEightReagentDataset, createSyntheticPcrDataset, createTwentyOnePlusCurveDataset } from "../data/sampleData";
+import {
+  createOneSpecimenEightReagentDataset,
+  createSimilarNameDataset,
+  createSyntheticPcrDataset,
+  createTwentyOnePlusCurveDataset
+} from "../data/sampleData";
 import { App } from "./App";
 import { useAppStore } from "./appStore";
 
@@ -31,6 +36,20 @@ function getSettingsSummary(name: string) {
     throw new Error(`Could not find ${name} settings summary.`);
   }
   return summary as HTMLElement;
+}
+
+function snapshotWarningNavigationState() {
+  const state = useAppStore.getState();
+  return {
+    selectedCurveIds: [...(state.selection?.selectedCurveIds ?? [])],
+    orderedCurveIds: [...(state.selection?.orderedCurveIds ?? [])],
+    collapsedGroupIds: [...(state.selection?.collapsedGroupIds ?? [])],
+    curveOverrides: JSON.parse(JSON.stringify(state.curveOverrides)),
+    searchQuery: state.searchQuery,
+    selectionFilter: state.selectionFilter,
+    dirty: state.dirty,
+    revision: state.revision
+  };
 }
 
 describe("App PCR workspace", () => {
@@ -91,7 +110,7 @@ describe("App PCR workspace", () => {
     expect(within(a1Group).queryByLabelText("검체 1 선택")).not.toBeInTheDocument();
     expect(within(a1Group).getAllByRole("checkbox")).toHaveLength(2);
 
-    await user.click(within(a1Group).getByRole("checkbox", { name: "A1 │ 검체 1" }));
+    await user.click(within(a1Group).getByRole("checkbox", { name: /^A1 │ 검체 1 선택/u }));
     expect(useAppStore.getState().selection?.selectedCurveIds.has(dataset.curves[0].curveId)).toBe(true);
   });
 
@@ -123,7 +142,7 @@ describe("App PCR workspace", () => {
     expect(useAppStore.getState().selection?.selectedCurveIds.has(firstCurveId)).toBe(true);
     expect(useAppStore.getState().selection?.selectedCurveIds.has(secondCurveId)).toBe(true);
 
-    await user.click(within(a1Group).getAllByRole("checkbox", { name: "A1 │ 검체 1" })[0]);
+    await user.click(within(a1Group).getAllByRole("checkbox", { name: /^A1 │ 검체 1 선택/u })[0]);
     expect(useAppStore.getState().selection?.selectedCurveIds.has(firstCurveId)).toBe(false);
     expect(useAppStore.getState().selection?.selectedCurveIds.has(secondCurveId)).toBe(true);
     expect(subgroupCheckbox).toHaveAttribute("aria-checked", "mixed");
@@ -172,6 +191,29 @@ describe("App PCR workspace", () => {
 
     await user.click(screen.getByRole("tab", { name: /Run B/ }));
     expect(screen.getByRole("textbox", { name: "Analysis name" })).toHaveValue("Run B");
+  });
+
+  it("reveals warning-related curves without mutating analysis selection, order, style, filters, or dirty state", async () => {
+    const user = userEvent.setup();
+    act(() => {
+      useAppStore.getState().loadDataset(createSimilarNameDataset());
+      useAppStore.getState().setSearchQuery("not currently visible");
+      useAppStore.getState().setSelectionFilter("selected");
+    });
+    const before = snapshotWarningNavigationState();
+    render(<App />);
+
+    const revealButton = screen
+      .getAllByRole("button", { name: "데이터 선택에서 위치 보기" })
+      .find((button) => !button.hasAttribute("disabled"));
+    expect(revealButton).toBeDefined();
+    await user.click(revealButton as HTMLButtonElement);
+
+    expect(screen.getByText(/관련 데이터 .*개를 임시 표시 중/u)).toBeInTheDocument();
+    expect(snapshotWarningNavigationState()).toEqual(before);
+    await user.click(screen.getByRole("button", { name: "원래 보기" }));
+    expect(screen.queryByText(/임시 표시 중/u)).not.toBeInTheDocument();
+    expect(snapshotWarningNavigationState()).toEqual(before);
   });
 
   it("supports keyboard tab switching and clean tab close", async () => {

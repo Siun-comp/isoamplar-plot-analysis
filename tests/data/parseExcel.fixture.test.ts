@@ -40,6 +40,43 @@ describe("fixed synthetic Excel fixtures", () => {
     expect(equivalentCurveContent(xlsProjection)).toEqual(equivalentCurveContent(xlsxProjection));
   });
 
+  it("preserves formatted Excel header display identity with raw provenance", async () => {
+    const fixture = findFixture("FX-001");
+    const result = await parseExcelWorkbook(fixtureBytes(fixture.fixtureId), fileName(fixture.file));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const expected = readJson<{
+      headers: Array<{
+        sourceCell: string;
+        displayText: string;
+        rawType: string;
+        rawValue: string | number | boolean | null;
+        numberFormat: string | null;
+        formula: string | null;
+      }>;
+    }>(join(fixtureRoot, fixture.expected!));
+    const actual = result.dataset.curves.flatMap((curve) => [
+      { sourceCell: curve.source.specimenCell, provenance: curve.source.specimenHeader },
+      { sourceCell: curve.source.reagentCell, provenance: curve.source.reagentHeader }
+    ]);
+
+    expect(actual.map((entry) => entry.sourceCell)).toEqual(expected.headers.map((header) => header.sourceCell));
+    for (const expectedHeader of expected.headers) {
+      const provenance = actual.find((entry) => entry.sourceCell === expectedHeader.sourceCell)?.provenance;
+      expect(provenance, expectedHeader.sourceCell).toMatchObject({
+        displayValue: expectedHeader.displayText,
+        rawValue: expectedHeader.rawValue,
+        cellType: expectedHeader.rawType,
+        formulaCacheStatus: "not-formula"
+      });
+      expect(provenance?.numberFormat === "General" ? null : (provenance?.numberFormat ?? null)).toBe(expectedHeader.numberFormat);
+      expect(provenance?.formulaText ?? null).toBe(expectedHeader.formula);
+    }
+    expect(result.dataset.curves.flatMap((curve) => [curve.specimenLabel, curve.reagentLabel])).toEqual(
+      expected.headers.map((header) => header.displayText)
+    );
+  });
+
   it("uses only the first worksheet from the fixed multi-sheet fixture", async () => {
     const fixture = findFixture("FX-005");
     const result = await parseExcelWorkbook(fixtureBytes(fixture.fixtureId), fileName(fixture.file));
@@ -73,6 +110,9 @@ describe("fixed synthetic Excel fixtures", () => {
         sourceCell?: string;
         sourceRange?: string;
         curveId?: string;
+        handling: string;
+        rawValue?: string | number | boolean | null;
+        formulaCacheStatus?: string;
       }>;
     }>(join(fixtureRoot, fixture.expected!));
 
@@ -86,16 +126,21 @@ describe("fixed synthetic Excel fixtures", () => {
     ).toEqual(expected.curves);
 
     for (const evidence of expected.requiredWarningEvidence) {
-      expect(
-        result.dataset.warnings.some(
-          (warning) =>
-            warning.code === evidence.code &&
-            (evidence.sourceCell === undefined || warning.sourceCell === evidence.sourceCell) &&
-            (evidence.sourceRange === undefined || warning.sourceRange === evidence.sourceRange) &&
-            (evidence.curveId === undefined || warning.curveIds?.includes(evidence.curveId))
-        ),
-        JSON.stringify(evidence)
-      ).toBe(true);
+      const warning = result.dataset.warnings.find(
+        (candidate) =>
+          candidate.code === evidence.code &&
+          (evidence.sourceCell === undefined || candidate.sourceCell === evidence.sourceCell) &&
+          (evidence.sourceRange === undefined || candidate.sourceRange === evidence.sourceRange) &&
+          (evidence.curveId === undefined || candidate.curveIds?.includes(evidence.curveId))
+      );
+      expect(warning, JSON.stringify(evidence)).toBeDefined();
+      expect(warning?.handling).toBe(evidence.handling);
+      expect(warning?.sourceRefs?.length).toBeGreaterThan(0);
+      expect(warning?.sourceRefs?.every((sourceRef) => sourceRef.sourceInstanceId && sourceRef.sourceName && sourceRef.worksheet)).toBe(true);
+      if (evidence.rawValue !== undefined) expect(warning?.sourceRefs?.[0]?.rawValue).toBe(evidence.rawValue);
+      if (evidence.formulaCacheStatus) {
+        expect(warning?.sourceRefs?.[0]?.formulaCacheStatus).toBe(evidence.formulaCacheStatus);
+      }
     }
   });
 

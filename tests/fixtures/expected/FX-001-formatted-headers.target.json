@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "fixtureId": "FX-001",
-  "result": "target-known-red",
+  "result": "ok",
   "headers": [
     {
       "sourceCell": "A1",
@@ -68,5 +68,5 @@
       "formula": null
     }
   ],
-  "note": "Target snapshot for AC-PCR-047. The current parser is expected to remain red until S4."
+  "note": "Passing S4 target for Excel display-text identity and raw header provenance."
 }

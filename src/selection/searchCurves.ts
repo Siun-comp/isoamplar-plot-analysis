@@ -1,5 +1,6 @@
 import type { PcrDataset, SelectionFilter } from "../data/types";
 import { formatCurveLabel } from "../data/curveLabels";
+import { getWarningCurveIds } from "../warnings/warningIndex";
 
 export function getMatchedCurveIds(dataset: PcrDataset, query: string) {
   const normalizedQuery = normalizeSearchText(query);
@@ -32,13 +33,14 @@ export function getFilteredCurveIds(
   selectedCurveIds: Set<string>,
   filter: SelectionFilter
 ) {
+  const warningCurveIds = filter === "warning" ? getWarningCurveIds(dataset) : null;
   return new Set(
     dataset.curves
       .filter((curve) => matchedCurveIds.has(curve.curveId))
       .filter((curve) => {
         if (filter === "selected") return selectedCurveIds.has(curve.curveId);
         if (filter === "unselected") return !selectedCurveIds.has(curve.curveId);
-        if (filter === "warning") return curve.warnings.length > 0;
+        if (filter === "warning") return warningCurveIds?.has(curve.curveId) ?? false;
         return true;
       })
       .map((curve) => curve.curveId)

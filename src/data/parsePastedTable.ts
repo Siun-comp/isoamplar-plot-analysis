@@ -137,8 +137,19 @@ export function renamePastedDatasetSource(dataset: PcrDataset, sourceName: strin
     ...dataset,
     datasetId: `dataset:${nextSourceName}:${dataset.sheetName}:${curves.length}`,
     sourceFileName: nextSourceName,
-    curves
+    curves: curves.map((curve) => ({
+      ...curve,
+      warnings: renameWarningSources(curve.warnings, nextSourceName)
+    })),
+    warnings: renameWarningSources(dataset.warnings, nextSourceName)
   };
+}
+
+function renameWarningSources(warnings: PcrWarning[], sourceName: string) {
+  return warnings.map((warning) => ({
+    ...warning,
+    sourceRefs: warning.sourceRefs?.map((sourceRef) => ({ ...sourceRef, sourceName }))
+  }));
 }
 
 export function isLargePastedDataset(dataset: PcrDataset) {

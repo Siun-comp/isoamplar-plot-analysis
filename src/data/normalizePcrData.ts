@@ -1,6 +1,7 @@
 import { createSimilarNameWarnings } from "./similarNameWarnings";
 import { getFiniteRange } from "./numericRange";
 import type { Curve, CurveStats, DatasetSourceKind, PcrDataset, PcrEntity, PcrWarning } from "./types";
+import { normalizeWarningProvenance } from "./warningProvenance";
 
 let sourceInstanceSequence = 0;
 
@@ -12,13 +13,23 @@ export function createPcrDatasetFromCurves(args: {
   sourceKind?: DatasetSourceKind;
   importedAtIso?: string;
   warnings?: PcrWarning[];
+  sourceInstanceId?: string;
 }): PcrDataset {
   const sourceKind = args.sourceKind ?? inferDatasetSourceKind(args.curves);
-  const curves = normalizeCurveSources(args.curves, sourceKind, createSourceInstanceId(sourceKind));
+  const sourcedCurves = normalizeCurveSources(
+    args.curves,
+    sourceKind,
+    args.sourceInstanceId ?? createImportedSourceInstanceId(sourceKind)
+  );
+  const curves = sourcedCurves.map((curve) => ({
+    ...curve,
+    warnings: normalizeWarningProvenance(curve.warnings, sourcedCurves)
+  }));
   const orderedCurveIds = curves.map((curve) => curve.curveId);
   const specimenMap = createEntityMap(curves, "specimen");
   const reagentMap = createEntityMap(curves, "reagent");
   const duplicateLabelWarnings = createDuplicateCurveLabelWarnings(curves);
+  const formattedIdentityWarnings = createFormattedHeaderIdentityWarnings(curves);
   const similarWarnings = createSimilarNameWarnings(
       [...specimenMap.values()].map((entity) => entity.label),
       "specimen",
@@ -31,10 +42,13 @@ export function createPcrDatasetFromCurves(args: {
       )
     );
 
-  const warnings = (args.warnings ?? []).concat(duplicateLabelWarnings, similarWarnings);
+  const warnings = normalizeWarningProvenance(
+    (args.warnings ?? []).concat(formattedIdentityWarnings, duplicateLabelWarnings, similarWarnings),
+    curves
+  );
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     sourceKind,
     datasetId: `dataset:${args.fileName}:${args.sheetName}:${args.curves.length}`,
     sourceFileName: args.fileName,
@@ -63,13 +77,30 @@ function normalizeCurveSources(
       source: {
         ...curve.source,
         sourceKind,
-        sourceInstanceId
+        sourceInstanceId,
+        specimenHeader:
+          sourceKind === "excel"
+            ? curve.source.specimenHeader ?? createSyntheticHeaderProvenance(curve.specimenLabel)
+            : curve.source.specimenHeader,
+        reagentHeader:
+          sourceKind === "excel"
+            ? curve.source.reagentHeader ?? createSyntheticHeaderProvenance(curve.reagentLabel)
+            : curve.source.reagentHeader
       }
     };
   });
 }
 
-function createSourceInstanceId(sourceKind: DatasetSourceKind) {
+function createSyntheticHeaderProvenance(label: string) {
+  return {
+    rawValue: label,
+    displayValue: label,
+    cellType: "generated",
+    formulaCacheStatus: "not-formula" as const
+  };
+}
+
+export function createImportedSourceInstanceId(sourceKind: DatasetSourceKind) {
   sourceInstanceSequence += 1;
   const randomId = globalThis.crypto?.randomUUID?.();
   const token = randomId ?? `${Date.now().toString(36)}-${sourceInstanceSequence.toString(36)}`;
@@ -154,4 +185,54 @@ function createDuplicateCurveLabelWarnings(curves: Curve[]): PcrWarning[] {
       labels: [label],
       curveIds
     }));
+}
+
+function createFormattedHeaderIdentityWarnings(curves: Curve[]): PcrWarning[] {
+  const byDisplayLabel = new Map<string, Curve[]>();
+  for (const curve of curves) {
+    if (!curve.source.specimenHeader && !curve.source.reagentHeader) continue;
+    const matchingCurves = byDisplayLabel.get(curve.displayLabel) ?? [];
+    matchingCurves.push(curve);
+    byDisplayLabel.set(curve.displayLabel, matchingCurves);
+  }
+
+  return [...byDisplayLabel.entries()].flatMap(([displayLabel, matchingCurves]) => {
+    if (matchingCurves.length < 2) return [];
+    const rawIdentities = new Set(
+      matchingCurves.map((curve) =>
+        JSON.stringify([
+          curve.source.specimenHeader?.rawValue,
+          curve.source.specimenHeader?.cellType,
+          curve.source.reagentHeader?.rawValue,
+          curve.source.reagentHeader?.cellType
+        ])
+      )
+    );
+    if (rawIdentities.size < 2) return [];
+
+    return [
+      {
+        code: "FORMATTED_HEADER_IDENTITY_COLLISION" as const,
+        severity: "warning" as const,
+        scope: "dataset" as const,
+        message: `Different raw Excel headers display as the same curve identity: ${displayLabel}`,
+        curveIds: matchingCurves.map((curve) => curve.curveId),
+        labels: [displayLabel],
+        handling: "kept" as const,
+        sourceRefs: matchingCurves.map((curve) => ({
+          sourceInstanceId: curve.source.sourceInstanceId,
+          sourceName: curve.source.fileName,
+          sourceKind: curve.source.sourceKind,
+          worksheet: curve.source.sheetName,
+          range: `${curve.source.specimenCell}:${curve.source.reagentCell}`,
+          columnLetter: curve.source.columnLetter,
+          rawValue: JSON.stringify([
+            curve.source.specimenHeader?.rawValue ?? null,
+            curve.source.reagentHeader?.rawValue ?? null
+          ]),
+          displayValue: displayLabel
+        }))
+      }
+    ];
+  });
 }

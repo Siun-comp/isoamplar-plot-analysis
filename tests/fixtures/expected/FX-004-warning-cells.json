@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "fixtureId": "FX-004",
-  "result": "partial-current-contract",
+  "result": "ok",
   "cycleCount": 3,
   "curves": [
     {
@@ -35,6 +35,7 @@
         null
       ],
       "warningCodes": [
+        "FORMULA_CACHED_VALUE_USED",
         "FORMULA_WITHOUT_CACHED_VALUE"
       ]
     }
@@ -43,27 +44,41 @@
     {
       "code": "MISSING_SPECIMEN_LABEL",
       "sourceCell": "A1",
-      "curveId": "sheet0_col_A"
+      "curveId": "sheet0_col_A",
+      "handling": "kept"
     },
     {
       "code": "MISSING_REAGENT_LABEL",
       "sourceCell": "B2",
-      "curveId": "sheet0_col_B"
+      "curveId": "sheet0_col_B",
+      "handling": "kept"
     },
     {
       "code": "NON_NUMERIC_FLUORESCENCE",
       "sourceCell": "A4",
-      "curveId": "sheet0_col_A"
+      "curveId": "sheet0_col_A",
+      "handling": "null-gap",
+      "rawValue": "not-a-number"
+    },
+    {
+      "code": "FORMULA_CACHED_VALUE_USED",
+      "sourceCell": "C4",
+      "curveId": "sheet0_col_C",
+      "handling": "kept",
+      "formulaCacheStatus": "used"
     },
     {
       "code": "FORMULA_WITHOUT_CACHED_VALUE",
       "sourceCell": "C5",
-      "curveId": "sheet0_col_C"
+      "curveId": "sheet0_col_C",
+      "handling": "null-gap",
+      "formulaCacheStatus": "missing"
     },
     {
       "code": "MERGED_HEADER_CELL",
-      "sourceRange": "B1:C1"
+      "sourceRange": "B1:C1",
+      "handling": "kept"
     }
   ],
-  "note": "S1 checks stable codes and locations. Full source provenance is AC-PCR-048/S4."
+  "note": "Passing S4 warning provenance contract with handling, source identity, formula cache, and location evidence."
 }

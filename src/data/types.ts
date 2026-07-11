@@ -16,11 +16,44 @@ export type PcrWarningCode =
   | "DUPLICATE_CURVE_LABEL"
   | "NON_NUMERIC_FLUORESCENCE"
   | "EMPTY_FLUORESCENCE_CELL"
+  | "FORMULA_CACHED_VALUE_USED"
   | "FORMULA_WITHOUT_CACHED_VALUE"
   | "MERGED_HEADER_CELL"
+  | "FORMATTED_HEADER_EMPTY"
+  | "FORMATTED_HEADER_IDENTITY_COLLISION"
+  | "FILE_SIGNATURE_MISMATCH"
   | "INVALID_PASTED_TABLE"
   | "UNSUPPORTED_FILE_TYPE"
   | "PROTECTED_OR_UNREADABLE_WORKBOOK";
+
+export type WarningHandling = "kept" | "null-gap" | "ignored" | "blocked";
+export type FormulaCacheStatus = "not-formula" | "used" | "missing";
+export type ProvenanceRawValue = string | number | boolean | null;
+
+export type CellValueProvenance = {
+  rawValue?: ProvenanceRawValue;
+  displayValue: string;
+  cellType?: string;
+  numberFormat?: string;
+  formulaText?: string;
+  formulaCacheStatus?: FormulaCacheStatus;
+};
+
+export type WarningSourceRef = {
+  sourceInstanceId?: string;
+  sourceName: string;
+  sourceKind?: ImportedSourceKind;
+  worksheet?: string;
+  cell?: string;
+  range?: string;
+  columnLetter?: string;
+  rawValue?: ProvenanceRawValue;
+  displayValue?: string;
+  cellType?: string;
+  numberFormat?: string;
+  formulaText?: string;
+  formulaCacheStatus?: FormulaCacheStatus;
+};
 
 export type PcrWarning = {
   code: PcrWarningCode;
@@ -34,6 +67,8 @@ export type PcrWarning = {
   sheetName?: string;
   columnLetter?: string;
   rawValue?: unknown;
+  handling?: WarningHandling;
+  sourceRefs?: WarningSourceRef[];
 };
 
 export type CurveSource = {
@@ -49,6 +84,8 @@ export type CurveSource = {
   reagentCell: string;
   dataStartCell: string;
   dataEndCell: string;
+  specimenHeader?: CellValueProvenance;
+  reagentHeader?: CellValueProvenance;
 };
 
 export type CurveStats = {
@@ -144,7 +181,7 @@ export type PcrEntity = {
 };
 
 export type PcrDataset = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   sourceKind?: DatasetSourceKind;
   datasetId: string;
   sourceFileName: string;
@@ -170,6 +207,7 @@ export type TreeCurveNode = {
   label: string;
   specimenLabel: string;
   reagentLabel: string;
+  sourceLabel: string;
   selected: boolean;
   warningCount: number;
 };

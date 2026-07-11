@@ -58,7 +58,10 @@ Parser policy:
 - Internal empty fluorescence cells normalize to `null` and produce warnings.
 - Empty data columns are ignored only when specimen header, reagent header, and all data cells are empty.
 - Date, boolean, and error cells in fluorescence rows are treated as nonnumeric fluorescence unless later explicitly supported.
-- Formula cells are never recalculated in the browser. Use cached finite numeric values when available; otherwise normalize to `null` and warn.
+- Specimen/reagent identity uses SheetJS-formatted display text recomputed from raw value/type/number format rather than unconditionally trusting cached `cell.w`; raw value, display text, type, format, formula, and cache state remain provenance.
+- Formula cells are never recalculated in the browser. Use cached finite numeric fluorescence values unchanged and warn that cache was used; otherwise normalize to `null` and warn that no cache was available.
+- Each source import receives an immutable source-instance ID. Every normalized/persisted warning carries one-to-many source references, handling outcome, and affected curve IDs where applicable; same-name repeated imports remain distinct.
+- Extension/content signature mismatch is diagnostic only and does not change the current allow/block policy.
 - Merged headers warn; do not silently infer repeated labels unless implementation later adds tested behavior.
 - Negative numeric fluorescence values are valid raw values and should not warn by default.
 - Maximum file size, maximum row count, and maximum column count remain performance-budget decisions.
@@ -78,9 +81,10 @@ Workbook shape:
 
 - `README`: human-readable explanation that this file is for restoring an IsoAmplar analysis in the web app.
 - `Settings`: human-readable analysis name, export date, app version, selected count, scale/style/legend summary including X/Y draft mode/bounds and last valid applied mode/bounds, and source summary.
+- `HeaderProvenance`: one visible review row per specimen/reagent header with source, cell, display/raw value, type, number format, formula, and cache state.
 - `ImportedData`: full normalized imported dataset for review, including curves that are not currently selected or plotted.
 - The visible `ImportedData` sheet shows original specimen/reagent labels, an Analysis label row, curve IDs, and raw fluorescence values so review remains traceable without mutating source labels.
-- `Warnings`: import warnings preserved from the analysis.
+- `Warnings`: one visible row per warning/source reference with severity, handling, affected curves, source identity, location, raw/display value, format, formula, and cache state.
 - `_IsoAmplarAnalysis`: hidden worksheet containing `schemaVersion` and chunked JSON restore data. This hidden JSON is the authoritative restore source.
 - `_IsoAmplarChecksum`: optional hidden worksheet for checksum or sanity markers; not emitted by the current implementation.
 
@@ -110,7 +114,7 @@ Routing policy:
 - `추가 선택` + Analysis XLSX: open as a new internal analysis tab.
 - Dirty tab close shows explicit options: Cancel, save Analysis XLSX then close, or close without saving. Dirty replacement never proceeds silently.
 
-If the hidden restore worksheet is missing, corrupt, chunk-damaged, or has an unsupported schema version, the app must show an actionable error and must not misinterpret the file as a normal PCR source workbook. Ordinary `.xlsx` source workbooks are treated as Analysis XLSX only when they contain the explicit IsoAmplar restore marker, so review-like sheet names such as `Settings` or `ImportedData` alone do not change routing. Current Analysis XLSX uses schema 2. Schema 1 is migrated by deriving an explicit applied scale from its valid active draft; invalid legacy active drafts migrate with Auto as the prior applied behavior. Schema 2 requires explicit applied scale state and is rejected as corrupt if that state is absent. Restore may also fill non-destructive defaults such as provenance, group marker rules, or legend/export settings.
+If the hidden restore worksheet is missing, corrupt, chunk-damaged, or has an unsupported schema version, the app must show an actionable error and must not misinterpret the file as a normal PCR source workbook. Ordinary `.xlsx` source workbooks are treated as Analysis XLSX only when they contain the explicit IsoAmplar restore marker, so review-like sheet names such as `Settings` or `ImportedData` alone do not change routing. Current Analysis XLSX uses schema 3 and normalized dataset schema 2. Schema 1 is migrated by deriving explicit applied scale state and legacy source/header/warning provenance. Schema 2 keeps its explicit applied scale and migrates legacy header/warning provenance. Schema 3 requires explicit applied scale, Excel header provenance, warning handling, and source-reference arrays; missing required state is rejected as corrupt. Restore may fill only documented non-destructive legacy defaults.
 
 ## Report / Plotted XLSX Rules
 Report/Plotted XLSX remains deferred and is separate from Analysis XLSX.

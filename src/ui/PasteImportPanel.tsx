@@ -6,7 +6,8 @@ import {
   renamePastedDatasetSource,
   type ParsePastedTableSuccess
 } from "../data/parsePastedTable";
-import type { PasteInputMode, PcrWarning } from "../data/types";
+import type { PasteInputMode } from "../data/types";
+import { WarningInspector } from "./WarningInspector";
 
 type PasteImportPanelProps = {
   disabled?: boolean;
@@ -25,7 +26,6 @@ type PastePreview = ParsePastedTableSuccess & {
 
 const previewCurveLimit = 12;
 const previewCycleLimit = 10;
-const warningPageSize = 12;
 
 export function PasteImportPanel({ disabled = false }: PasteImportPanelProps) {
   const dialogTitleId = useId();
@@ -333,19 +333,9 @@ function PastePreviewSection(props: {
   onAcknowledgedChange: (acknowledged: boolean) => void;
 }) {
   const { preview, stale, nullWarningCount, acknowledged, onAcknowledgedChange } = props;
-  const [warningPage, setWarningPage] = useState(0);
   const curves = preview.dataset.curves.slice(0, previewCurveLimit);
   const cycles = Array.from({ length: Math.min(preview.dataset.cycleCount, previewCycleLimit) }, (_, index) => index);
-  const warningPageCount = Math.max(1, Math.ceil(preview.dataset.warnings.length / warningPageSize));
-  const currentWarningPage = Math.min(warningPage, warningPageCount - 1);
-  const warningStart = currentWarningPage * warningPageSize;
-  const warningEnd = Math.min(warningStart + warningPageSize, preview.dataset.warnings.length);
-  const warnings = preview.dataset.warnings.slice(warningStart, warningEnd);
   const delimiterLabel = preview.delimiter === "tab" ? "Tab" : "단일 열";
-
-  useEffect(() => {
-    setWarningPage(0);
-  }, [preview.formRevision, preview.dataset.curves[0]?.source.sourceInstanceId]);
 
   return (
     <section className={`paste-preview ${stale ? "is-stale" : ""}`} aria-label="붙여넣기 미리보기">
@@ -397,42 +387,7 @@ function PastePreviewSection(props: {
         </table>
       </div>
 
-      {warnings.length > 0 && (
-        <div className="paste-warning-list" aria-label="가져오기 경고">
-          <div className="paste-warning-heading">
-            <strong>경고 확인</strong>
-            <span>
-              {warningStart + 1}-{warningEnd} / {preview.dataset.warnings.length}
-            </span>
-          </div>
-          <ul>
-            {warnings.map((warning, index) => (
-              <li key={`${warning.code}-${warning.sourceCell ?? index}`}>{formatPasteWarning(warning)}</li>
-            ))}
-          </ul>
-          {warningPageCount > 1 && (
-            <div className="paste-warning-pagination" aria-label="경고 페이지">
-              <button
-                type="button"
-                disabled={currentWarningPage === 0}
-                onClick={() => setWarningPage((page) => Math.max(0, page - 1))}
-              >
-                이전 경고
-              </button>
-              <span>
-                {currentWarningPage + 1} / {warningPageCount}
-              </span>
-              <button
-                type="button"
-                disabled={currentWarningPage >= warningPageCount - 1}
-                onClick={() => setWarningPage((page) => Math.min(warningPageCount - 1, page + 1))}
-              >
-                다음 경고
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+      <WarningInspector warnings={preview.dataset.warnings} defaultOpen enableNavigation={false} />
       {nullWarningCount > 0 && (
         <label className="paste-warning-acknowledgement">
           <input
@@ -445,26 +400,4 @@ function PastePreviewSection(props: {
       )}
     </section>
   );
-}
-
-function formatPasteWarning(warning: PcrWarning) {
-  const location = warning.sourceCell ? `${warning.sourceCell}: ` : "";
-  switch (warning.code) {
-    case "EMPTY_FLUORESCENCE_CELL":
-      return `${location}빈 fluorescence → 빈 값으로 가져오며 그래프에 간격이 생깁니다.`;
-    case "NON_NUMERIC_FLUORESCENCE":
-      return `${location}${JSON.stringify(warning.rawValue)}은(는) 숫자가 아님 → 빈 값으로 가져오며 그래프에 간격이 생깁니다.`;
-    case "MISSING_SPECIMEN_LABEL":
-      return `${location}검체명이 비어 있습니다.`;
-    case "MISSING_REAGENT_LABEL":
-      return `${location}시약명이 비어 있습니다.`;
-    case "DUPLICATE_CURVE_LABEL":
-      return `동일한 검체명·시약명 조합이 있습니다: ${warning.labels?.join(", ") ?? ""}`;
-    case "SIMILAR_SPECIMEN_LABEL":
-      return `유사한 검체명이 있습니다: ${warning.labels?.join(", ") ?? ""}`;
-    case "SIMILAR_REAGENT_LABEL":
-      return `유사한 시약명이 있습니다: ${warning.labels?.join(", ") ?? ""}`;
-    default:
-      return `${location}${warning.message}`;
-  }
 }
