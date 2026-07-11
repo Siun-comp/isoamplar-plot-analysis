@@ -135,7 +135,7 @@ export function AnalysisTabs() {
                 aria-controls="analysis-workspace"
                 tabIndex={isActive ? 0 : -1}
                 className={`analysis-tab-button ${isActive ? "is-active" : ""}`}
-                title={analysis?.dirty ? `${title} - unsaved changes` : title}
+                title={analysis?.dirty ? `${title} - 저장 안 됨` : `${title} - 저장됨`}
                 onClick={() => {
                   switchAnalysis(analysisId);
                   setMessage(null);
@@ -143,7 +143,7 @@ export function AnalysisTabs() {
                 onKeyDown={(event) => handleTabKeyDown(event, index)}
               >
                 <span>{title}</span>
-                {analysis?.dirty && <span className="dirty-dot" aria-label="unsaved changes" title="Unsaved changes" />}
+                {analysis?.dirty && <span className="dirty-dot" aria-label="저장 안 됨" title="저장 안 됨" />}
               </button>
             );
           })}
@@ -171,7 +171,7 @@ export function AnalysisTabs() {
         />
         <div className="analysis-save-summary" aria-live="polite">
           <span className={dirty ? "dirty-status is-dirty" : "dirty-status"}>
-            {!dataset ? "데이터 없음" : dirty ? "저장 이후 변경 있음" : "저장됨"}
+            {!dataset ? "데이터 없음" : dirty ? "저장 안 됨" : "저장됨"}
           </span>
           <small>{formatSaveStatus(dataset !== null, dirty, saveStatus, lastSavedAtIso)}</small>
           <small title="가져온 전체 데이터(미선택·숨김 포함)와 분석 설정을 저장하는 복원용 Analysis XLSX 파일">

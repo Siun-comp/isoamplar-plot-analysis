@@ -83,7 +83,7 @@ test("uploads an xlsx workbook and keeps reagent-first collapsed selection", asy
   await expect(page.getByText(/phase3-upload.xlsx · 곡선 2개/)).toBeVisible();
   const primaryFileInput = page.getByTestId("original-data-input");
   await primaryFileInput.setInputFiles(appendWorkbookPath);
-  const replaceDialog = page.getByRole("alertdialog", { name: "Unsaved analysis" });
+  const replaceDialog = page.getByRole("alertdialog", { name: "저장 안 된 분석" });
   await expect(replaceDialog).toBeVisible();
   await expect(replaceDialog.getByRole("button", { name: "Cancel file replace" })).toBeFocused();
   await page.keyboard.press("Escape");
@@ -160,9 +160,24 @@ test("uploads an xlsx workbook and keeps reagent-first collapsed selection", asy
   await expect(page.getByLabel("마커 기준")).toBeVisible();
   await page.getByLabel("A2 line and marker editor").click();
   await page.getByRole("button", { name: "A2 marker circle" }).click();
-  await expect(page.getByLabel("A2 │ 검체 1 marker type", { exact: true })).toHaveValue("circle");
+  await page.getByLabel("A2 │ 검체 1 line and marker editor", { exact: true }).click();
+  await expect(page.getByRole("button", { name: "A2 │ 검체 1 marker circle" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator('.custom-legend [data-marker-type="circle"]')).toHaveCount(1);
   await page.screenshot({ path: testInfo.outputPath("phase-r8-style-legend-panel.png"), fullPage: false });
+  await page.locator(".settings-accordion > details > summary", { hasText: "Legend" }).click();
+  const orderTab = page.getByRole("tab", { name: "Order" });
+  const labelsTab = page.getByRole("tab", { name: "Labels" });
+  const orderPanelId = await orderTab.getAttribute("aria-controls");
+  const labelsPanelId = await labelsTab.getAttribute("aria-controls");
+  const orderPanel = page.locator(`[id="${orderPanelId}"]`);
+  const labelsPanel = page.locator(`[id="${labelsPanelId}"]`);
+  await expect(page.getByRole("tabpanel", { name: "Order" })).toBeVisible();
+  await expect(page.getByRole("tabpanel", { name: "Labels" })).toHaveCount(0);
+  await expect(labelsPanel).toHaveCSS("display", "none");
+  await labelsTab.click();
+  await expect(page.getByRole("tabpanel", { name: "Order" })).toHaveCount(0);
+  await expect(page.getByRole("tabpanel", { name: "Labels" })).toBeVisible();
+  await expect(orderPanel).toHaveCSS("display", "none");
   await page.getByLabel("Image export layout").selectOption("legendOnly");
   await expect(page.getByRole("button", { name: "Save PNG" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Copy selected layout PNG to clipboard" })).toBeVisible();
@@ -186,6 +201,72 @@ test("uploads an xlsx workbook and keeps reagent-first collapsed selection", asy
       return box?.y ?? 999;
     })
     .toBeLessThan(36);
+});
+
+test("keeps dense Style and sticky plot inspectable at desktop viewports", async ({ page }, testInfo) => {
+  const workbookPath = testInfo.outputPath("s8-dense-desktop.xlsx");
+  writeDenseWorkbookFixture(workbookPath, 100);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto("/");
+  await page.getByTestId("original-data-input").setInputFiles(workbookPath);
+  await page.getByRole("button", { name: "표시 선택" }).click();
+  await page.locator(".settings-accordion > details > summary", { hasText: "Style" }).click();
+
+  const individualStyleScroll = page.locator(".individual-style-scroll");
+  for (const index of [1, 50, 100]) {
+    const padded = String(index).padStart(2, "0");
+    const editor = page.getByLabel(
+      `Assay ${padded} │ Synthetic condition ${padded} with long label line and marker editor`,
+      { exact: true }
+    );
+    await editor.scrollIntoViewIfNeeded();
+    await editor.click();
+    const panel = page.getByRole("dialog", { name: `${await editor.getAttribute("aria-label")} options` });
+    const panelBox = await panel.boundingBox();
+    expect(panelBox).not.toBeNull();
+    expect(panelBox!.x).toBeGreaterThanOrEqual(7);
+    expect(panelBox!.x + panelBox!.width).toBeLessThanOrEqual(1273);
+    expect(panelBox!.y).toBeGreaterThanOrEqual(7);
+    expect(panelBox!.y + panelBox!.height).toBeLessThanOrEqual(713);
+    await expect(panel.locator(":focus")).toHaveCount(1);
+    await page.keyboard.press("Escape");
+    await expect(editor).toBeFocused();
+  }
+
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 1366, height: 768 },
+    { width: 1920, height: 1080 }
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    const measurement = await page.evaluate(() => {
+      const chart = document.querySelector(".chart-panel")?.getBoundingClientRect();
+      const canvas = document.querySelector(".chart-canvas-wrap")?.getBoundingClientRect();
+      const styleScroll = document.querySelector(".individual-style-scroll");
+      return {
+        innerWidth: window.innerWidth,
+        documentWidth: document.documentElement.scrollWidth,
+        chartTop: chart?.top ?? -1,
+        chartHeight: chart?.height ?? -1,
+        canvasHeight: canvas?.height ?? -1,
+        styleClientWidth: styleScroll?.clientWidth ?? -1,
+        styleScrollWidth: styleScroll?.scrollWidth ?? -1
+      };
+    });
+
+    expect(measurement.documentWidth).toBeLessThanOrEqual(measurement.innerWidth);
+    expect(measurement.chartTop).toBeGreaterThanOrEqual(0);
+    expect(measurement.chartTop).toBeLessThan(40);
+    expect(measurement.chartHeight).toBeLessThanOrEqual(viewport.height - 30);
+    expect(measurement.canvasHeight).toBeGreaterThanOrEqual(559);
+    expect(measurement.canvasHeight).toBeLessThanOrEqual(562);
+    expect(measurement.styleScrollWidth).toBeLessThanOrEqual(measurement.styleClientWidth);
+
+    if (viewport.width === 1366) {
+      await page.screenshot({ path: testInfo.outputPath("s8-dense-1366x768.png"), fullPage: false });
+    }
+  }
 });
 
 test("preserves long legend identity and distinguishable line-marker raster samples", async ({ page }, testInfo) => {
@@ -342,6 +423,23 @@ function writeLegendIdentityWorkbook(filePath: string) {
     rows.push([createAmplificationValue(cycle, 20, 700_000), createAmplificationValue(cycle, 25, 900_000)]);
   }
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), "SyntheticData");
+  writeFileSync(filePath, XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer);
+}
+
+function writeDenseWorkbookFixture(filePath: string, curveCount: number) {
+  const workbook = XLSX.utils.book_new();
+  const rows: Array<Array<string | number>> = [
+    Array.from({ length: curveCount }, (_, index) => `Synthetic condition ${String(index + 1).padStart(2, "0")} with long label`),
+    Array.from({ length: curveCount }, (_, index) => `Assay ${String(index + 1).padStart(2, "0")}`)
+  ];
+  for (let cycle = 1; cycle <= 60; cycle += 1) {
+    rows.push(
+      Array.from({ length: curveCount }, (_, index) =>
+        createAmplificationValue(cycle, 18 + (index % 12), 400_000 + index * 20_000)
+      )
+    );
+  }
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), "DenseSyntheticData");
   writeFileSync(filePath, XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer);
 }
 

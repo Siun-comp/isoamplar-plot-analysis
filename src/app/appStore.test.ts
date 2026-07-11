@@ -654,7 +654,7 @@ describe("app store style preset and legend order", () => {
     expect(result).toBe("changed");
     expect(useAppStore.getState().dirty).toBe(true);
     expect(useAppStore.getState().exportCounter).toBe(target.exportCounter + 1);
-    expect(useAppStore.getState().exportMessage).toContain("Unsaved 상태를 유지");
+    expect(useAppStore.getState().exportMessage).toContain("저장 안 됨 상태를 유지");
   });
 
   it("routes a completed export to its starting analysis after switching tabs", () => {
@@ -858,7 +858,7 @@ describe("app store style preset and legend order", () => {
     expect(useAppStore.getState().analysisName).toBe("Dirty while importing");
     expect(useAppStore.getState().dataset).toBeNull();
     expect(useAppStore.getState().importStatus).toBe("error");
-    expect(useAppStore.getState().importError).toContain("Replace is blocked");
+    expect(useAppStore.getState().importError).toContain("저장 안 된 분석 변경사항");
     expect(useAppStore.getState().dirty).toBe(true);
   });
 
@@ -890,7 +890,7 @@ describe("app store style preset and legend order", () => {
 
     expect(useAppStore.getState().dataset?.datasetId).toBe(beforeDatasetId);
     expect(useAppStore.getState().dataset?.sourceFileName).toBe("first.xlsx");
-    expect(useAppStore.getState().importError).toContain("Replace is blocked");
+    expect(useAppStore.getState().importError).toContain("저장 안 된 분석 변경사항");
     expect(useAppStore.getState().importStatus).toBe("ready");
   });
 
@@ -1092,7 +1092,7 @@ describe("app store style preset and legend order", () => {
 
     expect(useAppStore.getState().dataset?.datasetId).toBe(beforeDatasetId);
     expect(useAppStore.getState().dataset?.sourceFileName).toBe("source.xlsx");
-    expect(useAppStore.getState().importError).toContain("Replace is blocked");
+    expect(useAppStore.getState().importError).toContain("저장 안 된 분석 변경사항");
     expect(useAppStore.getState().importStatus).toBe("ready");
   });
 });

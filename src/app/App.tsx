@@ -62,7 +62,7 @@ export function App() {
         <section className="panel chart-panel" aria-labelledby="chart-title">
           <div className="panel-header">
             <h2 id="chart-title">그래프 미리보기</h2>
-            <span>Clean LAMP plot theme</span>
+            <span>LAMP plot theme</span>
           </div>
           <ChartPanel />
         </section>

@@ -86,7 +86,7 @@ export type AnalysisTabState = Omit<AnalysisState, "dataset" | "selection"> & {
 };
 
 export const DIRTY_REPLACE_BLOCKED_MESSAGE =
-  "Unsaved analysis changes are present. Replace is blocked until you confirm replacing the current analysis or open the file as a new analysis.";
+  "저장 안 된 분석 변경사항이 있습니다. 현재 분석 교체 또는 새 분석으로 열기를 명시적으로 선택해야 합니다.";
 
 export type PastedDatasetImportResult =
   | { ok: true; analysisId: string }
@@ -886,7 +886,7 @@ export const useAppStore = create<AppStore>()(
         if (!analysis || analysis.runtimeInstanceId !== completion.runtimeInstanceId) return;
 
         if (analysis.revision !== completion.expectedRevision) {
-          analysis.exportMessage = `${completion.message} 현재 분석은 저장 중 변경되어 Unsaved 상태를 유지합니다.`;
+          analysis.exportMessage = `${completion.message} 현재 분석은 저장 중 변경되어 저장 안 됨 상태를 유지합니다.`;
           analysis.exportCounter = Math.max(analysis.exportCounter, completion.savedExportCounter);
           analysis.dirty = true;
           analysis.revision += 1;

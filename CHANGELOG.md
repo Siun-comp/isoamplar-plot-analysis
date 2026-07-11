@@ -1,5 +1,14 @@
 # CHANGELOG.md
 
+## 2026-07-11 - Audit remediation S8 desktop workspace clarity
+
+- Fixed Legend Order/Labels tabs so the inactive editor is removed from both display and accessibility trees, with standard arrow/Home/End keyboard navigation.
+- Kept the plot available while long desktop settings scroll by giving the chart panel viewport-aware height and internal overflow behavior.
+- Simplified individual Style rows around curve identity plus color, line/marker, status, and reset controls; Analysis labels are now edited only in Legend Labels.
+- Moved style popovers outside clipping scroll containers and reduced row widths so controls remain reachable on laptop-width desktop screens.
+- Added advisory-only checks for duplicate visible style signatures, low contrast against the white chart background, and invalid colors without changing user styles.
+- Replaced ambiguous Clean/Unsaved status wording with `저장됨` and `저장 안 됨`.
+
 ## 2026-07-11 - Audit remediation S7A restore and CSV safety
 
 - Added semantic Analysis XLSX validation for cycle axes, curve statistics, specimen/reagent membership, source provenance, warning references, ordering, collapse state, and style references before a restored tab is created.

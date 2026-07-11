@@ -163,7 +163,7 @@ export function DataImportPanel() {
       >
         {pendingReplaceFile && (
           <>
-          <h3 id={confirmationTitleId}>Unsaved analysis</h3>
+          <h3 id={confirmationTitleId}>저장 안 된 분석</h3>
           <p>
             현재 분석에 저장되지 않은 변경사항이 있습니다. {pendingReplaceFile.file.name} 파일을 현재 탭에 대체하거나 새 분석
             탭으로 열 수 있습니다.

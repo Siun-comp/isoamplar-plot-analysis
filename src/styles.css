@@ -1152,6 +1152,10 @@ select:focus-visible,
   align-self: start;
   position: sticky;
   top: 16px;
+  max-height: calc(100vh - 32px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .chart-stage {
@@ -1751,6 +1755,9 @@ select:focus-visible,
 
 .individual-style-scroll {
   max-height: 430px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .style-row-header,
@@ -1783,12 +1790,35 @@ select:focus-visible,
 }
 
 .individual-editor {
-  overflow-y: hidden;
+  overflow: visible;
 }
 
 .individual-row {
-  grid-template-columns: minmax(150px, 1.1fr) minmax(155px, 1fr) 34px minmax(144px, 0.85fr) minmax(136px, 0.75fr) minmax(136px, 0.75fr) 88px 56px;
-  min-width: 930px;
+  position: relative;
+  grid-template-columns: minmax(72px, 1fr) 28px 52px 48px 26px;
+  min-width: 0;
+}
+
+.individual-row:has(.style-popover[open]) {
+  z-index: 20;
+}
+
+.individual-row .curve-label {
+  display: grid;
+  align-items: center;
+  gap: 1px;
+  overflow: visible;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.individual-row .curve-label small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .individual-actions {
@@ -1952,14 +1982,11 @@ select:focus-visible,
 }
 
 .style-popover-panel {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  z-index: 100;
+  position: fixed;
+  z-index: 1000;
   display: grid;
   gap: 10px;
   min-width: 220px;
-  margin-top: 6px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   padding: 10px;
@@ -2006,6 +2033,11 @@ select:focus-visible,
   padding: 0;
 }
 
+.line-marker-reset {
+  width: 100%;
+  margin-top: 2px;
+}
+
 .line-marker-panel legend {
   padding: 0;
   color: #536174;
@@ -2037,6 +2069,31 @@ select:focus-visible,
   display: grid;
   gap: 8px;
   padding: 0 12px 14px;
+}
+
+.legend-editor > [hidden] {
+  display: none !important;
+}
+
+.style-advisory {
+  display: grid;
+  gap: 3px;
+  border: 1px solid #e1b35f;
+  border-radius: 7px;
+  padding: 7px 8px;
+  background: #fff8e8;
+  color: #724b08;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.style-advisory strong {
+  color: #5f3c04;
+  font-size: 12px;
+}
+
+.style-advisory span {
+  overflow-wrap: anywhere;
 }
 
 .legend-tabs {
@@ -2317,6 +2374,9 @@ select:focus-visible,
 
   .chart-panel {
     position: static;
+    max-height: none;
+    overflow: visible;
+    scrollbar-gutter: auto;
   }
 
   .chart-canvas-wrap {

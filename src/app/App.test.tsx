@@ -224,15 +224,15 @@ describe("App PCR workspace", () => {
 
     const fileInput = document.querySelector("input[type='file']") as HTMLInputElement;
     await user.upload(fileInput, new File(["placeholder"], "replacement.xlsx"));
-    const replaceDialog = screen.getByRole("alertdialog", { name: "Unsaved analysis" });
+    const replaceDialog = screen.getByRole("alertdialog", { name: "저장 안 된 분석" });
     expect(replaceDialog).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: "Cancel file replace" })).toHaveFocus());
     await user.keyboard("{Escape}");
-    expect(screen.queryByRole("alertdialog", { name: "Unsaved analysis" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog", { name: "저장 안 된 분석" })).not.toBeInTheDocument();
     expect(fileInput).toHaveFocus();
 
     await user.click(screen.getByRole("button", { name: "새 분석" }));
-    expect(screen.queryByRole("alertdialog", { name: "Unsaved analysis" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog", { name: "저장 안 된 분석" })).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Analysis 2" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText("데이터 없음")).toBeInTheDocument();
 
@@ -302,7 +302,7 @@ describe("App PCR workspace", () => {
     screen.getByRole("tab", { name: "Analysis 1" }).focus();
     await user.keyboard("{ArrowRight}");
     expect(screen.getByRole("tab", { name: "Analysis 2" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Analysis 2");
+    expect(screen.getByRole("tabpanel", { name: "Analysis 2" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Analysis 2 닫기" }));
     expect(useAppStore.getState().analysisOrder).toEqual(["analysis-1"]);
@@ -461,11 +461,13 @@ describe("App PCR workspace", () => {
     render(<App />);
     await user.click(screen.getByText("Style"));
 
+    await user.click(screen.getByLabelText("A1 color editor"));
     const reagentHex = screen.getByRole("textbox", { name: "A1 hex color" });
     await user.clear(reagentHex);
     await user.type(reagentHex, "#123abc");
     expect(useAppStore.getState().styleRules.reagentColors[dataset.reagents[0].id]).toBe("#123abc");
 
+    await user.click(screen.getByLabelText("A1 │ 검체 1 color editor"));
     const curveHex = screen.getByRole("textbox", { name: "A1 │ 검체 1 hex color" });
     await user.clear(curveHex);
     await user.type(curveHex, "f80");
@@ -491,6 +493,10 @@ describe("App PCR workspace", () => {
     await user.selectOptions(screen.getByLabelText("마커 기준"), "reagent");
     await user.click(screen.getByLabelText("A1 line and marker editor"));
     expect(document.querySelectorAll("details.style-popover[open]")).toHaveLength(1);
+    await waitFor(() => expect(screen.getByRole("button", { name: "A1 line solid" })).toHaveFocus());
+    await user.keyboard("{Escape}");
+    expect(screen.getByLabelText("A1 line and marker editor")).toHaveFocus();
+    await user.click(screen.getByLabelText("A1 line and marker editor"));
     await user.click(screen.getByLabelText("A2 line and marker editor"));
     expect(document.querySelectorAll("details.style-popover[open]")).toHaveLength(1);
     await user.keyboard("{Escape}");
@@ -502,7 +508,8 @@ describe("App PCR workspace", () => {
     await user.click(screen.getByLabelText("A1 line and marker editor"));
     await user.click(screen.getByRole("button", { name: "A1 line dashed" }));
     expect(useAppStore.getState().styleRules.reagentLineTypes[dataset.curves[0].reagentId]).toBe("dashed");
-    expect(screen.getByLabelText("A1 │ 검체 1 marker type")).toHaveValue("circle");
+    await user.click(screen.getByLabelText("A1 │ 검체 1 line and marker editor"));
+    expect(screen.getByRole("button", { name: "A1 │ 검체 1 marker circle" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("shows individual style status and resets curve overrides", async () => {
@@ -517,16 +524,23 @@ describe("App PCR workspace", () => {
     render(<App />);
     await user.click(screen.getByText("Style"));
 
+    const individualEditor = screen.getByRole("region", { name: "개별 curve 스타일" });
+    expect(within(individualEditor).queryByLabelText("A1 │ 검체 1 analysis label")).not.toBeInTheDocument();
     expect(screen.getByText("기준값")).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText("A1 │ 검체 1 marker type"), "rect");
+    await user.click(screen.getByLabelText("A1 │ 검체 1 line and marker editor"));
+    await user.click(screen.getByRole("button", { name: "A1 │ 검체 1 marker rect" }));
     expect(screen.getAllByText("Custom").length).toBeGreaterThan(0);
-    await user.click(screen.getByRole("button", { name: "A1 │ 검체 1 marker type reset" }));
+    await user.click(screen.getByLabelText("A1 │ 검체 1 line and marker editor"));
+    await user.click(screen.getByRole("button", { name: "기준 마커로 초기화" }));
     expect(useAppStore.getState().curveOverrides[curve.curveId]).toBeUndefined();
     expect(screen.getByText("기준값")).toBeInTheDocument();
 
-    await user.selectOptions(screen.getByLabelText("A1 │ 검체 1 marker type"), "rect");
+    act(() => useAppStore.getState().setCurveOverride(curve.curveId, { displayName: "Condition A" }));
+    await user.click(screen.getByLabelText("A1 │ 검체 1 line and marker editor"));
+    await user.click(screen.getByRole("button", { name: "A1 │ 검체 1 marker rect" }));
     await user.click(screen.getByRole("button", { name: "A1 │ 검체 1 style reset" }));
-    expect(useAppStore.getState().curveOverrides[curve.curveId]).toBeUndefined();
+    expect(useAppStore.getState().curveOverrides[curve.curveId]).toMatchObject({ displayName: "Condition A" });
+    expect(useAppStore.getState().curveOverrides[curve.curveId].markerType).toBeUndefined();
     expect(screen.getByText("기준값")).toBeInTheDocument();
 
     act(() => {
@@ -541,16 +555,79 @@ describe("App PCR workspace", () => {
     act(() => {
       useAppStore.getState().applyStylePreset("reagentColorSolid", [curve.curveId]);
     });
-    await user.selectOptions(screen.getByLabelText("A1 │ 검체 1 marker type"), "rect");
+    await user.click(screen.getByLabelText("A1 │ 검체 1 line and marker editor"));
+    await user.click(screen.getByRole("button", { name: "A1 │ 검체 1 marker rect" }));
     expect(screen.getByText("Custom/Preset")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "A1 │ 검체 1 marker type reset" }));
+    await user.click(screen.getByLabelText("A1 │ 검체 1 line and marker editor"));
+    await user.click(screen.getByRole("button", { name: "기준 마커로 초기화" }));
     expect(screen.getAllByText("Preset").length).toBeGreaterThan(0);
   });
 
-  it("lets users search selected individual styles beyond thirty curves", async () => {
+  it("warns about indistinguishable or low-contrast styles without changing them", async () => {
+    const user = userEvent.setup();
+    const dataset = createOneSpecimenEightReagentDataset();
+    const curves = dataset.curves.slice(0, 2);
+    act(() => {
+      useAppStore.getState().loadDataset(dataset);
+      useAppStore.getState().setCurvesSelected(curves.map((curve) => curve.curveId), true);
+      curves.forEach((curve) =>
+        useAppStore.getState().setCurveOverride(curve.curveId, {
+          displayName: `Condition ${curve.reagentLabel}`,
+          color: "#ffffff",
+          lineType: "solid",
+          markerType: "none",
+          lineWidth: 4,
+          visible: true
+        })
+      );
+    });
+
+    render(<App />);
+    await user.click(screen.getByText("Style"));
+
+    const warning = screen.getByRole("status", { name: "스타일 구분 경고" });
+    expect(warning).toHaveTextContent("구분되는 스타일 1/2 · 겹치는 곡선 2개 · 최대 동일 그룹 2개");
+    expect(warning).toHaveTextContent("흰 배경 대비가 3:1 미만인 곡선 2개");
+    expect(curves.map((curve) => useAppStore.getState().curveOverrides[curve.curveId].color)).toEqual([
+      "#ffffff",
+      "#ffffff"
+    ]);
+
+    act(() => {
+      useAppStore.getState().setCurveOverride(curves[0].curveId, { color: "not-a-color", lineWidth: 4 });
+      useAppStore.getState().setCurveOverride(curves[1].curveId, { color: "#000000", lineWidth: 4 });
+    });
+    expect(screen.getByRole("status", { name: "스타일 구분 경고" })).toHaveTextContent(
+      "대비를 판정할 수 없는 색상 1개"
+    );
+
+    const individualEditor = screen.getByRole("region", { name: "개별 curve 스타일" });
+    await user.click(within(individualEditor).getByRole("button", { name: "선택 초기화" }));
+    curves.forEach((curve) => {
+      expect(useAppStore.getState().curveOverrides[curve.curveId]).toMatchObject({
+        displayName: `Condition ${curve.reagentLabel}`,
+        lineWidth: 4,
+        visible: true
+      });
+      expect(useAppStore.getState().curveOverrides[curve.curveId].color).toBeUndefined();
+    });
+
+    act(() => curves.forEach((curve) => useAppStore.getState().setCurveOverride(curve.curveId, { color: "#ffffff" })));
+    await user.click(within(individualEditor).getByRole("button", { name: "전체 초기화" }));
+    curves.forEach((curve) => {
+      expect(useAppStore.getState().curveOverrides[curve.curveId]).toMatchObject({
+        displayName: `Condition ${curve.reagentLabel}`,
+        lineWidth: 4,
+        visible: true
+      });
+      expect(useAppStore.getState().curveOverrides[curve.curveId].color).toBeUndefined();
+    });
+  });
+
+  it("keeps a named curve reachable in a 100-curve individual style list", async () => {
     const user = userEvent.setup();
     const dataset = createSyntheticPcrDataset({
-      specimenLabels: ["S1", "S2", "S3", "S4", "S5"],
+      specimenLabels: Array.from({ length: 13 }, (_, index) => `S${index + 1}`),
       reagentLabels: ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8"]
     });
     act(() => {
@@ -560,12 +637,13 @@ describe("App PCR workspace", () => {
 
     render(<App />);
     await user.click(screen.getByText("Style"));
-    await user.type(screen.getByRole("searchbox", { name: "개별 스타일 검색" }), "S5");
+    await user.type(screen.getByRole("searchbox", { name: "개별 스타일 검색" }), "S13");
 
     const individualEditor = screen.getByRole("region", { name: "개별 curve 스타일" });
-    expect(within(individualEditor).getByText("A8 │ S5")).toBeInTheDocument();
-    await user.selectOptions(within(individualEditor).getByLabelText("A8 │ S5 marker type"), "triangle");
-    const targetCurve = dataset.curves.find((curve) => curve.specimenLabel === "S5" && curve.reagentLabel === "A8");
+    expect(within(individualEditor).getByText("A8 │ S13")).toBeInTheDocument();
+    await user.click(within(individualEditor).getByLabelText("A8 │ S13 line and marker editor"));
+    await user.click(screen.getByRole("button", { name: "A8 │ S13 marker triangle" }));
+    const targetCurve = dataset.curves.find((curve) => curve.specimenLabel === "S13" && curve.reagentLabel === "A8");
     expect(useAppStore.getState().curveOverrides[targetCurve?.curveId ?? ""]?.markerType).toBe("triangle");
   });
 
@@ -593,8 +671,8 @@ describe("App PCR workspace", () => {
     expect(within(individualEditor).getByText("duplicates.xlsx:B")).toBeInTheDocument();
 
     const secondCurve = dataset.curves[1];
-    const secondMarkerSelect = within(individualEditor).getByLabelText("A1 │ Same duplicates.xlsx:B marker type");
-    await user.selectOptions(secondMarkerSelect, "circle");
+    await user.click(within(individualEditor).getByLabelText("A1 │ Same duplicates.xlsx:B line and marker editor"));
+    await user.click(screen.getByRole("button", { name: "A1 │ Same duplicates.xlsx:B marker circle" }));
 
     expect(useAppStore.getState().curveOverrides[secondCurve.curveId]?.markerType).toBe("circle");
     expect(useAppStore.getState().curveOverrides[dataset.curves[0].curveId]).toBeUndefined();
@@ -619,7 +697,8 @@ describe("App PCR workspace", () => {
     const individualEditor = screen.getByRole("region", { name: "개별 curve 스타일" });
     expect(within(individualEditor).getByText("repeat.xlsx:A")).toBeInTheDocument();
     expect(within(individualEditor).getByText("repeat.xlsx:A [file2]")).toBeInTheDocument();
-    await user.selectOptions(within(individualEditor).getByLabelText("A1 │ Same repeat.xlsx:A [file2] marker type"), "rect");
+    await user.click(within(individualEditor).getByLabelText("A1 │ Same repeat.xlsx:A [file2] line and marker editor"));
+    await user.click(screen.getByRole("button", { name: "A1 │ Same repeat.xlsx:A [file2] marker rect" }));
 
     expect(useAppStore.getState().curveOverrides[dataset.curves[1].curveId]?.markerType).toBe("rect");
     expect(useAppStore.getState().curveOverrides[dataset.curves[0].curveId]).toBeUndefined();
@@ -650,7 +729,7 @@ describe("App PCR workspace", () => {
     customLegend = screen.getByRole("region", { name: "Custom legend" });
     expect(within(customLegend).getAllByRole("listitem").map((item) => item.textContent)).toEqual(["A2", "A1"]);
 
-    const previewToggle = within(screen.getByRole("region", { name: "Legend order" })).getByRole("checkbox");
+    const previewToggle = within(screen.getByRole("tabpanel", { name: "Order" })).getByRole("checkbox");
     expect(previewToggle).toBeChecked();
     await user.click(previewToggle);
     expect(screen.queryByRole("region", { name: "Custom legend" })).not.toBeInTheDocument();
@@ -658,6 +737,8 @@ describe("App PCR workspace", () => {
     expect(useAppStore.getState().exportSettings.imageLayout).toBe("plotWithLegend");
 
     await user.click(screen.getByRole("tab", { name: "Labels" }));
+    expect(screen.queryByRole("tabpanel", { name: "Order" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tabpanel", { name: "Labels" })).toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText("Legend label mode"), "full");
     const labelEditor = screen.getByRole("region", { name: "Analysis label editor" });
     const analysisLabelInput = within(labelEditor).getAllByRole("textbox")[0];
@@ -697,6 +778,28 @@ describe("App PCR workspace", () => {
     await user.selectOptions(imageLayoutSelect, "legendOnly");
     expect(useAppStore.getState().exportSettings.imageLayout).toBe("legendOnly");
     expect(useAppStore.getState().legendSettings.previewVisible).toBe(false);
+  });
+
+  it("keeps only the active Legend tab keyboard-focusable and supports standard arrow navigation", async () => {
+    const user = userEvent.setup();
+    act(() => {
+      const dataset = createOneSpecimenEightReagentDataset();
+      useAppStore.getState().loadDataset(dataset);
+      useAppStore.getState().setCurvesSelected(dataset.curves.slice(0, 2).map((curve) => curve.curveId), true);
+    });
+    render(<App />);
+    await user.click(screen.getByText("Legend", { selector: "summary" }));
+
+    const orderTab = screen.getByRole("tab", { name: "Order" });
+    const labelsTab = screen.getByRole("tab", { name: "Labels" });
+    expect(orderTab).toHaveAttribute("tabindex", "0");
+    expect(labelsTab).toHaveAttribute("tabindex", "-1");
+    orderTab.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(labelsTab).toHaveAttribute("aria-selected", "true");
+    expect(labelsTab).toHaveFocus();
+    await user.keyboard("{Home}");
+    expect(orderTab).toHaveFocus();
   });
 
   it("moves legend and individual style order by selected curve order when unselected curves are between them", async () => {
