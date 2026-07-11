@@ -1,8 +1,6 @@
 import { useState } from "react";
-import { createAnalysisState } from "../analysis/analysisState";
-import { createAnalysisWorkbookFileName, exportAnalysisWorkbookBlob } from "../analysis/analysisWorkbook";
+import { saveActiveAnalysis } from "../analysis/saveAnalysisWorkflow";
 import { useAppStore } from "../app/appStore";
-import { downloadBlob } from "../chart/exportChart";
 
 export function AnalysisWorkspaceRecovery({ onRetry }: { onRetry: () => void }) {
   const dataset = useAppStore((state) => state.dataset);
@@ -10,45 +8,17 @@ export function AnalysisWorkspaceRecovery({ onRetry }: { onRetry: () => void }) 
   const [busy, setBusy] = useState(false);
 
   async function saveAnalysis() {
-    const snapshot = useAppStore.getState();
-    if (!snapshot.dataset || !snapshot.selection) return;
     setBusy(true);
     setMessage(null);
-    try {
-      const nextExportCounter = snapshot.exportCounter + 1;
-      const analysisState = createAnalysisState({
-        analysisId: snapshot.activeAnalysisId,
-        analysisName: snapshot.analysisName,
-        dataset: snapshot.dataset,
-        selection: snapshot.selection,
-        searchQuery: snapshot.searchQuery,
-        selectionFilter: snapshot.selectionFilter,
-        chartScale: snapshot.chartScale,
-        styleRules: snapshot.styleRules,
-        curveOverrides: snapshot.curveOverrides,
-        legendSettings: snapshot.legendSettings,
-        exportSettings: snapshot.exportSettings,
-        exportCounter: nextExportCounter,
-        importFileName: snapshot.importFileName,
-        sourceFiles: snapshot.sourceFiles,
-        dirty: snapshot.dirty
-      });
-      const blob = await exportAnalysisWorkbookBlob(analysisState);
-      const fileName = createAnalysisWorkbookFileName(snapshot.exportCounter, new Date(), snapshot.analysisName);
-      downloadBlob(blob, fileName);
-      const completion = useAppStore.getState().markAnalysisSaveSuccess({
-        analysisId: snapshot.activeAnalysisId,
-        runtimeInstanceId: snapshot.runtimeInstanceId,
-        expectedRevision: snapshot.revision,
-        savedExportCounter: nextExportCounter,
-        message: `Saved ${fileName}.`
-      });
-      setMessage(completion === "saved" ? `Saved ${fileName}.` : "파일은 저장했지만 분석이 변경되어 Unsaved 상태를 유지합니다.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Analysis XLSX export failed.");
-    } finally {
-      setBusy(false);
-    }
+    const result = await saveActiveAnalysis();
+    setMessage(
+      result.status === "saved"
+        ? `Saved ${result.fileName}.`
+        : result.status === "changed"
+          ? "파일 snapshot은 저장했지만 저장 중 변경된 내용이 있어 이후 변경 있음 상태를 유지합니다."
+          : result.message
+    );
+    setBusy(false);
   }
 
   return (

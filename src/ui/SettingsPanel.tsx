@@ -24,8 +24,6 @@ import { createImageExportFileName, createPlottedDataFileName } from "../chart/e
 import { createPlottedDataCsv } from "../chart/plottedDataExport";
 import { buildReportLegendProjection } from "../chart/reportLegend";
 import { useAppStore } from "../app/appStore";
-import { createAnalysisState } from "../analysis/analysisState";
-import { createAnalysisWorkbookFileName, exportAnalysisWorkbookBlob } from "../analysis/analysisWorkbook";
 import { formatCurveLabel, formatCurveSourceSuffix } from "../data/curveLabels";
 import type {
   Curve,
@@ -42,22 +40,15 @@ import type {
 
 export function SettingsPanel() {
   const chartScale = useAppStore((state) => state.chartScale);
-  const activeAnalysisId = useAppStore((state) => state.activeAnalysisId);
-  const runtimeInstanceId = useAppStore((state) => state.runtimeInstanceId);
-  const revision = useAppStore((state) => state.revision);
   const analysisName = useAppStore((state) => state.analysisName);
   const dataset = useAppStore((state) => state.dataset);
   const selection = useAppStore((state) => state.selection);
-  const searchQuery = useAppStore((state) => state.searchQuery);
-  const selectionFilter = useAppStore((state) => state.selectionFilter);
   const styleRules = useAppStore((state) => state.styleRules);
   const curveOverrides = useAppStore((state) => state.curveOverrides);
   const legendSettings = useAppStore((state) => state.legendSettings);
   const exportSettings = useAppStore((state) => state.exportSettings);
   const exportCounter = useAppStore((state) => state.exportCounter);
-  const importFileName = useAppStore((state) => state.importFileName);
-  const sourceFiles = useAppStore((state) => state.sourceFiles);
-  const dirty = useAppStore((state) => state.dirty);
+  const activeExportJob = useAppStore((state) => state.activeExportJob);
   const exportMessage = useAppStore((state) => state.exportMessage);
   const setAxisScaleMode = useAppStore((state) => state.setAxisScaleMode);
   const setAxisFixedValue = useAppStore((state) => state.setAxisFixedValue);
@@ -76,8 +67,9 @@ export function SettingsPanel() {
   const setReportLegendLabelMode = useAppStore((state) => state.setReportLegendLabelMode);
   const setExportImageLayout = useAppStore((state) => state.setExportImageLayout);
   const moveCurveOrder = useAppStore((state) => state.moveCurveOrder);
-  const markExportSuccess = useAppStore((state) => state.markExportSuccess);
-  const markAnalysisSaveSuccess = useAppStore((state) => state.markAnalysisSaveSuccess);
+  const beginExportJob = useAppStore((state) => state.beginExportJob);
+  const completeExportJob = useAppStore((state) => state.completeExportJob);
+  const failExportJob = useAppStore((state) => state.failExportJob);
   const setExportMessage = useAppStore((state) => state.setExportMessage);
   const labelMode = selection?.groupingMode ?? "reagent";
   const selectedCurveIds = selection?.selectedCurveIds ?? new Set<string>();
@@ -240,16 +232,10 @@ export function SettingsPanel() {
         <summary>Export</summary>
         <ExportControls
           dataset={dataset}
-          activeAnalysisId={activeAnalysisId}
-          runtimeInstanceId={runtimeInstanceId}
-          revision={revision}
           analysisName={analysisName}
-          selection={selection}
           selectedCurves={selectedCurves}
           selectedCurveIds={selectedCurveIds}
           orderedCurveIds={orderedCurveIds}
-          searchQuery={searchQuery}
-          selectionFilter={selectionFilter}
           chartScale={chartScale}
           scaleIssues={chartProjection.scaleIssues}
           labelMode={labelMode}
@@ -260,11 +246,10 @@ export function SettingsPanel() {
           onExportLayoutChange={setExportImageLayout}
           exportCounter={exportCounter}
           exportMessage={exportMessage}
-          importFileName={importFileName}
-          sourceFiles={sourceFiles}
-          dirty={dirty}
-          markExportSuccess={markExportSuccess}
-          markAnalysisSaveSuccess={markAnalysisSaveSuccess}
+          activeExportJob={activeExportJob}
+          beginExportJob={beginExportJob}
+          completeExportJob={completeExportJob}
+          failExportJob={failExportJob}
           setExportMessage={setExportMessage}
         />
       </details>
@@ -274,16 +259,10 @@ export function SettingsPanel() {
 
 function ExportControls({
   dataset,
-  activeAnalysisId,
-  runtimeInstanceId,
-  revision,
   analysisName,
-  selection,
   selectedCurves,
   selectedCurveIds,
   orderedCurveIds,
-  searchQuery,
-  selectionFilter,
   chartScale,
   scaleIssues,
   labelMode,
@@ -294,24 +273,17 @@ function ExportControls({
   onExportLayoutChange,
   exportCounter,
   exportMessage,
-  importFileName,
-  sourceFiles,
-  dirty,
-  markExportSuccess,
-  markAnalysisSaveSuccess,
+  activeExportJob,
+  beginExportJob,
+  completeExportJob,
+  failExportJob,
   setExportMessage
 }: {
   dataset: ReturnType<typeof useAppStore.getState>["dataset"];
-  activeAnalysisId: string;
-  runtimeInstanceId: string;
-  revision: number;
   analysisName: string;
-  selection: ReturnType<typeof useAppStore.getState>["selection"];
   selectedCurves: Curve[];
   selectedCurveIds: Set<string>;
   orderedCurveIds?: string[];
-  searchQuery: string;
-  selectionFilter: ReturnType<typeof useAppStore.getState>["selectionFilter"];
   chartScale: ReturnType<typeof useAppStore.getState>["chartScale"];
   scaleIssues: AxisScaleIssue[];
   labelMode: GroupingMode;
@@ -322,23 +294,15 @@ function ExportControls({
   onExportLayoutChange: ReturnType<typeof useAppStore.getState>["setExportImageLayout"];
   exportCounter: number;
   exportMessage: string | null;
-  importFileName: string | null;
-  sourceFiles: ReturnType<typeof useAppStore.getState>["sourceFiles"];
-  dirty: boolean;
-  markExportSuccess: (message: string) => void;
-  markAnalysisSaveSuccess: (completion: {
-    analysisId: string;
-    runtimeInstanceId: string;
-    expectedRevision: number;
-    savedExportCounter: number;
-    message: string;
-  }) => "saved" | "changed" | "missing";
+  activeExportJob: ReturnType<typeof useAppStore.getState>["activeExportJob"];
+  beginExportJob: ReturnType<typeof useAppStore.getState>["beginExportJob"];
+  completeExportJob: ReturnType<typeof useAppStore.getState>["completeExportJob"];
+  failExportJob: ReturnType<typeof useAppStore.getState>["failExportJob"];
   setExportMessage: (message: string | null) => void;
 }) {
-  const [busy, setBusy] = useState(false);
+  const busy = activeExportJob !== null;
   const csvResult = createPlottedDataCsv({ curves: selectedCurves, labelMode, styleRules, curveOverrides });
   const disabled = selectedCurves.length === 0 || busy;
-  const analysisExportDisabled = !dataset || !selection || busy;
   const blockingScaleIssues = scaleIssues.filter((issue) => issue.blocksPlotExport);
   const plotImageScaleBlocked = exportSettings.imageLayout !== "legendOnly" && blockingScaleIssues.length > 0;
   const plotScaleMessage = blockingScaleIssues.map((issue) => issue.message).join(" ");
@@ -349,8 +313,8 @@ function ExportControls({
       setExportMessage(`Plot image export is blocked. ${plotScaleMessage} Edit Scale settings.`);
       return;
     }
-    setBusy(true);
-    setExportMessage(null);
+    const job = beginExportJob("file", true);
+    if (!job) return;
     try {
       const chart = buildPcrChartOption({
         dataset,
@@ -368,13 +332,11 @@ function ExportControls({
         layout: exportSettings.imageLayout,
         legendItems: chart.legendItems
       });
-      const fileName = createImageExportFileName(exportCounter, type, new Date(), analysisName);
+      const fileName = createImageExportFileName(job.reservedCounter, type, new Date(), analysisName);
       downloadBlob(blob, fileName);
-      markExportSuccess(`Saved ${fileName}.`);
+      completeExportJob(job, `Saved ${fileName}.`);
     } catch (error) {
-      setExportMessage(error instanceof Error ? error.message : "Image export failed.");
-    } finally {
-      setBusy(false);
+      failExportJob(job, error instanceof Error ? error.message : "Image export failed.");
     }
   }
 
@@ -384,8 +346,8 @@ function ExportControls({
       setExportMessage(`Plot clipboard export is blocked. ${plotScaleMessage} Edit Scale settings.`);
       return;
     }
-    setBusy(true);
-    setExportMessage(null);
+    const job = beginExportJob("clipboard", false);
+    if (!job) return;
     try {
       const chart = buildPcrChartOption({
         dataset,
@@ -404,18 +366,16 @@ function ExportControls({
         legendItems: chart.legendItems
       });
       await copyPngBlobToClipboard(blob);
-      setExportMessage(successMessage);
+      completeExportJob(job, successMessage);
     } catch (error) {
-      setExportMessage(`${error instanceof Error ? error.message : "Clipboard copy failed."} Download PNG instead.`);
-    } finally {
-      setBusy(false);
+      failExportJob(job, `${error instanceof Error ? error.message : "Clipboard copy failed."} Download PNG instead.`);
     }
   }
 
   async function exportReportLegend(type: ImageExportType) {
     if (!dataset) return;
-    setBusy(true);
-    setExportMessage(null);
+    const job = beginExportJob("file", true);
+    if (!job) return;
     try {
       const chart = buildPcrChartOption({
         dataset,
@@ -433,20 +393,18 @@ function ExportControls({
         type,
         title: reportLegend.title
       });
-      const fileName = createImageExportFileName(exportCounter, type, new Date(), `${analysisName}_legend`);
+      const fileName = createImageExportFileName(job.reservedCounter, type, new Date(), `${analysisName}_legend`);
       downloadBlob(blob, fileName);
-      markExportSuccess(`Saved ${fileName}.`);
+      completeExportJob(job, `Saved ${fileName}.`);
     } catch (error) {
-      setExportMessage(error instanceof Error ? error.message : "Report legend export failed.");
-    } finally {
-      setBusy(false);
+      failExportJob(job, error instanceof Error ? error.message : "Report legend export failed.");
     }
   }
 
   async function copyReportLegendPng() {
     if (!dataset) return;
-    setBusy(true);
-    setExportMessage(null);
+    const job = beginExportJob("clipboard", false);
+    if (!job) return;
     try {
       const chart = buildPcrChartOption({
         dataset,
@@ -465,18 +423,16 @@ function ExportControls({
         title: reportLegend.title
       });
       await copyPngBlobToClipboard(blob);
-      setExportMessage("Copied report legend PNG to clipboard.");
+      completeExportJob(job, "Copied report legend PNG to clipboard.");
     } catch (error) {
-      setExportMessage(`${error instanceof Error ? error.message : "Clipboard copy failed."} Download PNG instead.`);
-    } finally {
-      setBusy(false);
+      failExportJob(job, `${error instanceof Error ? error.message : "Clipboard copy failed."} Download PNG instead.`);
     }
   }
 
   async function copyReportLegendExcel() {
     if (!dataset) return;
-    setBusy(true);
-    setExportMessage(null);
+    const job = beginExportJob("clipboard", false);
+    if (!job) return;
     try {
       const chart = buildPcrChartOption({
         dataset,
@@ -493,11 +449,12 @@ function ExportControls({
         title: reportLegend.title,
         items: reportLegend.items
       });
-      setExportMessage("Copied report legend as Excel cells.");
+      completeExportJob(job, "Copied report legend as Excel cells.");
     } catch (error) {
-      setExportMessage(`${error instanceof Error ? error.message : "Rich Excel clipboard copy failed."} Use report legend PNG instead.`);
-    } finally {
-      setBusy(false);
+      failExportJob(
+        job,
+        `${error instanceof Error ? error.message : "Rich Excel clipboard copy failed."} Use report legend PNG instead.`
+      );
     }
   }
 
@@ -507,54 +464,21 @@ function ExportControls({
       return;
     }
 
-    const fileName = createPlottedDataFileName(exportCounter, new Date(), analysisName);
+    const job = beginExportJob("file", true);
+    if (!job) return;
+    const fileName = createPlottedDataFileName(job.reservedCounter, new Date(), analysisName);
     const blob = new Blob(["\ufeff", csvResult.csv], { type: "text/csv;charset=utf-8" });
-    downloadBlob(blob, fileName);
-    markExportSuccess(`Saved ${fileName}.`);
-  }
-
-  async function exportAnalysisXlsx() {
-    if (!dataset || !selection) return;
-    setBusy(true);
-    setExportMessage(null);
     try {
-      const nextExportCounter = exportCounter + 1;
-      const analysisState = createAnalysisState({
-        analysisId: activeAnalysisId,
-        analysisName,
-        dataset,
-        selection,
-        searchQuery,
-        selectionFilter,
-        chartScale,
-        styleRules,
-        curveOverrides,
-        legendSettings,
-        exportSettings,
-        exportCounter: nextExportCounter,
-        importFileName,
-        sourceFiles,
-        dirty
-      });
-      const blob = await exportAnalysisWorkbookBlob(analysisState);
-      const fileName = createAnalysisWorkbookFileName(exportCounter, new Date(), analysisName);
       downloadBlob(blob, fileName);
-      markAnalysisSaveSuccess({
-        analysisId: activeAnalysisId,
-        runtimeInstanceId,
-        expectedRevision: revision,
-        savedExportCounter: nextExportCounter,
-        message: `Saved ${fileName}.`
-      });
+      completeExportJob(job, `Saved ${fileName}.`);
     } catch (error) {
-      setExportMessage(error instanceof Error ? error.message : "Analysis XLSX export failed.");
-    } finally {
-      setBusy(false);
+      failExportJob(job, error instanceof Error ? error.message : "CSV export failed.");
     }
   }
 
   return (
-    <section className="export-controls">
+    <section className="export-controls" aria-busy={busy}>
+      <span className="visually-hidden" aria-live="polite">{busy ? "내보내기 작업 중" : ""}</span>
       <p>다음 파일 번호: plot{exportCounter}</p>
       <section className="export-group" aria-label="Chart image export">
         <div className="export-group-header">
@@ -629,16 +553,13 @@ function ExportControls({
       </button>
         </div>
       </section>
-      <section className="export-group" aria-label="Data and analysis export">
+      <section className="export-group" aria-label="Data export">
         <div className="export-group-header">
-          <strong>Data / session</strong>
+          <strong>Data</strong>
         </div>
         <div className="export-button-grid">
       <button type="button" disabled={busy || !csvResult.ok} onClick={exportCsv}>
         Plotted CSV
-      </button>
-      <button type="button" disabled={analysisExportDisabled} onClick={() => void exportAnalysisXlsx()}>
-        Analysis XLSX
       </button>
         </div>
       </section>

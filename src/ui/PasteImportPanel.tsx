@@ -178,7 +178,7 @@ export function PasteImportPanel({ disabled = false }: PasteImportPanelProps) {
   return (
     <>
       <button ref={triggerRef} type="button" className="paste-import-trigger" disabled={disabled} onClick={openDialog}>
-        붙여넣기 입력
+        빠른 붙여넣기
       </button>
       <span className="visually-hidden" aria-live="polite">
         {announcement}

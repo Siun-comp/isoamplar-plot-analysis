@@ -8,6 +8,7 @@ import {
   exportChartLayoutImageBlob,
   exportReportLegendImageBlob
 } from "../chart/exportChart";
+import { exportAnalysisWorkbookBlob } from "../analysis/analysisWorkbook";
 import { formatCurveLabel } from "../data/curveLabels";
 import { appendPcrDataset } from "../data/mergeDatasets";
 import {
@@ -23,10 +24,19 @@ vi.mock("../chart/exportChart", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../chart/exportChart")>();
   return {
     ...actual,
+    downloadBlob: vi.fn(),
     exportChartLayoutImageBlob: vi.fn(async () => new Blob(["png"], { type: "image/png" })),
     exportReportLegendImageBlob: vi.fn(async () => new Blob(["legend"], { type: "image/png" })),
     copyReportLegendExcelTableToClipboard: vi.fn(async () => undefined),
     copyPngBlobToClipboard: vi.fn(async () => undefined)
+  };
+});
+
+vi.mock("../analysis/analysisWorkbook", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../analysis/analysisWorkbook")>();
+  return {
+    ...actual,
+    exportAnalysisWorkbookBlob: vi.fn(actual.exportAnalysisWorkbookBlob)
   };
 });
 
@@ -52,6 +62,16 @@ function snapshotWarningNavigationState() {
   };
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
 describe("App PCR workspace", () => {
   beforeEach(() => {
     useAppStore.getState().reset();
@@ -59,6 +79,7 @@ describe("App PCR workspace", () => {
     vi.mocked(exportReportLegendImageBlob).mockClear();
     vi.mocked(copyReportLegendExcelTableToClipboard).mockClear();
     vi.mocked(copyPngBlobToClipboard).mockClear();
+    vi.mocked(exportAnalysisWorkbookBlob).mockClear();
   });
 
   it("renders the upload-first PCR workspace shell", () => {
@@ -70,13 +91,47 @@ describe("App PCR workspace", () => {
     expect(screen.queryByText("MVP implementation")).not.toBeInTheDocument();
     expect(screen.queryByText("Release validation")).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Analysis 1" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("textbox", { name: "Analysis name" })).toHaveValue("Analysis 1");
+    expect(screen.getByRole("textbox", { name: "분석 이름" })).toHaveValue("Analysis 1");
     expect(screen.getByRole("heading", { name: "데이터 가져오기" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "데이터 선택" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "그래프 미리보기" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "설정" })).toBeInTheDocument();
     expect(screen.getAllByText("선택된 curve가 없습니다.").length).toBeGreaterThan(0);
-    expect(screen.getByText("Excel 파일 또는 소량 표 붙여넣기를 사용합니다. Excel은 첫 번째 worksheet만 사용합니다.")).toBeInTheDocument();
+    expect(screen.getByText("원본 Excel은 첫 번째 시트만 읽고, 모든 데이터는 브라우저 안에서 처리합니다.")).toBeInTheDocument();
+    expect(screen.getByText("원본 데이터 열기")).toBeInTheDocument();
+    expect(screen.getByText("저장한 분석 열기")).toBeInTheDocument();
+  });
+
+  it("protects browser unload while any analysis is dirty and removes protection when all are saved", async () => {
+    render(<App />);
+    let dirtyAnalysisId = "";
+    act(() => {
+      useAppStore.getState().loadDataset(createOneSpecimenEightReagentDataset());
+      dirtyAnalysisId = useAppStore.getState().activeAnalysisId;
+      useAppStore.getState().createAnalysis("Clean inactive test");
+    });
+
+    await waitFor(() => {
+      const dirtyEvent = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(dirtyEvent);
+      expect(dirtyEvent.defaultPrevented).toBe(true);
+    });
+
+    let job: ReturnType<typeof useAppStore.getState>["activeExportJob"] = null;
+    act(() => {
+      useAppStore.getState().switchAnalysis(dirtyAnalysisId);
+      job = useAppStore.getState().beginExportJob("analysisSave", true);
+    });
+    expect(job).not.toBeNull();
+    act(() => {
+      useAppStore.getState().completeExportJob(job!, "saved");
+    });
+
+    await waitFor(() => {
+      const cleanEvent = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(cleanEvent);
+      expect(cleanEvent.defaultPrevented).toBe(false);
+    });
   });
 
   it("starts imported datasets in reagent-first view with all major groups collapsed", () => {
@@ -158,12 +213,14 @@ describe("App PCR workspace", () => {
 
     const initialName = useAppStore.getState().analysisName;
     expect(screen.getByRole("tab", { name: new RegExp(initialName) })).toHaveAttribute("aria-selected", "true");
-    await user.click(screen.getByRole("button", { name: `Close ${initialName}` }));
-    expect(screen.getByRole("alertdialog", { name: "Unsaved analysis" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save Analysis XLSX then close" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: `${initialName} 닫기` }));
+    expect(screen.getByRole("alertdialog", { name: "저장하지 않은 분석" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Analysis XLSX 저장 후 닫기" })).toBeEnabled();
     expect(useAppStore.getState().analysisOrder).toHaveLength(1);
-    await user.click(screen.getByRole("button", { name: "Cancel close" }));
-    expect(screen.queryByRole("alertdialog", { name: "Unsaved analysis" })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "취소" })).toHaveFocus());
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("alertdialog", { name: "저장하지 않은 분석" })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: `${initialName} 닫기` })).toHaveFocus());
 
     const fileInput = document.querySelector("input[type='file']") as HTMLInputElement;
     await user.upload(fileInput, new File(["placeholder"], "replacement.xlsx"));
@@ -174,23 +231,42 @@ describe("App PCR workspace", () => {
     expect(screen.queryByRole("alertdialog", { name: "Unsaved analysis" })).not.toBeInTheDocument();
     expect(fileInput).toHaveFocus();
 
-    await user.click(screen.getByRole("button", { name: "New analysis" }));
+    await user.click(screen.getByRole("button", { name: "새 분석" }));
     expect(screen.queryByRole("alertdialog", { name: "Unsaved analysis" })).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Analysis 2" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText("Clean")).toBeInTheDocument();
+    expect(screen.getByText("데이터 없음")).toBeInTheDocument();
 
-    const nameInput = screen.getByRole("textbox", { name: "Analysis name" });
+    const nameInput = screen.getByRole("textbox", { name: "분석 이름" });
     await user.clear(nameInput);
     await user.type(nameInput, "Run B");
     expect(screen.getByRole("tab", { name: /Run B/ })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText("Unsaved")).toBeInTheDocument();
+    expect(screen.getByText("데이터 없음")).toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: new RegExp(initialName) }));
     expect(screen.getByRole("tab", { name: new RegExp(initialName) })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("textbox", { name: "Analysis name" })).toHaveValue(initialName);
+    expect(screen.getByRole("textbox", { name: "분석 이름" })).toHaveValue(initialName);
 
     await user.click(screen.getByRole("tab", { name: /Run B/ }));
-    expect(screen.getByRole("textbox", { name: "Analysis name" })).toHaveValue("Run B");
+    expect(screen.getByRole("textbox", { name: "분석 이름" })).toHaveValue("Run B");
+  });
+
+  it("keeps the dirty-close dialog locked against Escape while save-and-close is running", async () => {
+    const user = userEvent.setup();
+    act(() => useAppStore.getState().loadDataset(createOneSpecimenEightReagentDataset()));
+    const activeName = useAppStore.getState().analysisName;
+    const deferred = createDeferred<Blob>();
+    vi.mocked(exportAnalysisWorkbookBlob).mockImplementationOnce(() => deferred.promise);
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: `${activeName} 닫기` }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "취소" })).toHaveFocus());
+    await user.click(screen.getByRole("button", { name: "Analysis XLSX 저장 후 닫기" }));
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("alertdialog", { name: "저장하지 않은 분석" })).toBeInTheDocument();
+
+    deferred.resolve(new Blob(["analysis"], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog", { name: "저장하지 않은 분석" })).not.toBeInTheDocument());
+    expect(useAppStore.getState().dataset).toBeNull();
   });
 
   it("reveals warning-related curves without mutating analysis selection, order, style, filters, or dirty state", async () => {
@@ -220,7 +296,7 @@ describe("App PCR workspace", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "New analysis" }));
+    await user.click(screen.getByRole("button", { name: "새 분석" }));
     expect(screen.getByRole("tab", { name: "Analysis 2" })).toHaveAttribute("aria-selected", "true");
 
     screen.getByRole("tab", { name: "Analysis 1" }).focus();
@@ -228,7 +304,7 @@ describe("App PCR workspace", () => {
     expect(screen.getByRole("tab", { name: "Analysis 2" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Analysis 2");
 
-    await user.click(screen.getByRole("button", { name: "Close Analysis 2" }));
+    await user.click(screen.getByRole("button", { name: "Analysis 2 닫기" }));
     expect(useAppStore.getState().analysisOrder).toEqual(["analysis-1"]);
     expect(screen.getByRole("tab", { name: "Analysis 1" })).toHaveAttribute("aria-selected", "true");
   });
@@ -312,7 +388,7 @@ describe("App PCR workspace", () => {
     expect(screen.getByRole("button", { name: "Save JPEG" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Copy selected layout PNG to clipboard" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Save report legend PNG" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Analysis XLSX" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "분석 저장" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Plotted CSV" })).toBeEnabled();
 
     await user.selectOptions(screen.getByRole("combobox", { name: "Image export layout" }), "legendOnly");
@@ -344,6 +420,34 @@ describe("App PCR workspace", () => {
     }
     expect(vi.mocked(exportChartLayoutImageBlob).mock.calls.map(([args]) => args.type)).toEqual(["png", "jpeg", "png"]);
     expect(copyPngBlobToClipboard).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a deferred clipboard failure on the analysis where it started after switching tabs", async () => {
+    const user = userEvent.setup();
+    const dataset = createOneSpecimenEightReagentDataset();
+    act(() => {
+      useAppStore.getState().loadDataset(dataset);
+      useAppStore.getState().setCurvesSelected([dataset.curves[0].curveId], true);
+    });
+    const firstId = useAppStore.getState().activeAnalysisId;
+    const deferred = createDeferred<void>();
+    vi.mocked(copyPngBlobToClipboard).mockImplementationOnce(() => deferred.promise);
+    render(<App />);
+
+    await user.click(getSettingsSummary("Export"));
+    await user.click(screen.getByRole("button", { name: "Copy selected layout PNG to clipboard" }));
+    let secondId = "";
+    act(() => {
+      secondId = useAppStore.getState().createAnalysis("Second");
+      useAppStore.getState().loadDataset(dataset);
+    });
+    deferred.reject(new Error("clipboard denied"));
+
+    await waitFor(() => expect(useAppStore.getState().analyses[firstId].activeExportJob).toBeNull());
+    expect(useAppStore.getState().activeAnalysisId).toBe(secondId);
+    expect(useAppStore.getState().exportMessage).toBeNull();
+    expect(useAppStore.getState().analyses[firstId].exportMessage).toContain("clipboard denied");
+    expect(useAppStore.getState().analyses[firstId].exportCounter).toBe(1);
   });
 
   it("accepts HEX color input for group and individual curve styles", async () => {
@@ -667,7 +771,8 @@ describe("App PCR workspace", () => {
     expect(useAppStore.getState().selection?.selectedCurveIds.size).toBe(0);
   });
 
-  it("allows Analysis XLSX export from the full imported dataset even when no curve is selected", () => {
+  it("saves Analysis XLSX from the full imported dataset even when no curve is selected", async () => {
+    const user = userEvent.setup();
     act(() => {
       useAppStore.getState().loadDataset(createOneSpecimenEightReagentDataset());
     });
@@ -676,6 +781,10 @@ describe("App PCR workspace", () => {
 
     expect(screen.getAllByRole("button", { name: /PNG/ })[0]).toBeDisabled();
     expect(screen.getByRole("button", { name: "Plotted CSV" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Analysis XLSX" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "분석 저장" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "분석 저장" }));
+    await waitFor(() => expect(useAppStore.getState().dirty).toBe(false));
+    expect(useAppStore.getState().saveStatus).toBe("saved");
+    expect(useAppStore.getState().lastSavedAtIso).not.toBeNull();
   });
 });

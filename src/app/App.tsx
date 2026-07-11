@@ -12,7 +12,18 @@ export function App() {
   const groupingMode = useAppStore((state) => state.selection?.groupingMode ?? "reagent");
   const activeAnalysisId = useAppStore((state) => state.activeAnalysisId);
   const runtimeInstanceId = useAppStore((state) => state.runtimeInstanceId);
+  const hasDirtyAnalysis = useAppStore((state) => Object.values(state.analyses).some((analysis) => analysis.dirty));
   const groupingLabel = groupingMode === "reagent" ? "시약별" : "검체별";
+
+  useEffect(() => {
+    if (!hasDirtyAnalysis) return;
+    const protectUnsavedAnalyses = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", protectUnsavedAnalyses);
+    return () => window.removeEventListener("beforeunload", protectUnsavedAnalyses);
+  }, [hasDirtyAnalysis]);
 
   return (
     <WarningNavigationProvider>
@@ -69,3 +80,4 @@ export function App() {
     </WarningNavigationProvider>
   );
 }
+import { useEffect } from "react";

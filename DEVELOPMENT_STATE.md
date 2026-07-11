@@ -18,7 +18,8 @@ Active
 - Phase S2 numeric/scale remediation is complete on the active branch after full verification and final independent expert GO review.
 - Phase S3 legend identity/raster remediation is committed as `723d83f` after full local verification and final independent expert GO review.
 - Phase S4 Excel header identity and common Warning Inspector remediation is committed as `276fbd1` after full automated, build, fresh Chromium, in-app browser, and independent expert verification.
-- Phase S5 Quick Paste accepted-envelope safety and localized error containment is fully verified with final independent expert GO verdicts; its phase commit is next.
+- Phase S5 Quick Paste accepted-envelope safety and localized error containment is committed as `6294bfb` after final independent expert GO verdicts.
+- Phase S6 save continuity, dedicated Analysis XLSX commands, browser-close protection, and asynchronous tab isolation are fully verified with final independent code and desktop-UX GO verdicts; its phase commit is next.
 - S1 adds synthetic-only fixed `.xlsx`/BIFF8 `.xls` fixtures, SHA-256 manifest, normalized/target snapshots, raster evidence helper, Target/Known-red acceptance criteria, traceability, and a read-only non-deploying CI workflow.
 - Product runtime behavior is unchanged by S1. No parser, chart, state, export, UI, dependency, or Pages deployment behavior was modified.
 - Latest S5 verification: the deterministic standard suite passed twice consecutively at 30 files / 231 tests with 6 later-phase TODOs; the one remaining isolated known-red probe belongs to S7 CSV safety; build passed; fresh Chromium passed 7/7 including all three maximum cell-shape previews; local in-app browser had zero console warnings/errors and no horizontal overflow.
@@ -48,18 +49,38 @@ Active
 - The latest UI consistency pass normalizes button/form-control sizing across top tabs, import actions, selection controls, chart tools, scale controls, legend controls, and export controls; status badges remain intentionally smaller. It also scopes settings accordion summary styling so nested Style color/line popover triggers stay compact, tightens reset-icon button padding, and removes an obsolete hidden Export legend button wrapper.
 - Quick Paste Import Phases Q0-Q6 are implemented from `docs/10_QUICK_PASTE_IMPORT_PLAN_KR.md`. It supports full-table and single-specimen input, tab-separated and single-column text, read-only preview, paginated source-position warnings with acknowledgement, stale/target revision guards for append and new-analysis actions, per-import source identity, mixed-source Analysis XLSX continuity, and the existing chart/export pipeline. Comma/CSV tables are rejected to prevent silent delimiter corruption.
 - A 2026-07-11 code/data-integrity/desktop-UX audit is complete in `docs/11_GPT56_PROJECT_AUDIT_KR.md`. Mobile was explicitly excluded. No P0 issue was identified; Stabilization A prioritizes invalid Fixed-scale export fallback, exported-legend identity truncation, Excel formatted-header identity, actionable Excel warnings, browser refresh/close protection, and accepted-size Quick Paste crash prevention. The audit also records P2 state/export/performance risks, documentation drift, and workflow candidates such as Warning Center, explicit save commands, Named Views, and optional export preflight.
-- The audit remediation plan is active in `docs/12_AUDIT_REMEDIATION_IMPLEMENTATION_PLAN_KR.md`. Phases S0-S4 are committed; S5 is fully verified with final independent GO verdicts and awaits its phase commit. Later phases remain sequential and pending.
+- The audit remediation plan is active in `docs/12_AUDIT_REMEDIATION_IMPLEMENTATION_PLAN_KR.md`. Phases S0-S5 are committed; S6 is fully verified and ready to commit. Later phases remain sequential and pending.
 
 ## Current Goal
-Commit the independently approved S5 phase, then begin Phase S6 save continuity and asynchronous tab-isolation work. Stop only for a genuine user business decision.
+Commit the independently approved S6 phase, then begin Phase S7 Analysis XLSX semantic validation and payload measurement. Stop only for a genuine user business decision.
 
 ## Current Milestone
 M9 - Release validation and real-data hardening.
 
 ## Last Completed Step
-Completed the S5 implementation, verification, NO-GO remediation, and independent re-audit cycle. Accepted tall/wide/empty-heavy/character boundaries, deterministic standard-suite execution, actual Chromium maximum-shape previews, typed parser/import failures, bounded warning/header rendering, preview size/memory diagnostics, localized Quick Paste/workspace recovery, Analysis XLSX fallback save, other-tab switching, non-default mode/source restoration, build, and desktop inspection all passed. Final data/performance and desktop-UX verdicts: GO.
+Completed S6 browser-close protection, top-level Analysis XLSX save/status, intent-separated input commands, per-analysis output reservations, and captured-runtime completion rules. Initial expert NO-GO findings for cross-tab local messages, stale new-tab errors, non-modal dirty close, clipped guidance, missing progress semantics, and Escape during save-and-close were corrected and regression-tested. Final code and desktop-UX verdicts: GO.
 
 ## Latest Changed Files
+- `src/analysis/saveAnalysisWorkflow.ts`
+- `src/app/appStore.ts`
+- `src/app/App.tsx`
+- `src/ui/AnalysisTabs.tsx`
+- `src/ui/AnalysisWorkspaceRecovery.tsx`
+- `src/ui/DataImportPanel.tsx`
+- `src/ui/SettingsPanel.tsx`
+- `src/styles.css`
+- `src/app/appStore.test.ts`
+- `src/app/App.test.tsx`
+- `tests/e2e/app.spec.ts`
+- `tests/audit/auditEvidence.todo.test.ts`
+- `docs/02_FUNCTIONAL_REQUIREMENTS_EN.md`
+- `docs/03_INPUT_OUTPUT_SPEC_EN.md`
+- `docs/04_TEST_PLAN_ACCEPTANCE_EN.md`
+- `docs/13_AUDIT_REMEDIATION_TRACEABILITY.md`
+- `DECISIONS.md`
+- `CHANGELOG.md`
+
+## Previous Phase S5 Changed Files
 - `src/data/normalizePcrData.ts`
 - `src/data/warningProvenance.ts`
 - `src/data/parsePastedTable.ts`
@@ -532,6 +553,7 @@ Completed the S5 implementation, verification, NO-GO remediation, and independen
 - Phase S3 final local verification: `npm run test` passed 26 files / 199 tests with 7 Target TODOs; `npm run test:audit:red` passed the 2 remaining non-S3 defect signatures; `npm run build` passed; fresh CI-mode Chromium passed 6/6. Focused regressions include measured long report titles, Plot-only collision bypass, standard/report suffix preservation and collision rejection, fixed bounds, and synchronized FX-006/FX-007 fixture status. The S3 browser test downloaded a 2400px-wide 2x legend PNG and verified white corners, nonblank pixels, dashed/dotted run separation, and circle/rect pixel-area separation. Local in-app browser inspection at `http://127.0.0.1:4173/` found zero console warnings/errors, no horizontal overflow, and no replacement-character mojibake. Visual evidence uses only generated synthetic labels in `docs/gui_mockups/screenshots/s3_legend_identity_desktop.png` and `docs/gui_mockups/screenshots/s3_legend_export.png`.
 - First-user PDF guide synthetic-data regeneration: passed. The guide was rebuilt from local-app screenshots using generated synthetic labels/data only, output as a 15-page PDF, checked with `pypdf` for page count/metadata/text extraction, searched for user-like sensitive labels (`RSV`, date-like labels, `_old`, `_new`), rendered through Poppler to PNG pages, and visually reviewed for layout, Korean text rendering, tables, screenshots, and troubleshooting pages.
 - Phase S5 final local verification: exact accepted tall `250,000 x 1`, wide `3 x 83,333`, empty-heavy `500 x 500`, and 2,000,000-character Quick Paste cases completed through the parser, and all three cell-shape boundaries completed both React and Chromium read-only previews; exact cell/character overflow rejected before mutation. After the initial expert NO-GO exposed parallel-suite resource contention, Vitest file execution was made deterministic and `npm run test` passed twice consecutively at 30 files / 231 tests with 6 later-phase TODOs. `npm run test:audit:red` retained only the scheduled S7 CSV-safety probe; `npm run build` passed; fresh CI-mode Chromium passed 7/7. The in-app production preview displayed row/column/cell/character/curve/cycle/memory/warning diagnostics without horizontal overflow or console warnings/errors. Recovery integration tests execute Analysis XLSX save and tab switching, and preserve non-default single-specimen mode, specimen name, source text, and revision. Final independent data/performance and desktop-UX verdicts: GO.
+- Phase S6 final local verification: `npm run test` passed 30 files / 240 tests with 4 later-phase TODOs; `npm run test:audit:red` retained the scheduled S7 CSV-safety probe; production build passed; fresh CI-mode Chromium passed 7/7 with `--fail-on-flaky-tests`; `npm audit --omit=dev` found 0 vulnerabilities. Tests cover captured-runtime completion, inactive-dirty beforeunload, save-while-modified, counter retry, deferred clipboard rejection after tab switch, stale new-tab parse failure after runtime recreation, and Escape lock during deferred save-and-close. In-app 1366x768 measurement had no horizontal overflow or replacement characters; analysis/import bands measured 99.19/60px and workspace began at 303.19px while the user-required fixed 560px chart height was retained. Final independent code and desktop-UX verdicts: GO.
 - GitHub Pages deployment: active at `https://siun-comp.github.io/isoamplar-plot-analysis/`.
 - Playwright checks include upload-first smoke, generated `.xlsx` upload, append `.xlsx` import, reagent-first collapsed state, virtualized single-curve selection row, search bulk select, Style-panel marker basis/group marker smoke, fixed hover readout smoke, chart canvas visibility, nonwhite pixel count, chart viewport height stability after settings expansion, and sticky chart panel behavior.
 - Visual screenshots:
@@ -543,8 +565,8 @@ Completed the S5 implementation, verification, NO-GO remediation, and independen
   - `docs/gui_mockups/screenshots/phase-r12_hover_warning_mobile.png`
 
 ## Known Gaps
-- Phase S5 is fully verified with independent GO verdicts and awaits its phase commit; S6-S11 product remediations remain pending.
-- S2-S5 resolve invalid Fixed-scale fallback, accepted-envelope large-array hazards, exported-legend identity loss, Excel formatted-header identity, actionable source-aware warnings, and localized Quick Paste/workspace containment. Browser refresh/close protection and later state/export/performance/UX work remain for their scheduled phases.
+- Phase S5 is committed. S6 is fully verified and ready to commit; S7-S11 product remediations remain pending.
+- S2-S6 resolve invalid Fixed-scale fallback, accepted-envelope large-array hazards, exported-legend identity loss, Excel formatted-header identity, actionable source-aware warnings, localized containment, browser refresh/close protection, and captured-tab async output routing. Later payload/performance/UX work remains for its scheduled phases.
 - The audit also reproduced a CSS defect where Legend `Labels` does not hide the `Order` panel, plus laptop-height sticky-chart and dense individual-style/legend-editor limitations. These remain unmodified pending user prioritization.
 - Clipboard image copy and rich Excel-cell legend paste have not been manually verified in Chrome/Edge on the final deployment origin.
 - Phase S1 fixtures are committed. One S7 CSV-safety defect remains isolated as a known-red probe by design.
@@ -573,6 +595,6 @@ Completed the S5 implementation, verification, NO-GO remediation, and independen
 - Local production preview: `http://127.0.0.1:4173/`
 
 ## Next 3 Tasks
-1. Commit the independently approved S5 phase without pushing or deploying.
-2. Read the S6 save-continuity and async tab-isolation contract; inventory current beforeunload, save status, export counter, and completion routing paths.
-3. Implement and verify S6 in bounded persistence-status, command-label, race-safety, and browser-close increments with independent expert review.
+1. Commit the approved S6 phase without pushing or deploying.
+2. Read the S7A semantic-validation and payload-measurement contract against the schema-3 workbook implementation.
+3. Implement S7A Analysis XLSX semantic validation, payload measurement, and plotted CSV formula escaping without deciding UD-02 hard limits.

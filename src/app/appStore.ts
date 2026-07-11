@@ -44,6 +44,20 @@ enableMapSet();
 
 type ImportStatus = "idle" | "importing" | "ready" | "error";
 type ImportFileMode = "replace" | "newTab";
+export type AnalysisSaveStatus = "idle" | "saving" | "saved" | "changed" | "error";
+export type ExportJobKind = "file" | "clipboard" | "analysisSave";
+
+export type ExportJobToken = {
+  jobId: string;
+  kind: ExportJobKind;
+  analysisId: string;
+  runtimeInstanceId: string;
+  expectedRevision: number;
+  reservedCounter: number;
+  consumesCounter: boolean;
+};
+
+export type ExportJobCompletionResult = "completed" | "changed" | "missing";
 type CloseAnalysisOptions = {
   force?: boolean;
 };
@@ -64,6 +78,9 @@ export type AnalysisTabState = Omit<AnalysisState, "dataset" | "selection"> & {
   lastPresetUndo: PresetUndoSnapshot | null;
   lastPresetMessage: string | null;
   exportMessage: string | null;
+  lastSavedAtIso: string | null;
+  saveStatus: AnalysisSaveStatus;
+  activeExportJob: ExportJobToken | null;
   importStatus: ImportStatus;
   importError: string | null;
 };
@@ -101,6 +118,7 @@ type AppStore = AppState & {
   importFile: (file: File) => Promise<void>;
   importFileWithMode: (file: File, mode: ImportFileMode, targetAnalysisId?: string) => Promise<void>;
   appendFile: (file: File) => Promise<void>;
+  openAnalysisFile: (file: File) => Promise<void>;
   appendPastedDataset: (
     dataset: PcrDataset,
     targetAnalysisId: string,
@@ -148,6 +166,13 @@ type AppStore = AppState & {
   moveCurveOrder: (curveId: string, direction: "up" | "down") => void;
   markExportSuccess: (message: string) => void;
   markAnalysisSaveSuccess: (completion: AnalysisSaveCompletion) => AnalysisSaveCompletionResult;
+  beginExportJob: (kind: ExportJobKind, consumesCounter: boolean) => ExportJobToken | null;
+  completeExportJob: (
+    job: ExportJobToken,
+    message: string,
+    completedAtIso?: string
+  ) => ExportJobCompletionResult;
+  failExportJob: (job: ExportJobToken, message: string) => "failed" | "missing";
   setExportMessage: (message: string | null) => void;
   setGroupingMode: (groupingMode: GroupingMode) => void;
   toggleCurve: (curveId: string) => void;
@@ -176,6 +201,9 @@ export const useAppStore = create<AppStore>()(
         state.lastPresetMessage = null;
         state.exportCounter = 1;
         state.exportMessage = null;
+        state.lastSavedAtIso = null;
+        state.saveStatus = "idle";
+        state.activeExportJob = null;
         state.importStatus = "ready";
         state.importError = null;
         state.importFileName = dataset.sourceFileName;
@@ -202,8 +230,7 @@ export const useAppStore = create<AppStore>()(
       if (analysisWorkbook.kind === "analysis") {
         set((state) => {
           if (!matchesAnalysisInstance(state, targetAnalysisId, targetRuntimeInstanceId)) return;
-          if (blockDirtyReplaceIfNeeded(state, targetAnalysisId)) return;
-          restoreAnalysisToTab(state, targetAnalysisId, analysisWorkbook.analysis);
+          setAnalysisImportError(state, targetAnalysisId, "저장한 분석 파일입니다. '저장한 분석 열기'를 사용하십시오.");
         });
         return;
       }
@@ -246,22 +273,15 @@ export const useAppStore = create<AppStore>()(
       const analysisWorkbook = await readAnalysisWorkbookFile(file);
       if (analysisWorkbook.kind === "analysis") {
         set((state) => {
-          if (mode === "newTab") {
-            openAnalysisInNewTab(state, analysisWorkbook.analysis);
-            return;
-          }
-          if (!matchesAnalysisSnapshot(state, targetAnalysisId, targetRuntimeInstanceId, targetRevision)) {
-            setAnalysisImportError(state, targetAnalysisId, "Analysis changed while the file was being read. Confirm replace again.");
-            return;
-          }
-          restoreAnalysisToTab(state, targetAnalysisId, analysisWorkbook.analysis, { force: true });
+          if (!matchesAnalysisInstance(state, targetAnalysisId, targetRuntimeInstanceId)) return;
+          setAnalysisImportError(state, targetAnalysisId, "저장한 분석 파일입니다. '저장한 분석 열기'를 사용하십시오.");
         });
         return;
       }
 
       if (analysisWorkbook.kind === "invalid-analysis") {
         set((state) => {
-          if (mode === "replace" && !matchesAnalysisInstance(state, targetAnalysisId, targetRuntimeInstanceId)) return;
+          if (!matchesAnalysisInstance(state, targetAnalysisId, targetRuntimeInstanceId)) return;
           setAnalysisImportError(state, targetAnalysisId, analysisWorkbook.message);
         });
         return;
@@ -271,6 +291,7 @@ export const useAppStore = create<AppStore>()(
       if (result.ok) {
         set((state) => {
           if (mode === "newTab") {
+            if (!matchesAnalysisInstance(state, targetAnalysisId, targetRuntimeInstanceId)) return;
             openDatasetInNewTab(state, result.dataset);
             return;
           }
@@ -282,7 +303,7 @@ export const useAppStore = create<AppStore>()(
         });
       } else {
         set((state) => {
-          if (mode === "replace" && !matchesAnalysisInstance(state, targetAnalysisId, targetRuntimeInstanceId)) return;
+          if (!matchesAnalysisInstance(state, targetAnalysisId, targetRuntimeInstanceId)) return;
           setAnalysisImportError(state, targetAnalysisId, result.error.message);
         });
       }
@@ -294,7 +315,11 @@ export const useAppStore = create<AppStore>()(
       if (analysisWorkbook.kind === "analysis") {
         set((state) => {
           if (!matchesAnalysisInstance(state, targetAnalysisId, targetRuntimeInstanceId)) return;
-          openAnalysisInNewTab(state, analysisWorkbook.analysis);
+          setAnalysisImportError(
+            state,
+            targetAnalysisId,
+            "저장한 분석 파일은 Excel 데이터에 추가할 수 없습니다. '저장한 분석 열기'를 사용하십시오."
+          );
         });
         return;
       }
@@ -352,6 +377,29 @@ export const useAppStore = create<AppStore>()(
           setAnalysisImportError(state, targetAnalysisId, result.error.message);
         });
       }
+    },
+    openAnalysisFile: async (file) => {
+      const targetAnalysisId = get().activeAnalysisId;
+      const targetRuntimeInstanceId = get().analyses[targetAnalysisId]?.runtimeInstanceId;
+      const analysisWorkbook = await readAnalysisWorkbookFile(file);
+      if (analysisWorkbook.kind === "analysis") {
+        set((state) => {
+          if (!matchesAnalysisInstance(state, targetAnalysisId, targetRuntimeInstanceId)) return;
+          openAnalysisInNewTab(state, analysisWorkbook.analysis);
+        });
+        return;
+      }
+
+      set((state) => {
+        if (!matchesAnalysisInstance(state, targetAnalysisId, targetRuntimeInstanceId)) return;
+        setAnalysisImportError(
+          state,
+          targetAnalysisId,
+          analysisWorkbook.kind === "invalid-analysis"
+            ? analysisWorkbook.message
+            : "Analysis XLSX 복원 파일이 아닙니다. 일반 Excel 데이터는 '원본 데이터 열기'를 사용하십시오."
+        );
+      });
     },
     appendPastedDataset: (dataset, targetAnalysisId, targetRuntimeInstanceId, targetRevision) => {
       const target = get().analyses[targetAnalysisId];
@@ -442,10 +490,12 @@ export const useAppStore = create<AppStore>()(
 
         analysis.analysisName = analysisName;
         analysis.dirty = true;
+        if (analysis.saveStatus === "saved") analysis.saveStatus = "changed";
         analysis.revision += 1;
         if (state.activeAnalysisId === analysisId) {
           state.analysisName = analysisName;
           state.dirty = true;
+          if (state.saveStatus === "saved") state.saveStatus = "changed";
           state.revision = analysis.revision;
           persistActiveAnalysis(state);
         }
@@ -854,6 +904,80 @@ export const useAppStore = create<AppStore>()(
       });
       return result;
     },
+    beginExportJob: (kind, consumesCounter) => {
+      let token: ExportJobToken | null = null;
+      set((state) => {
+        const analysis = getAnalysisForWrite(state, state.activeAnalysisId);
+        if (!analysis || analysis.activeExportJob) return;
+        token = {
+          jobId: createExportJobId(),
+          kind,
+          analysisId: analysis.analysisId,
+          runtimeInstanceId: analysis.runtimeInstanceId,
+          expectedRevision: analysis.revision,
+          reservedCounter: analysis.exportCounter,
+          consumesCounter
+        };
+        analysis.activeExportJob = token;
+        analysis.exportMessage = null;
+        if (kind === "analysisSave") analysis.saveStatus = "saving";
+        writeAnalysis(state, analysis);
+      });
+      return token;
+    },
+    completeExportJob: (job, message, completedAtIso = new Date().toISOString()) => {
+      let result: ExportJobCompletionResult = "missing";
+      set((state) => {
+        const analysis = getAnalysisForWrite(state, job.analysisId);
+        if (
+          !analysis ||
+          analysis.runtimeInstanceId !== job.runtimeInstanceId ||
+          analysis.activeExportJob?.jobId !== job.jobId
+        ) return;
+
+        const revisionChanged = analysis.revision !== job.expectedRevision;
+        analysis.activeExportJob = null;
+        analysis.exportMessage = message;
+        if (job.consumesCounter) {
+          analysis.exportCounter = Math.max(analysis.exportCounter, job.reservedCounter + 1);
+        }
+
+        if (job.kind === "analysisSave") {
+          analysis.lastSavedAtIso = completedAtIso;
+          if (revisionChanged) {
+            analysis.dirty = true;
+            analysis.saveStatus = "changed";
+            analysis.exportMessage = `${message} 저장 중 변경된 내용은 포함되지 않아 이후 변경 있음 상태를 유지합니다.`;
+            result = "changed";
+          } else {
+            analysis.dirty = false;
+            analysis.saveStatus = "saved";
+            result = "completed";
+          }
+        } else {
+          result = "completed";
+        }
+        writeAnalysis(state, analysis);
+      });
+      return result;
+    },
+    failExportJob: (job, message) => {
+      let result: "failed" | "missing" = "missing";
+      set((state) => {
+        const analysis = getAnalysisForWrite(state, job.analysisId);
+        if (
+          !analysis ||
+          analysis.runtimeInstanceId !== job.runtimeInstanceId ||
+          analysis.activeExportJob?.jobId !== job.jobId
+        ) return;
+        analysis.activeExportJob = null;
+        analysis.exportMessage = message;
+        if (job.kind === "analysisSave") analysis.saveStatus = "error";
+        writeAnalysis(state, analysis);
+        result = "failed";
+      });
+      return result;
+    },
     setExportMessage: (message) => {
       set((state) => {
         state.exportMessage = message;
@@ -929,6 +1053,9 @@ function createEmptyAnalysisTab(analysisId: string, analysisName: string): Analy
     lastPresetMessage: null,
     exportCounter: 1,
     exportMessage: null,
+    lastSavedAtIso: null,
+    saveStatus: "idle",
+    activeExportJob: null,
     importStatus: "idle",
     importError: null,
     importFileName: null,
@@ -939,6 +1066,7 @@ function createEmptyAnalysisTab(analysisId: string, analysisName: string): Analy
 
 function markDirtyAndPersistActive(state: AppState) {
   state.dirty = true;
+  if (state.saveStatus === "saved") state.saveStatus = "changed";
   state.revision += 1;
   persistActiveAnalysis(state);
 }
@@ -1015,6 +1143,9 @@ function replaceAnalysisDataset(
     lastPresetMessage: null,
     exportCounter: 1,
     exportMessage: null,
+    lastSavedAtIso: null,
+    saveStatus: "idle",
+    activeExportJob: null,
     importStatus: "ready",
     importError: null,
     importFileName: dataset.sourceFileName,
@@ -1184,6 +1315,9 @@ function createTabFromAnalysisState(analysis: AnalysisState): AnalysisTabState {
     lastPresetMessage: null,
     exportCounter: analysis.exportCounter,
     exportMessage: null,
+    lastSavedAtIso: null,
+    saveStatus: "saved",
+    activeExportJob: null,
     importStatus: "ready",
     importError: null,
     importFileName: analysis.importFileName,
@@ -1212,6 +1346,9 @@ function snapshotAdapterAsAnalysis(state: AppState): AnalysisTabState {
     lastPresetMessage: state.lastPresetMessage,
     exportCounter: state.exportCounter,
     exportMessage: state.exportMessage,
+    lastSavedAtIso: state.lastSavedAtIso,
+    saveStatus: state.saveStatus,
+    activeExportJob: state.activeExportJob ? { ...state.activeExportJob } : null,
     importStatus: state.importStatus,
     importError: state.importError,
     importFileName: state.importFileName,
@@ -1237,6 +1374,9 @@ function applyAnalysisToAdapter(state: AppState, analysis: AnalysisTabState) {
   state.lastPresetMessage = adapterState.lastPresetMessage;
   state.exportCounter = adapterState.exportCounter;
   state.exportMessage = adapterState.exportMessage;
+  state.lastSavedAtIso = adapterState.lastSavedAtIso;
+  state.saveStatus = adapterState.saveStatus;
+  state.activeExportJob = adapterState.activeExportJob ? { ...adapterState.activeExportJob } : null;
   state.importStatus = adapterState.importStatus;
   state.importError = adapterState.importError;
   state.importFileName = adapterState.importFileName;
@@ -1265,6 +1405,9 @@ function analysisToAdapterState(analysis: AnalysisTabState): ActiveAnalysisAdapt
     lastPresetMessage: analysis.lastPresetMessage,
     exportCounter: analysis.exportCounter,
     exportMessage: analysis.exportMessage,
+    lastSavedAtIso: analysis.lastSavedAtIso,
+    saveStatus: analysis.saveStatus,
+    activeExportJob: analysis.activeExportJob ? { ...analysis.activeExportJob } : null,
     importStatus: analysis.importStatus,
     importError: analysis.importError,
     importFileName: analysis.importFileName,
@@ -1279,6 +1422,14 @@ function createRuntimeInstanceId() {
       ? crypto.randomUUID()
       : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
   return `tab-${randomPart}`;
+}
+
+function createExportJobId() {
+  const randomPart =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return `output-${randomPart}`;
 }
 
 function cloneAnalysisTab(analysis: AnalysisTabState): AnalysisTabState {

@@ -1,5 +1,15 @@
 # CHANGELOG.md
 
+## 2026-07-11 - Audit remediation S6 save continuity and async isolation
+
+- Added browser refresh/close protection whenever any analysis tab has unsaved changes.
+- Moved Analysis XLSX continuation saving to a top-level `분석 저장` command with last snapshot time and later-change status.
+- Separated original Excel open, Excel append, saved-analysis restore, and Quick Paste commands with file-role validation.
+- Added per-analysis output job reservation so save/export/clipboard completion cannot update another, closed, or replaced tab.
+- Kept dirty state unchanged for ordinary exports, kept clipboard actions counter-free, and made failed jobs reuse the same output number.
+- Removed Analysis XLSX from report/data Export controls; the header now owns the single continuation-save workflow used by normal, save-and-close, and recovery paths.
+- Updated desktop regression tests and stable file-input locators for the expanded import command set.
+
 ## Purpose
 User visible and release relevant change history.
 

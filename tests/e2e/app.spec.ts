@@ -11,12 +11,12 @@ test("renders the upload-first PCR workspace", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "데이터 가져오기" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "데이터 선택" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "그래프 미리보기" })).toBeVisible();
-  await expect(page.getByText("Excel 파일 또는 소량 표 붙여넣기를 사용합니다. Excel은 첫 번째 worksheet만 사용합니다.")).toBeVisible();
+  await expect(page.getByText("원본 Excel은 첫 번째 시트만 읽고, 모든 데이터는 브라우저 안에서 처리합니다.")).toBeVisible();
 });
 
 test("previews and imports full-table and single-specimen pasted data", async ({ page }, testInfo) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "붙여넣기 입력" }).click();
+  await page.getByRole("button", { name: "빠른 붙여넣기" }).click();
   let dialog = page.getByRole("dialog", { name: "소량 표 붙여넣기" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("textbox", { name: "표 데이터" })).toBeFocused();
@@ -32,13 +32,13 @@ test("previews and imports full-table and single-specimen pasted data", async ({
   await dialog.getByRole("button", { name: "현재 분석에 추가" }).click();
 
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByText(/Paste import 1 · 2 curves/)).toBeVisible();
+  await expect(page.getByText(/Paste import 1 · 곡선 2개/)).toBeVisible();
   await page.getByRole("searchbox", { name: "검색" }).fill("Assay 1");
   await page.getByRole("button", { name: "표시 선택" }).click();
   await expect(page.getByText("1개 curve 선택됨")).toBeVisible();
   await expect(page.locator(".echarts-surface canvas")).toBeVisible();
 
-  await page.getByRole("button", { name: "붙여넣기 입력" }).click();
+  await page.getByRole("button", { name: "빠른 붙여넣기" }).click();
   dialog = page.getByRole("dialog", { name: "소량 표 붙여넣기" });
   await dialog.getByRole("radio", { name: "한 검체의 시약별 값" }).click();
   await dialog.getByRole("textbox", { name: "검체명" }).fill("Comparison Sample");
@@ -48,7 +48,7 @@ test("previews and imports full-table and single-specimen pasted data", async ({
   await dialog.getByRole("button", { name: "새 분석으로 열기" }).click();
 
   await expect(page.getByRole("tab", { name: "Paste import 2" })).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByText(/Paste import 2 · 1 curves/)).toBeVisible();
+  await expect(page.getByText(/Paste import 2 · 곡선 1개/)).toBeVisible();
   await expect(page.getByText("선택 0")).toBeVisible();
 });
 
@@ -78,10 +78,10 @@ test("uploads an xlsx workbook and keeps reagent-first collapsed selection", asy
   writeWorkbookFixture(appendWorkbookPath, "검체 2");
 
   await page.goto("/");
-  await page.locator("input[type='file']").first().setInputFiles(workbookPath);
+  await page.getByTestId("original-data-input").setInputFiles(workbookPath);
 
-  await expect(page.getByText(/phase3-upload.xlsx · 2 curves/)).toBeVisible();
-  const primaryFileInput = page.locator("input[type='file']").first();
+  await expect(page.getByText(/phase3-upload.xlsx · 곡선 2개/)).toBeVisible();
+  const primaryFileInput = page.getByTestId("original-data-input");
   await primaryFileInput.setInputFiles(appendWorkbookPath);
   const replaceDialog = page.getByRole("alertdialog", { name: "Unsaved analysis" });
   await expect(replaceDialog).toBeVisible();
@@ -105,8 +105,8 @@ test("uploads an xlsx workbook and keeps reagent-first collapsed selection", asy
   await expect(page.getByText("선택 1")).toBeVisible();
   await expect(page.getByText("1개 curve 선택됨")).toBeVisible();
 
-  await page.locator("input[type='file']").nth(1).setInputFiles(appendWorkbookPath);
-  await expect(page.getByText(/combined_2_files · 4 curves/)).toBeVisible();
+  await page.getByTestId("append-excel-input").setInputFiles(appendWorkbookPath);
+  await expect(page.getByText(/combined_2_files · 곡선 4개/)).toBeVisible();
   await expect(page.getByText("선택 1")).toBeVisible();
   await expect(page.getByText("1개 curve 선택됨")).toBeVisible();
 
@@ -149,7 +149,7 @@ test("uploads an xlsx workbook and keeps reagent-first collapsed selection", asy
   }
   await expect(exportDetails).toHaveAttribute("open", "");
   await expect(page.getByRole("button", { name: "Save PNG" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Analysis XLSX" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "분석 저장" })).toBeEnabled();
 
   const chartWrap = page.locator(".chart-canvas-wrap");
   const before = await chartWrap.boundingBox();
@@ -193,7 +193,7 @@ test("preserves long legend identity and distinguishable line-marker raster samp
   writeLegendIdentityWorkbook(workbookPath);
   await page.setViewportSize({ width: 1920, height: 1080 });
   await page.goto("/");
-  await page.locator("input[type='file']").first().setInputFiles(workbookPath);
+  await page.getByTestId("original-data-input").setInputFiles(workbookPath);
   await page.getByRole("button", { name: "표시 선택" }).click();
 
   const lotALabel = "Assay concentration profile with distinguishing Lot A";
@@ -236,9 +236,9 @@ test("preserves formatted Excel identity and exposes actionable warning provenan
   const workbookPath = testInfo.outputPath("s4-warning-provenance.xlsx");
   writeWarningProvenanceWorkbook(workbookPath);
   await page.goto("/");
-  await page.locator("input[type='file']").first().setInputFiles(workbookPath);
+  await page.getByTestId("original-data-input").setInputFiles(workbookPath);
 
-  await expect(page.getByText(/s4-warning-provenance\.xlsx · 2 curves/u)).toBeVisible();
+  await expect(page.getByText(/s4-warning-provenance\.xlsx · 곡선 2개/u)).toBeVisible();
   await expect(page.getByRole("button", { name: /▸ R1/u })).toBeVisible();
   const inspector = page.locator(".import-panel .warning-inspector");
   await inspector.locator("summary").click();
@@ -272,7 +272,7 @@ test("preserves formatted Excel identity and exposes actionable warning provenan
   const exportDetails = exportSummary.locator("..");
   if ((await exportDetails.getAttribute("open")) === null) await exportSummary.click();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Analysis XLSX" }).click();
+  await page.getByRole("button", { name: "분석 저장" }).click();
   const download = await downloadPromise;
   const downloadPath = await download.path();
   expect(downloadPath).not.toBeNull();
@@ -291,25 +291,25 @@ test("creates and switches internal analysis tabs", async ({ page }, testInfo) =
   await page.goto("/");
   await expect(page.getByRole("tab", { name: "Analysis 1" })).toHaveAttribute("aria-selected", "true");
 
-  await page.locator("input[type='file']").first().setInputFiles(workbookPath);
+  await page.getByTestId("original-data-input").setInputFiles(workbookPath);
   await expect(page.getByRole("tab", { name: /phase-r3-tabs.xlsx/ })).toHaveAttribute("aria-selected", "true");
 
-  await page.getByRole("button", { name: /Close phase-r3-tabs.xlsx/ }).click();
-  await expect(page.getByRole("alertdialog", { name: "Unsaved analysis" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Save Analysis XLSX then close" })).toBeEnabled();
-  await page.getByRole("button", { name: "Cancel close" }).click();
+  await page.getByRole("button", { name: "phase-r3-tabs.xlsx 닫기" }).click();
+  await expect(page.getByRole("alertdialog", { name: "저장하지 않은 분석" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Analysis XLSX 저장 후 닫기" })).toBeEnabled();
+  await page.getByRole("button", { name: "취소" }).click();
 
-  await page.getByRole("button", { name: "New analysis" }).click();
+  await page.getByRole("button", { name: "새 분석" }).click();
   await expect(page.getByRole("tab", { name: "Analysis 2" })).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator(".dirty-status", { hasText: "Clean" })).toBeVisible();
+  await expect(page.locator(".dirty-status", { hasText: "데이터 없음" })).toBeVisible();
 
-  await page.getByRole("textbox", { name: "Analysis name" }).fill("Run B");
+  await page.getByRole("textbox", { name: "분석 이름" }).fill("Run B");
   await expect(page.getByRole("tab", { name: /Run B/ })).toHaveAttribute("aria-selected", "true");
 
   await page.getByRole("tab", { name: /phase-r3-tabs.xlsx/ }).click();
-  await expect(page.getByRole("textbox", { name: "Analysis name" })).toHaveValue("phase-r3-tabs.xlsx");
+  await expect(page.getByRole("textbox", { name: "분석 이름" })).toHaveValue("phase-r3-tabs.xlsx");
   await page.getByRole("tab", { name: /Run B/ }).click();
-  await expect(page.getByRole("textbox", { name: "Analysis name" })).toHaveValue("Run B");
+  await expect(page.getByRole("textbox", { name: "분석 이름" })).toHaveValue("Run B");
 });
 
 function writeWorkbookFixture(filePath: string, specimenLabel: string) {
@@ -483,7 +483,7 @@ async function applyBoxZoom(page: Page, canvasLocator: Locator) {
 
 async function previewBoundaryPaste(page: Page, sourceText: string, firstExpected: string, secondExpected: string) {
   await page.goto("/");
-  await page.getByRole("button", { name: "붙여넣기 입력" }).click();
+  await page.getByRole("button", { name: "빠른 붙여넣기" }).click();
   const dialog = page.getByRole("dialog", { name: "소량 표 붙여넣기" });
   await dialog.getByRole("textbox", { name: "표 데이터" }).evaluate((element, value) => {
     const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;

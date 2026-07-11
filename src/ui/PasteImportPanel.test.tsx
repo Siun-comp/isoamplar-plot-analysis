@@ -16,7 +16,7 @@ describe("Quick Paste Import UI", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "붙여넣기 입력" }));
+    await user.click(screen.getByRole("button", { name: "빠른 붙여넣기" }));
     const dialog = screen.getByRole("dialog", { name: "소량 표 붙여넣기" });
     const textarea = within(dialog).getByRole("textbox", { name: "표 데이터" });
     expect(textarea).toHaveFocus();
@@ -42,13 +42,13 @@ describe("Quick Paste Import UI", () => {
     expect(useAppStore.getState().dataset?.curves).toHaveLength(2);
     expect(useAppStore.getState().selection?.selectedCurveIds.size).toBe(0);
     expect(useAppStore.getState().dataset?.curves[0].source.sourceKind).toBe("paste");
-    expect(screen.getByRole("button", { name: "붙여넣기 입력" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "빠른 붙여넣기" })).toHaveFocus();
   });
 
   it("keeps a preview stale after source text changes and is changed back", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole("button", { name: "붙여넣기 입력" }));
+    await user.click(screen.getByRole("button", { name: "빠른 붙여넣기" }));
     const dialog = screen.getByRole("dialog", { name: "소량 표 붙여넣기" });
     const textarea = within(dialog).getByRole("textbox", { name: "표 데이터" });
     await user.type(textarea, "S1{enter}A1{enter}0.1");
@@ -67,7 +67,7 @@ describe("Quick Paste Import UI", () => {
   it("allows trace-name changes without reparsing or changing curve identity", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole("button", { name: "붙여넣기 입력" }));
+    await user.click(screen.getByRole("button", { name: "빠른 붙여넣기" }));
     const dialog = screen.getByRole("dialog", { name: "소량 표 붙여넣기" });
     await user.type(within(dialog).getByRole("textbox", { name: "표 데이터" }), "S1{enter}A1{enter}0.1");
     await user.click(within(dialog).getByRole("button", { name: "미리보기 생성" }));
@@ -84,7 +84,7 @@ describe("Quick Paste Import UI", () => {
   it("requires acknowledgement before importing fluorescence values converted to null", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole("button", { name: "붙여넣기 입력" }));
+    await user.click(screen.getByRole("button", { name: "빠른 붙여넣기" }));
     const dialog = screen.getByRole("dialog", { name: "소량 표 붙여넣기" });
     await user.type(within(dialog).getByRole("textbox", { name: "표 데이터" }), "S1{enter}A1{enter}bad");
     await user.click(within(dialog).getByRole("button", { name: "미리보기 생성" }));
@@ -100,7 +100,7 @@ describe("Quick Paste Import UI", () => {
   it("makes every warning location reachable through bounded pagination", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole("button", { name: "붙여넣기 입력" }));
+    await user.click(screen.getByRole("button", { name: "빠른 붙여넣기" }));
     const dialog = screen.getByRole("dialog", { name: "소량 표 붙여넣기" });
     const textarea = within(dialog).getByRole("textbox", { name: "표 데이터" });
     const sourceText = ["S1", "A1", ...Array.from({ length: 26 }, () => ""), "1"].join("\n");
@@ -118,7 +118,7 @@ describe("Quick Paste Import UI", () => {
   it("opens single-specimen input as an independent new analysis", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole("button", { name: "붙여넣기 입력" }));
+    await user.click(screen.getByRole("button", { name: "빠른 붙여넣기" }));
     const dialog = screen.getByRole("dialog", { name: "소량 표 붙여넣기" });
     await user.click(within(dialog).getByRole("radio", { name: "한 검체의 시약별 값" }));
     await user.type(within(dialog).getByRole("textbox", { name: "검체명" }), "Specimen X");
@@ -141,7 +141,7 @@ describe("Quick Paste Import UI", () => {
   it("blocks new-analysis confirmation when the preview target changed", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole("button", { name: "붙여넣기 입력" }));
+    await user.click(screen.getByRole("button", { name: "빠른 붙여넣기" }));
     const dialog = screen.getByRole("dialog", { name: "소량 표 붙여넣기" });
     await user.type(within(dialog).getByRole("textbox", { name: "표 데이터" }), "S1{enter}A1{enter}0.1");
     await user.click(within(dialog).getByRole("button", { name: "미리보기 생성" }));
@@ -157,7 +157,7 @@ describe("Quick Paste Import UI", () => {
   it("does not mutate the analysis when preview parsing fails", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole("button", { name: "붙여넣기 입력" }));
+    await user.click(screen.getByRole("button", { name: "빠른 붙여넣기" }));
     const dialog = screen.getByRole("dialog", { name: "소량 표 붙여넣기" });
     await user.type(within(dialog).getByRole("textbox", { name: "표 데이터" }), "S1,S2{enter}A1,A2{enter}0.1,0.2");
     await user.click(within(dialog).getByRole("button", { name: "미리보기 생성" }));
@@ -176,7 +176,7 @@ describe("Quick Paste Import UI", () => {
     });
     render(<App />);
     const beforeRevision = useAppStore.getState().revision;
-    await user.click(screen.getByRole("button", { name: "붙여넣기 입력" }));
+    await user.click(screen.getByRole("button", { name: "빠른 붙여넣기" }));
     const dialog = screen.getByRole("dialog", { name: "소량 표 붙여넣기" });
     await user.type(within(dialog).getByRole("textbox", { name: "표 데이터" }), "S1{enter}A1{enter}0.1");
     await user.click(within(dialog).getByRole("button", { name: "미리보기 생성" }));
@@ -191,7 +191,7 @@ describe("Quick Paste Import UI", () => {
   it("renders the accepted 3 by 83,333 wide preview with bounded visible rows", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole("button", { name: "붙여넣기 입력" }));
+    await user.click(screen.getByRole("button", { name: "빠른 붙여넣기" }));
     const dialog = screen.getByRole("dialog", { name: "소량 표 붙여넣기" });
     const textarea = within(dialog).getByRole("textbox", { name: "표 데이터" });
     const row = Array.from({ length: 83_333 }, () => "S").join("\t");
@@ -211,7 +211,7 @@ describe("Quick Paste Import UI", () => {
   it("renders the accepted 250,000 by 1 tall preview with bounded visible cycles", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole("button", { name: "붙여넣기 입력" }));
+    await user.click(screen.getByRole("button", { name: "빠른 붙여넣기" }));
     const dialog = screen.getByRole("dialog", { name: "소량 표 붙여넣기" });
     const textarea = within(dialog).getByRole("textbox", { name: "표 데이터" });
     const sourceText = ["S", "A", ...Array.from({ length: 249_998 }, () => "0")].join("\n");
@@ -228,7 +228,7 @@ describe("Quick Paste Import UI", () => {
   it("renders the accepted 500 by 500 empty-heavy preview without expanding all warnings", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole("button", { name: "붙여넣기 입력" }));
+    await user.click(screen.getByRole("button", { name: "빠른 붙여넣기" }));
     const dialog = screen.getByRole("dialog", { name: "소량 표 붙여넣기" });
     const textarea = within(dialog).getByRole("textbox", { name: "표 데이터" });
     const header = Array.from({ length: 500 }, () => "S").join("\t");

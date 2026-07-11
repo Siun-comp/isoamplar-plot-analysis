@@ -36,7 +36,7 @@ Update this file when parsing rules, data types, invalid data handling, internal
 | IO-002 | CSV file | Deferred beyond MVP. | FR-002 | TBD |
 | IO-003 | Pasted table | Implemented post-MVP Quick Paste Import. The user pastes a small table into a textarea using either full-table mode, row 1 specimen labels / row 2 reagent labels / row 3+ fluorescence values, or single-specimen mode, one supplied specimen name / pasted row 1 reagent labels / pasted row 2+ fluorescence values. The app generates a read-only preview, source-position warnings, row/column/cell/character/curve/cycle counts, and an approximate minimum working-memory estimate before append/new-analysis import. No in-app cell editing or source-data correction is allowed. | FR-003 | AC-QP-001 through AC-QP-021 |
 | IO-004 | Manual entry / editing | Deferred beyond MVP. Imported data is not editable in MVP. | FR-003 | AC-PCR-017 |
-| IO-005 | Analysis XLSX restore file | Support `.xlsx` files containing the hidden IsoAmplar restore sheet. `파일 선택` restores/replaces the active analysis when safe or after explicit dirty replace confirmation; `추가 선택` opens the saved analysis as a new internal tab. | FR-017, FR-018 | AC-PCR-033, AC-PCR-034, AC-PCR-036, AC-PCR-037 |
+| IO-005 | Analysis XLSX restore file | Support `.xlsx` files containing the hidden IsoAmplar restore sheet through the dedicated `저장한 분석 열기` command. A valid restore file opens as an independent clean internal analysis tab. `원본 데이터 열기` and `Excel 추가` reject Analysis XLSX with guidance instead of restoring or merging it. | FR-017, FR-018 | AC-PCR-033, AC-PCR-034, AC-PCR-036, AC-PCR-037, AC-PCR-049B |
 
 ## Excel Rules
 MVP target:
@@ -76,6 +76,11 @@ Analysis XLSX is a project/session restore file for IsoAmplar Plot Analysis. It 
 - If no usable analysis name is available, the safe name segment falls back to `analysis`.
 - The analysis name segment must be sanitized so characters invalid on Windows/macOS/Linux filesystems are removed or replaced.
 - Failed Analysis XLSX exports do not consume the analysis export counter.
+- The existing analysis header owns the single `분석 저장` command and always explains that Analysis XLSX contains the full imported dataset, including unselected/hidden curves, plus analysis settings.
+- Runtime save status records the last completed snapshot time. If the analysis changes while the workbook is generated, the downloaded snapshot remains valid but the live analysis stays dirty and is shown as having later changes.
+- Any dirty tab installs browser refresh/close protection. All-clean workspaces remove that protection. Analysis XLSX remains the explicit persistence path; no automatic localStorage or IndexedDB copy is created.
+- Every output job captures its starting analysis ID, runtime instance, revision, and reserved counter. Same-analysis output jobs are serialized; different analyses may run independently.
+- Ordinary image/data export success updates only the starting tab message/counter and does not change its current dirty value. Clipboard success/failure never consumes a counter. Any failure leaves the counter reusable. Closed/replaced runtimes receive no completion update.
 
 Workbook shape:
 
@@ -110,8 +115,10 @@ Routing policy:
 
 - `파일 선택` + original Excel: replace active analysis when clean, or show dirty confirmation with Cancel / Replace current analysis / Open as new analysis.
 - `추가 선택` + original Excel: append to active analysis.
-- `파일 선택` + Analysis XLSX: restore into active analysis when clean, or show dirty confirmation with Cancel / Replace current analysis / Open as new analysis.
-- `추가 선택` + Analysis XLSX: open as a new internal analysis tab.
+- `원본 데이터 열기`: accepts ordinary `.xls/.xlsx` source data only. Analysis XLSX is rejected with guidance to use the restore command.
+- `Excel 추가`: appends ordinary Excel data only. Analysis XLSX is never merged into a current dataset.
+- `저장한 분석 열기`: accepts valid Analysis XLSX restore files only and opens each as an independent clean internal tab. Ordinary Excel is rejected with guidance to use the original-data command.
+- `빠른 붙여넣기`: keeps the existing preview plus append/new-analysis confirmation flow.
 - Dirty tab close shows explicit options: Cancel, save Analysis XLSX then close, or close without saving. Dirty replacement never proceeds silently.
 
 If the hidden restore worksheet is missing, corrupt, chunk-damaged, or has an unsupported schema version, the app must show an actionable error and must not misinterpret the file as a normal PCR source workbook. Ordinary `.xlsx` source workbooks are treated as Analysis XLSX only when they contain the explicit IsoAmplar restore marker, so review-like sheet names such as `Settings` or `ImportedData` alone do not change routing. Current Analysis XLSX uses schema 3 and normalized dataset schema 2. Schema 1 is migrated by deriving explicit applied scale state and legacy source/header/warning provenance. Schema 2 keeps its explicit applied scale and migrates legacy header/warning provenance. Schema 3 requires explicit applied scale, Excel header provenance, warning handling, and source-reference arrays; missing required state is rejected as corrupt. Restore may fill only documented non-destructive legacy defaults.

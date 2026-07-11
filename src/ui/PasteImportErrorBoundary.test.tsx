@@ -27,7 +27,7 @@ describe("Quick Paste dialog error containment", () => {
     const user = userEvent.setup();
     render(<App />);
     const beforeRevision = useAppStore.getState().revision;
-    await user.click(screen.getByRole("button", { name: "붙여넣기 입력" }));
+    await user.click(screen.getByRole("button", { name: "빠른 붙여넣기" }));
     const dialog = screen.getByRole("dialog", { name: "소량 표 붙여넣기" });
     await user.click(within(dialog).getByRole("radio", { name: "한 검체의 시약별 값" }));
     fireEvent.change(within(dialog).getByRole("textbox", { name: "검체명" }), { target: { value: "Recovery specimen" } });

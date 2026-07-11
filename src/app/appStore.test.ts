@@ -657,6 +657,83 @@ describe("app store style preset and legend order", () => {
     expect(useAppStore.getState().exportMessage).toContain("Unsaved 상태를 유지");
   });
 
+  it("routes a completed export to its starting analysis after switching tabs", () => {
+    useAppStore.getState().loadDataset(createOneSpecimenEightReagentDataset());
+    const firstId = useAppStore.getState().activeAnalysisId;
+    const firstDirty = useAppStore.getState().dirty;
+    const job = useAppStore.getState().beginExportJob("file", true);
+    expect(job).not.toBeNull();
+
+    const secondId = useAppStore.getState().createAnalysis("Second");
+    expect(useAppStore.getState().completeExportJob(job!, "Saved A.png.")).toBe("completed");
+
+    expect(useAppStore.getState().activeAnalysisId).toBe(secondId);
+    expect(useAppStore.getState().exportMessage).toBeNull();
+    expect(useAppStore.getState().analyses[firstId].exportMessage).toBe("Saved A.png.");
+    expect(useAppStore.getState().analyses[firstId].exportCounter).toBe(2);
+    expect(useAppStore.getState().analyses[firstId].dirty).toBe(firstDirty);
+  });
+
+  it("does not mutate a closed or replaced runtime when an old output job completes", () => {
+    useAppStore.getState().loadDataset(createOneSpecimenEightReagentDataset());
+    const closedJob = useAppStore.getState().beginExportJob("file", true)!;
+    useAppStore.getState().closeAnalysis(closedJob.analysisId, { force: true });
+    expect(useAppStore.getState().completeExportJob(closedJob, "stale")).toBe("missing");
+    expect(useAppStore.getState().exportCounter).toBe(1);
+    expect(useAppStore.getState().exportMessage).toBeNull();
+
+    useAppStore.getState().loadDataset(createOneSpecimenEightReagentDataset());
+    const replacedJob = useAppStore.getState().beginExportJob("file", true)!;
+    useAppStore.getState().loadDataset(createOneSpecimenEightReagentDataset());
+    expect(useAppStore.getState().completeExportJob(replacedJob, "stale")).toBe("missing");
+    expect(useAppStore.getState().exportCounter).toBe(1);
+  });
+
+  it("keeps later changes dirty when an Analysis XLSX snapshot completes", () => {
+    useAppStore.getState().loadDataset(createOneSpecimenEightReagentDataset());
+    const job = useAppStore.getState().beginExportJob("analysisSave", true)!;
+    useAppStore.getState().setSearchQuery("changed during save");
+
+    expect(useAppStore.getState().completeExportJob(job, "Saved snapshot.xlsx.", "2026-07-11T03:00:00.000Z")).toBe(
+      "changed"
+    );
+    const state = useAppStore.getState();
+    expect(state.dirty).toBe(true);
+    expect(state.saveStatus).toBe("changed");
+    expect(state.lastSavedAtIso).toBe("2026-07-11T03:00:00.000Z");
+    expect(state.exportCounter).toBe(2);
+    expect(state.exportMessage).toContain("이후 변경 있음");
+  });
+
+  it("reuses a failed output counter and does not consume counters for clipboard jobs", () => {
+    useAppStore.getState().loadDataset(createOneSpecimenEightReagentDataset());
+    const failed = useAppStore.getState().beginExportJob("file", true)!;
+    expect(useAppStore.getState().beginExportJob("file", true)).toBeNull();
+    expect(useAppStore.getState().failExportJob(failed, "failed")).toBe("failed");
+    expect(useAppStore.getState().exportCounter).toBe(1);
+
+    const retry = useAppStore.getState().beginExportJob("file", true)!;
+    expect(retry.reservedCounter).toBe(1);
+    useAppStore.getState().completeExportJob(retry, "saved");
+    expect(useAppStore.getState().exportCounter).toBe(2);
+
+    const clipboard = useAppStore.getState().beginExportJob("clipboard", false)!;
+    useAppStore.getState().completeExportJob(clipboard, "copied");
+    expect(useAppStore.getState().exportCounter).toBe(2);
+  });
+
+  it("allows independent output jobs in different analyses", () => {
+    useAppStore.getState().loadDataset(createOneSpecimenEightReagentDataset());
+    const firstJob = useAppStore.getState().beginExportJob("file", true)!;
+    useAppStore.getState().createAnalysis("Second");
+    useAppStore.getState().loadDataset(createOneSpecimenEightReagentDataset());
+    const secondJob = useAppStore.getState().beginExportJob("file", true)!;
+
+    expect(firstJob.analysisId).not.toBe(secondJob.analysisId);
+    expect(useAppStore.getState().completeExportJob(firstJob, "first")).toBe("completed");
+    expect(useAppStore.getState().completeExportJob(secondJob, "second")).toBe("completed");
+  });
+
   it("tracks analysis names, source summaries, and dirty close blocking per tab", () => {
     const dataset = createOneSpecimenEightReagentDataset();
     const firstTabId = useAppStore.getState().activeAnalysisId;
@@ -785,7 +862,7 @@ describe("app store style preset and legend order", () => {
     expect(useAppStore.getState().dirty).toBe(true);
   });
 
-  it("blocks a pending Analysis XLSX restore if the target tab becomes dirty before restore finishes", async () => {
+  it("rejects Analysis XLSX from the original-data command without changing its dirty target", async () => {
     await useAppStore.getState().importFile(createWorkbookFile("source.xlsx", "Specimen 1", "A1", 0.1));
     const analysisFile = await createCurrentAnalysisXlsxFile("saved-analysis.xlsx");
     useAppStore.getState().reset();
@@ -801,7 +878,7 @@ describe("app store style preset and legend order", () => {
     expect(useAppStore.getState().analysisName).toBe("Dirty restore target");
     expect(useAppStore.getState().dataset).toBeNull();
     expect(useAppStore.getState().importStatus).toBe("error");
-    expect(useAppStore.getState().importError).toContain("Replace is blocked");
+    expect(useAppStore.getState().importError).toContain("저장한 분석 열기");
     expect(useAppStore.getState().dirty).toBe(true);
   });
 
@@ -863,6 +940,24 @@ describe("app store style preset and legend order", () => {
     expect(state.dirty).toBe(true);
   });
 
+  it("drops a stale new-tab parse failure after its starting runtime is closed and recreated", async () => {
+    const target = useAppStore.getState();
+    const delayedFile = createDelayedArrayBufferFile(new File([new Uint8Array([1, 2, 3])], "broken.xlsx"));
+    const importPromise = useAppStore
+      .getState()
+      .importFileWithMode(delayedFile.file, "newTab", target.activeAnalysisId);
+
+    useAppStore.getState().closeAnalysis(target.activeAnalysisId, { force: true });
+    expect(useAppStore.getState().activeAnalysisId).toBe(target.activeAnalysisId);
+    expect(useAppStore.getState().runtimeInstanceId).not.toBe(target.runtimeInstanceId);
+    delayedFile.release();
+    await importPromise;
+
+    expect(useAppStore.getState().importError).toBeNull();
+    expect(useAppStore.getState().analysisOrder).toHaveLength(1);
+    expect(useAppStore.getState().dataset).toBeNull();
+  });
+
   it("preserves the existing analysis after failed append import", async () => {
     await useAppStore.getState().importFile(createWorkbookFile("first.xlsx", "Specimen 1", "A1", 0.1));
     const beforeCurveIds = useAppStore.getState().dataset?.orderedCurveIds;
@@ -880,7 +975,7 @@ describe("app store style preset and legend order", () => {
     expect(useAppStore.getState().importStatus).toBe("ready");
   });
 
-  it("restores Analysis XLSX into the active clean tab without carrying runtime dirty state", async () => {
+  it("opens Analysis XLSX in a new clean tab without carrying runtime dirty state", async () => {
     await useAppStore.getState().importFile(createWorkbookFile("source.xlsx", "Specimen 1", "A1", 0.1));
     const firstCurveId = useAppStore.getState().dataset?.curves[0].curveId ?? "";
     useAppStore.getState().renameAnalysis(useAppStore.getState().activeAnalysisId, "Saved run");
@@ -895,10 +990,11 @@ describe("app store style preset and legend order", () => {
     const analysisFile = await createCurrentAnalysisXlsxFile("saved-analysis.xlsx");
 
     const targetTabId = useAppStore.getState().createAnalysis("Restore target");
-    await useAppStore.getState().importFile(analysisFile);
+    await useAppStore.getState().openAnalysisFile(analysisFile);
 
     const state = useAppStore.getState();
-    expect(state.activeAnalysisId).toBe(targetTabId);
+    expect(state.activeAnalysisId).not.toBe(targetTabId);
+    expect(state.analysisOrder).toHaveLength(3);
     expect(state.analysisName).toBe("Saved run");
     expect(state.dataset?.sourceFileName).toBe("source.xlsx");
     expect(state.selection?.selectedCurveIds.has(firstCurveId)).toBe(true);
@@ -909,10 +1005,10 @@ describe("app store style preset and legend order", () => {
     expect(state.exportSettings.imageLayout).toBe("legendOnly");
     expect(state.exportCounter).toBe(2);
     expect(state.dirty).toBe(false);
-    expect(state.analyses[targetTabId].dirty).toBe(false);
+    expect(state.analyses[targetTabId].dataset).toBeNull();
   });
 
-  it("opens appended Analysis XLSX as a new independent tab instead of merging into the active dataset", async () => {
+  it("opens Analysis XLSX through its dedicated command as a new independent tab", async () => {
     await useAppStore.getState().importFile(createWorkbookFile("source.xlsx", "Specimen 1", "A1", 0.1));
     const sourceTabId = useAppStore.getState().activeAnalysisId;
     const sourceCurveCount = useAppStore.getState().dataset?.curves.length;
@@ -925,7 +1021,7 @@ describe("app store style preset and legend order", () => {
     useAppStore.getState().markExportSuccess("Saved plot1.png.");
     const analysisFile = await createCurrentAnalysisXlsxFile("saved-analysis.xlsx");
 
-    await useAppStore.getState().appendFile(analysisFile);
+    await useAppStore.getState().openAnalysisFile(analysisFile);
 
     const state = useAppStore.getState();
     expect(state.activeAnalysisId).not.toBe(sourceTabId);

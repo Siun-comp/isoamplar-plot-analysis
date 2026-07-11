@@ -11,6 +11,7 @@ type PendingReplaceFile = {
 export function DataImportPanel() {
   const confirmationTitleId = useId();
   const primaryInputRef = useRef<HTMLInputElement>(null);
+  const analysisInputRef = useRef<HTMLInputElement>(null);
   const confirmationDialogRef = useRef<HTMLDialogElement>(null);
   const confirmationCancelRef = useRef<HTMLButtonElement>(null);
   const restorePrimaryFocusRef = useRef(false);
@@ -22,6 +23,7 @@ export function DataImportPanel() {
   const importFile = useAppStore((state) => state.importFile);
   const importFileWithMode = useAppStore((state) => state.importFileWithMode);
   const appendFile = useAppStore((state) => state.appendFile);
+  const openAnalysisFile = useAppStore((state) => state.openAnalysisFile);
   const [pendingReplaceFile, setPendingReplaceFile] = useState<PendingReplaceFile | null>(null);
   const busy = importStatus === "importing";
 
@@ -78,13 +80,14 @@ export function DataImportPanel() {
     <section className="import-panel" aria-labelledby="import-title">
       <div>
         <h2 id="import-title">데이터 가져오기</h2>
-        <p>Excel 파일 또는 소량 표 붙여넣기를 사용합니다. Excel은 첫 번째 worksheet만 사용합니다.</p>
+        <p>원본 Excel은 첫 번째 시트만 읽고, 모든 데이터는 브라우저 안에서 처리합니다.</p>
       </div>
       <div className="import-actions">
         <label className={`file-button ${busy ? "is-disabled" : ""}`} aria-disabled={busy}>
-          파일 선택
+          원본 데이터 열기
           <input
             ref={primaryInputRef}
+            data-testid="original-data-input"
             className="file-input"
             type="file"
             disabled={busy}
@@ -97,9 +100,10 @@ export function DataImportPanel() {
           />
         </label>
         <label className={`file-button ${!dataset || busy ? "is-disabled" : ""}`} aria-disabled={!dataset || busy}>
-          추가 선택
+          Excel 추가
           <input
             className="file-input"
+            data-testid="append-excel-input"
             type="file"
             disabled={!dataset || busy}
             accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -111,6 +115,23 @@ export function DataImportPanel() {
           />
         </label>
         <PasteImportPanel disabled={busy} />
+        <span className="import-action-separator" aria-hidden="true" />
+        <label className={`file-button ${busy ? "is-disabled" : ""}`} aria-disabled={busy}>
+          저장한 분석 열기
+          <input
+            ref={analysisInputRef}
+            data-testid="analysis-restore-input"
+            className="file-input"
+            type="file"
+            disabled={busy}
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              if (file) void openAnalysisFile(file);
+              event.currentTarget.value = "";
+            }}
+          />
+        </label>
       </div>
 
       <div className="import-summary" aria-live="polite">
@@ -119,7 +140,7 @@ export function DataImportPanel() {
         {importStatus === "error" && <span className="error-text">{importError}</span>}
         {dataset && (
           <span>
-            {dataset.sourceFileName} · {dataset.curves.length} curves · warnings {dataset.warnings.length}
+            {dataset.sourceFileName} · 곡선 {dataset.curves.length}개 · 경고 {dataset.warnings.length}개
           </span>
         )}
         {dataset && importError && importStatus !== "error" && <span className="error-text">{importError}</span>}

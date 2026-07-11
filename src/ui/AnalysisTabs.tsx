@@ -1,11 +1,13 @@
-import { useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useAppStore } from "../app/appStore";
-import { createAnalysisState } from "../analysis/analysisState";
-import { createAnalysisWorkbookFileName, exportAnalysisWorkbookBlob } from "../analysis/analysisWorkbook";
-import { downloadBlob } from "../chart/exportChart";
+import { saveActiveAnalysis } from "../analysis/saveAnalysisWorkflow";
 
 export function AnalysisTabs() {
   const confirmationTitleId = "analysis-close-confirmation-title";
+  const confirmationDialogRef = useRef<HTMLDialogElement>(null);
+  const confirmationCancelRef = useRef<HTMLButtonElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const restoreCloseFocusRef = useRef(false);
   const activeAnalysisId = useAppStore((state) => state.activeAnalysisId);
   const analysisOrder = useAppStore((state) => state.analysisOrder);
   const analyses = useAppStore((state) => state.analyses);
@@ -13,14 +15,37 @@ export function AnalysisTabs() {
   const dirty = useAppStore((state) => state.dirty);
   const dataset = useAppStore((state) => state.dataset);
   const selection = useAppStore((state) => state.selection);
+  const lastSavedAtIso = useAppStore((state) => state.lastSavedAtIso);
+  const saveStatus = useAppStore((state) => state.saveStatus);
+  const activeExportJob = useAppStore((state) => state.activeExportJob);
   const createAnalysis = useAppStore((state) => state.createAnalysis);
   const switchAnalysis = useAppStore((state) => state.switchAnalysis);
   const renameAnalysis = useAppStore((state) => state.renameAnalysis);
   const closeAnalysis = useAppStore((state) => state.closeAnalysis);
-  const markAnalysisSaveSuccess = useAppStore((state) => state.markAnalysisSaveSuccess);
   const [message, setMessage] = useState<string | null>(null);
   const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
   const [savingClose, setSavingClose] = useState(false);
+
+  useEffect(() => {
+    const dialog = confirmationDialogRef.current;
+    if (!dialog) return;
+    let focusTimer: number | undefined;
+    if (pendingCloseId && !dialog.open) {
+      if (typeof dialog.showModal === "function") dialog.showModal();
+      else dialog.setAttribute("open", "");
+      focusTimer = window.setTimeout(() => confirmationCancelRef.current?.focus(), 0);
+    } else if (!pendingCloseId && dialog.open) {
+      if (typeof dialog.close === "function") dialog.close();
+      else dialog.removeAttribute("open");
+      if (restoreCloseFocusRef.current) {
+        restoreCloseFocusRef.current = false;
+        focusTimer = window.setTimeout(() => closeButtonRef.current?.focus(), 0);
+      }
+    }
+    return () => {
+      if (focusTimer !== undefined) window.clearTimeout(focusTimer);
+    };
+  }, [pendingCloseId]);
 
   function handleCreateAnalysis() {
     const nextId = createAnalysis();
@@ -45,6 +70,7 @@ export function AnalysisTabs() {
   }
 
   function cancelPendingClose() {
+    restoreCloseFocusRef.current = true;
     setPendingCloseId(null);
     setMessage(null);
   }
@@ -54,6 +80,11 @@ export function AnalysisTabs() {
     const didClose = closeAnalysis(pendingCloseId, { force: true });
     setPendingCloseId(didClose ? null : pendingCloseId);
     setMessage(didClose ? null : "Analysis could not be closed.");
+  }
+
+  async function saveCurrentAnalysis() {
+    setMessage(null);
+    await saveActiveAnalysis();
   }
 
   async function saveAndClosePendingAnalysis() {
@@ -67,39 +98,12 @@ export function AnalysisTabs() {
     setSavingClose(true);
     setMessage(null);
     try {
-      const nextExportCounter = state.exportCounter + 1;
-      const analysisState = createAnalysisState({
-        analysisId: state.activeAnalysisId,
-        analysisName: state.analysisName,
-        dataset: state.dataset,
-        selection: state.selection,
-        searchQuery: state.searchQuery,
-        selectionFilter: state.selectionFilter,
-        chartScale: state.chartScale,
-        styleRules: state.styleRules,
-        curveOverrides: state.curveOverrides,
-        legendSettings: state.legendSettings,
-        exportSettings: state.exportSettings,
-        exportCounter: nextExportCounter,
-        importFileName: state.importFileName,
-        sourceFiles: state.sourceFiles,
-        dirty: state.dirty
-      });
-      const blob = await exportAnalysisWorkbookBlob(analysisState);
-      const fileName = createAnalysisWorkbookFileName(state.exportCounter, new Date(), state.analysisName);
-      downloadBlob(blob, fileName);
-      const saveResult = markAnalysisSaveSuccess({
-        analysisId: state.activeAnalysisId,
-        runtimeInstanceId: state.runtimeInstanceId,
-        expectedRevision: state.revision,
-        savedExportCounter: nextExportCounter,
-        message: `Saved ${fileName}.`
-      });
-      if (saveResult !== "saved") {
+      const saveResult = await saveActiveAnalysis();
+      if (saveResult.status !== "saved") {
         setMessage(
-          saveResult === "changed"
-            ? "Analysis changed while the file was being saved. The current analysis remains open and Unsaved."
-            : "The original analysis tab is no longer available."
+          saveResult.status === "changed"
+            ? "파일 snapshot은 저장했지만 저장 중 변경된 내용이 있어 현재 분석을 닫지 않았습니다."
+            : saveResult.message
         );
         return;
       }
@@ -145,12 +149,12 @@ export function AnalysisTabs() {
           })}
         </div>
         <button type="button" className="analysis-new-button" onClick={handleCreateAnalysis}>
-          New analysis
+          새 분석
         </button>
       </div>
 
       <div className="analysis-name-row">
-        <label htmlFor="analysis-name">Analysis name</label>
+        <label htmlFor="analysis-name">분석 이름</label>
         <input
           id="analysis-name"
           type="text"
@@ -165,14 +169,31 @@ export function AnalysisTabs() {
             }
           }}
         />
-        <span className={dirty ? "dirty-status is-dirty" : "dirty-status"}>{dirty ? "Unsaved" : "Clean"}</span>
+        <div className="analysis-save-summary" aria-live="polite">
+          <span className={dirty ? "dirty-status is-dirty" : "dirty-status"}>
+            {!dataset ? "데이터 없음" : dirty ? "저장 이후 변경 있음" : "저장됨"}
+          </span>
+          <small>{formatSaveStatus(dataset !== null, dirty, saveStatus, lastSavedAtIso)}</small>
+          <small title="가져온 전체 데이터(미선택·숨김 포함)와 분석 설정을 저장하는 복원용 Analysis XLSX 파일">
+            Analysis XLSX 복원 파일: 가져온 전체 데이터(미선택·숨김 포함)와 분석 설정 저장
+          </small>
+        </div>
         <button
           type="button"
+          className="analysis-save-button"
+          disabled={!dataset || !selection || activeExportJob !== null}
+          onClick={() => void saveCurrentAnalysis()}
+        >
+          분석 저장
+        </button>
+        <button
+          ref={closeButtonRef}
+          type="button"
           className="analysis-active-close"
-          aria-label={`Close ${analysisName.trim() || "Untitled analysis"}`}
+          aria-label={`${analysisName.trim() || "이름 없는 분석"} 닫기`}
           onClick={() => handleCloseAnalysis(activeAnalysisId)}
         >
-          Close
+          닫기
         </button>
       </div>
       {message && (
@@ -180,32 +201,67 @@ export function AnalysisTabs() {
           {message}
         </p>
       )}
-      {pendingCloseId && (
-        <div className="confirmation-panel" role="alertdialog" aria-modal="true" aria-labelledby={confirmationTitleId}>
-          <h3 id={confirmationTitleId}>Unsaved analysis</h3>
+      <dialog
+        ref={confirmationDialogRef}
+        className="confirmation-panel"
+        role="alertdialog"
+        aria-labelledby={confirmationTitleId}
+        onCancel={(event) => {
+          event.preventDefault();
+          if (savingClose) return;
+          cancelPendingClose();
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== "Escape") return;
+          event.preventDefault();
+          if (savingClose) return;
+          cancelPendingClose();
+        }}
+      >
+        {pendingCloseId && (
+          <>
+          <h3 id={confirmationTitleId}>저장하지 않은 분석</h3>
           <p>현재 분석에 저장되지 않은 변경사항이 있습니다. 닫기 전에 Analysis XLSX로 저장하거나 저장하지 않고 닫을 수 있습니다.</p>
           <div className="confirmation-actions">
-            <button type="button" aria-label="Cancel close" disabled={savingClose} onClick={cancelPendingClose}>
-              Cancel
+            <button ref={confirmationCancelRef} type="button" disabled={savingClose} onClick={cancelPendingClose}>
+              취소
             </button>
             <button
               type="button"
-              aria-label="Save Analysis XLSX then close"
+              aria-label="Analysis XLSX 저장 후 닫기"
               disabled={savingClose || !dataset || !selection}
               onClick={() => void saveAndClosePendingAnalysis()}
             >
               Analysis XLSX 저장 후 닫기
             </button>
-            <button type="button" aria-label="Close without saving" disabled={savingClose} onClick={discardAndClosePendingAnalysis}>
+            <button type="button" disabled={savingClose} onClick={discardAndClosePendingAnalysis}>
               저장하지 않고 닫기
             </button>
           </div>
-        </div>
-      )}
+          </>
+        )}
+      </dialog>
     </section>
   );
 }
 
 function createTabId(analysisId: string) {
   return `analysis-tab-${analysisId}`;
+}
+
+function formatSaveStatus(
+  hasDataset: boolean,
+  dirty: boolean,
+  saveStatus: ReturnType<typeof useAppStore.getState>["saveStatus"],
+  lastSavedAtIso: string | null
+) {
+  if (!hasDataset) return "저장할 분석 데이터 없음";
+  if (saveStatus === "saving") return "저장 중...";
+  if (saveStatus === "error") return "저장 실패 · 현재 분석은 유지됨";
+  if (!lastSavedAtIso && saveStatus === "saved") return "저장한 분석에서 열림 · 이후 변경 없음";
+  if (!lastSavedAtIso) return "마지막 저장 없음 · 이후 변경 있음";
+  const time = new Intl.DateTimeFormat("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false }).format(
+    new Date(lastSavedAtIso)
+  );
+  return dirty ? `마지막 저장 ${time} · 이후 변경 있음` : `마지막 저장 ${time} · 저장됨`;
 }
