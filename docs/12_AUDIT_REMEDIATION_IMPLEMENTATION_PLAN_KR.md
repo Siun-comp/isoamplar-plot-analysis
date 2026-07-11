@@ -2,11 +2,11 @@
 
 ## 문서 상태
 
-- 상태: Implemented - Phases S0 through S11 release preparation
+- 상태: Implemented - Phases S0 through S11 released
 - 작성일: 2026-07-11
 - 기준 감사: `docs/11_GPT56_PROJECT_AUDIT_KR.md`
 - 적용 대상: 현재 로컬 working tree 전체
-- 구현 상태: Phases S0-S10 구현·검증·커밋 완료. S11 문서 동기화와 release candidate 검증·배포 진행 중.
+- 구현 상태: Phases S0-S11 구현·검증·커밋 완료. 최종 SHA `eae3281fb8f9bbbd900fab528be3e094b93b555a`가 GitHub Pages에 배포되어 public smoke를 통과했다.
 - Owner: Product / Engineering / QA
 
 ## 압축 안전 요약
@@ -15,7 +15,7 @@
 - Phase S0부터 S11까지 순서대로 진행한다. 앞 단계의 품질 게이트를 통과하지 못하면 다음 단계로 넘어가지 않는다.
 - 모바일, 서버, 로그인, 실시간 협업, multi-plot, native editable Excel chart, 원본 fluorescence 편집·보정·임상판독 계산은 범위 밖이다.
 - 모든 수치 데이터는 원본 fluorescence를 그대로 유지한다. 빈 값은 gap으로 남기며 smoothing, normalization, baseline correction, log 변환, 평균, threshold, Ct/Cq 계산을 추가하지 않는다.
-- 현재 working tree에는 미커밋 구현이 많다. S0의 baseline commit/tag는 사용자 승인 전 실행하지 않는다.
+- S0 baseline과 S11 release tag/rollback SHA가 기록되어 있으며, 이후 변경도 같은 검증·승격 절차를 따른다.
 - 입력 상한 수치, 자동 복구 저장, 자동 스타일 변경, 대규모 화면 재배치, 후속 Workflow 기능은 사용자 결정 전 확정하지 않는다.
 - 각 Phase는 테스트, build, Playwright/브라우저 확인, 전문가 검토, 관련 문서 갱신, 사용자 검수 후 종료한다. 커밋·push·배포는 별도 승인 후에만 수행한다.
 

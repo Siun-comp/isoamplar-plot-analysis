@@ -10,6 +10,7 @@
 - Clarified the public and in-app research/kit-development boundary, aligned the saved-analysis control name, replaced overstated per-file Analysis XLSX verification language, and added a Korean workflow glossary for implementation terms still visible in the UI.
 - Displayed the user-defined P1/P2 label in the applied-scale status instead of the internal `PRESET1`/`PRESET2` state key.
 - Removed historical Markdown trailing whitespace exposed by the full `main` promotion diff, and made post-browser dist comparison conditional on a successfully created dist baseline so early CI failures do not add a misleading missing-dist error.
+- Released audit remediation SHA `eae3281fb8f9bbbd900fab528be3e094b93b555a` under tag `release-20260711-audit-remediation-r1`; branch CI and Pages deployment passed full unit/audit/dependency/fresh-Chromium/exact-dist gates, followed by byte-identical public asset and synthetic import/render/style/scale/export/restore/network smoke.
 
 ## 2026-07-11 - Audit remediation S10 release verification
 

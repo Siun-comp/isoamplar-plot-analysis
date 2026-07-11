@@ -1,7 +1,7 @@
 # 15 릴리스 후보 및 배포 증거
 
 ## 상태
-Pre-deploy release candidate preparation
+Released - post-deploy smoke passed
 
 ## 기준일
 2026-07-11
@@ -11,9 +11,10 @@ Pre-deploy release candidate preparation
 
 ## Candidate 식별자
 - Candidate branch: `codex/audit-remediation`
-- Candidate commit: 배포 전 최종 commit 후 기록
-- Candidate tag: 배포 전 생성 후 기록
-- Last-known-good public SHA: `9e77ad23ec8e863d3d05e7c8508ceb4729372155`
+- Initial candidate commit/tag: `dcdbc21c01adafd355fa60d9d0cda0e54c853444` / `release-20260711-audit-remediation`
+- Final promoted commit/tag: `eae3281fb8f9bbbd900fab528be3e094b93b555a` / `release-20260711-audit-remediation-r1`
+- Pre-release rollback SHA: `9e77ad23ec8e863d3d05e7c8508ceb4729372155`
+- Current released SHA: `eae3281fb8f9bbbd900fab528be3e094b93b555a`
 - Local Pages-base dist tree SHA-256: `1012572727dd66d74763775f828fef165baa24012c61c770db6617e90d6cce46`
 - Public URL: https://siun-comp.github.io/isoamplar-plot-analysis/
 
@@ -35,20 +36,22 @@ Pre-deploy release candidate preparation
 - [x] 최종 working tree와 문서 link 검사
 - [x] 전체 test/audit/build/fresh Chromium
 - [x] exact dist hash 재기록
-- [ ] 4역할 최종 감사 GO
-- [ ] candidate commit/tag 생성
-- [ ] branch CI 성공
+- [x] 4역할 최종 감사 GO - product/domain, data/privacy, desktop UX/accessibility, QA/release
+- [x] candidate commit/tag 생성
+- [x] branch CI 성공
 
 ## 공개 Pages smoke
-- [ ] HTTP 200, title/icon/static asset base path
-- [ ] synthetic `.xlsx` import와 reagent-first collapsed state
-- [ ] curve 선택 후 nonblank canvas
-- [ ] Fixed/Box zoom/Previous scale
-- [ ] custom legend와 line/marker identity
-- [ ] PNG download와 white background
-- [ ] Analysis XLSX save/restore
-- [ ] 예상하지 않은 console/page error 없음
-- [ ] 예상하지 않은 runtime cross-origin request 없음
+- [x] HTTP 200, title/icon/static asset base path
+- [x] synthetic `.xlsx` import와 reagent-first collapsed state
+- [x] curve 선택 후 nonblank canvas
+- [x] P2/Box zoom/Previous scale
+- [x] custom legend와 dashed-line/circle-marker identity
+- [x] PNG download와 white opaque background
+- [x] Analysis XLSX save/restore
+- [x] 예상하지 않은 console/page error 없음
+- [x] 예상하지 않은 runtime cross-origin request 없음
+
+공개 smoke는 합성 fixture만 사용했다. 공개 URL의 25개 known `dist` file을 로컬 검증 artifact와 byte 비교해 mismatch 0을 확인했다. 내보낸 PNG는 2400 x 1772, 네 모서리 흰색, alpha 255였고, Analysis XLSX는 공개 앱에서 새 분석 탭으로 복원됐다.
 
 ## 사용자 수동 검수
 - [ ] 실제 업무 workbook의 label/curve/warning 확인
@@ -81,8 +84,10 @@ Pre-deploy release candidate preparation
 5. rollback SHA, workflow run, 공개 URL 결과를 `DEVELOPMENT_STATE.md`에 기록한다.
 
 ## 배포 후 기록
-- Branch CI run: pending
-- Pages workflow run: pending
-- Deployed SHA: pending
-- Post-deploy smoke: pending
-- Rollback required: pending
+- Final branch CI run: https://github.com/Siun-comp/isoamplar-plot-analysis/actions/runs/29156244025 - success, 11 Chromium tests
+- Initial Pages run: https://github.com/Siun-comp/isoamplar-plot-analysis/actions/runs/29156159533 - failed before build on historical Markdown trailing whitespace; no deployment occurred and the prior public version remained active
+- Final Pages workflow run: https://github.com/Siun-comp/isoamplar-plot-analysis/actions/runs/29156323546 - success
+- Deployed SHA: `eae3281fb8f9bbbd900fab528be3e094b93b555a`
+- Post-deploy smoke: pass at 2026-07-11 23:39 KST
+- Rollback required: no
+- Nonblocking workflow annotation: GitHub reports Node 20 deprecation for current action majors while forcing them to Node 24; both branch and Pages workflows completed successfully

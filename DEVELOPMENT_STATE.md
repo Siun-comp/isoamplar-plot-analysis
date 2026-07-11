@@ -12,7 +12,8 @@ Active
 ## CURRENT TRUTH
 
 - Active branch: `codex/audit-remediation`; it does not trigger the Pages deploy workflow.
-- Last published rollback: `9e77ad23ec8e863d3d05e7c8508ceb4729372155` on `main`.
+- Current published release: `eae3281fb8f9bbbd900fab528be3e094b93b555a` on `main`, tag `release-20260711-audit-remediation-r1`.
+- Pre-release rollback anchor: `9e77ad23ec8e863d3d05e7c8508ceb4729372155`.
 - Pre-remediation checkpoint: commit `319daa901221b4d5811eafb44f82319ddcedf296`, tag `checkpoint/audit-remediation-baseline-20260711`.
 - Phase S0 is complete. Phase S1 evidence foundation was committed as `1e30717` after local verification and expert review.
 - Phase S2 numeric/scale remediation is complete on the active branch after full verification and final independent expert GO review.
@@ -24,11 +25,12 @@ Active
 - Phase S8 desktop UI and density remediation is complete on the active branch after full verification and final independent code/UX GO verdicts.
 - Phase S9 hover/editor performance remediation is committed as `5ef12ec` after deterministic work-unit, full unit, production build, reusable no-retry measurement, fresh Chromium, in-app desktop, dependency, and final independent code/UX GO gates.
 - Phase S10 fresh CI, exact-dist, network, raster, clipboard-fallback, Analysis XLSX exact browser roundtrip, Pages base-path, and least-permission promotion gates are committed as `f505ab6` after final independent release/security and browser/data-integrity GO verdicts.
-- Phase S11 documentation synchronization and release preparation are in progress under the user's standing commit/push/deploy approval.
+- Phase S11 documentation synchronization, release verification, four-role final audit, GitHub Pages deployment, and public smoke are complete.
 - S1 adds synthetic-only fixed `.xlsx`/BIFF8 `.xls` fixtures, SHA-256 manifest, normalized/target snapshots, raster evidence helper, Target/Known-red acceptance criteria, traceability, and a read-only non-deploying CI workflow.
 - Product runtime behavior is unchanged by S1. No parser, chart, state, export, UI, dependency, or Pages deployment behavior was modified.
 - Latest S10 verification: the standard suite passed 32 files / 265 tests with no TODO; isolated audit probe passed; production dependency audit found 0 vulnerabilities; Pages-base build and fresh Chromium passed 11/11 with fail-on-flaky enabled. Complete dist tree hash `d4818b8cdfe826c374dd9ca4f5145f2119f2418b7a5859eb8849813161f85706` was byte-identical before and after Playwright. The 1366x768 in-app Pages-path preview had no horizontal overflow or console warning/error.
 - Latest S11 pre-commit verification: the standard suite passed 32 files / 265 tests; isolated audit probe passed 1/1; production dependency audit found 0 vulnerabilities; Pages-base build and fresh Chromium passed 11/11 with fail-on-flaky. Complete dist tree hash `1012572727dd66d74763775f828fef165baa24012c61c770db6617e90d6cce46` was byte-identical before and after Playwright. A representative workbook outside the repository passed local-only import, all-curve selection, nonblank canvas, P1/P2 application, and browser-error checks without copying labels, values, or paths into evidence.
+- Final branch CI run `29156244025` and Pages run `29156323546` succeeded for SHA `eae3281fb8f9bbbd900fab528be3e094b93b555a`. Public smoke compared all 25 known `dist` files byte-for-byte and passed synthetic XLSX import, reagent-first collapsed state, nonblank chart, P2/Box zoom/Previous scale, dashed-line/circle-marker legend identity, opaque white PNG, Analysis XLSX restore, zero unexpected external requests, and zero browser errors. Initial Pages run `29156159533` failed before build on historical Markdown whitespace and did not deploy.
 - User data remains browser-local. No real workbook, patient/specimen record, or actual fluorescence dataset is checked into S1 fixtures.
 - The user has granted standing approval for subsequent remediation phase commits. Continue phases sequentially, but do not push or deploy until the plan reaches the corresponding release phase.
 
@@ -55,16 +57,16 @@ Active
 - The latest UI consistency pass normalizes button/form-control sizing across top tabs, import actions, selection controls, chart tools, scale controls, legend controls, and export controls; status badges remain intentionally smaller. It also scopes settings accordion summary styling so nested Style color/line popover triggers stay compact, tightens reset-icon button padding, and removes an obsolete hidden Export legend button wrapper.
 - Quick Paste Import Phases Q0-Q6 are implemented from `docs/10_QUICK_PASTE_IMPORT_PLAN_KR.md`. It supports full-table and single-specimen input, tab-separated and single-column text, read-only preview, paginated source-position warnings with acknowledgement, stale/target revision guards for append and new-analysis actions, per-import source identity, mixed-source Analysis XLSX continuity, and the existing chart/export pipeline. Comma/CSV tables are rejected to prevent silent delimiter corruption.
 - A 2026-07-11 code/data-integrity/desktop-UX audit is complete in `docs/11_GPT56_PROJECT_AUDIT_KR.md`. Mobile was explicitly excluded. No P0 issue was identified; Stabilization A prioritizes invalid Fixed-scale export fallback, exported-legend identity truncation, Excel formatted-header identity, actionable Excel warnings, browser refresh/close protection, and accepted-size Quick Paste crash prevention. The audit also records P2 state/export/performance risks, documentation drift, and workflow candidates such as Warning Center, explicit save commands, Named Views, and optional export preflight.
-- The audit remediation plan is active in `docs/12_AUDIT_REMEDIATION_IMPLEMENTATION_PLAN_KR.md`. Phases S0-S10 are committed; S11 documentation synchronization and release preparation are in progress.
+- The audit remediation plan in `docs/12_AUDIT_REMEDIATION_IMPLEMENTATION_PLAN_KR.md` is implemented through S11 and the release is active on GitHub Pages.
 
 ## Current Goal
-Synchronize all current documentation and the synthetic user guide, complete the final four-role audit, then create and deploy the release candidate under standing approval and record post-deploy/rollback evidence.
+Commit and push the completed S11 deployment evidence, then hand the released build to the user for domain-specific manual acceptance.
 
 ## Current Milestone
 M9 - Release validation and real-data hardening.
 
 ## Last Completed Step
-Completed S11 local release-candidate preparation. README, charter, I/O, acceptance, plans, traceability, release checklist, and the 16-page synthetic-only guide now describe the current desktop workflow and clinical-use boundary. The guide passed ReportLab generation, Poppler page rendering, visual inspection, text extraction, and sensitive-term/path scans. Domain and data/privacy reviews are GO; QA found no code/workflow blocker and is waiting only for candidate SHA, branch CI, Pages deployment, and public-smoke evidence. Final local unit/audit/dependency/build/fresh Chromium/exact-dist and representative-workbook technical checks passed.
+Deployed S11 corrected candidate `eae3281fb8f9bbbd900fab528be3e094b93b555a` after successful branch CI and Pages workflow. Public-origin asset, import, chart, scale, legend style identity, PNG, Analysis XLSX, network, console, and desktop visual smoke passed. Deployment evidence and rollback history are recorded in `docs/15_RELEASE_CANDIDATE_KR.md`; product/domain, data/privacy, desktop UX/accessibility, and QA/release final reviews are GO.
 
 ## Latest Changed Files
 - `.github/workflows/pages.yml`
@@ -602,18 +604,19 @@ Completed S11 local release-candidate preparation. README, charter, I/O, accepta
   - `docs/gui_mockups/screenshots/phase-r12_hover_warning_mobile.png`
 
 ## Known Gaps
-- Phases S0-S10 are committed; S11 local candidate preparation is complete, while candidate commit/tag, branch CI, Pages deployment, post-deploy smoke, and final release-evidence closeout remain in progress.
+- Phases S0-S11 are implemented, deployed, and independently reviewed with no automated release blocker.
 - S2-S7A resolve invalid Fixed-scale fallback, accepted-envelope large-array hazards, exported-legend identity loss, Excel formatted-header identity, actionable source-aware warnings, localized containment, browser refresh/close protection, captured-tab async output routing, contradictory Analysis XLSX restoration, non-BMP restore chunk damage, and plotted CSV formula-like headers.
 - S8 resolves the inactive Legend panel, laptop-height chart availability, compact individual-style identity, and clipped style-popover defects without introducing a new editor workflow or mobile redesign.
 - Clipboard image copy and rich Excel-cell legend paste have not been manually verified in Chrome/Edge on the final deployment origin.
-- The audit CSV probe, S8 desktop evidence, and S10 local release-quality CI evidence are passing with no remaining automated TODO. Actual GitHub workflow and public-origin evidence remain S11 work.
-- Public URL technical smoke used generated `.xlsx` workbooks. Real `C:\Users\siunj\Desktop\graph_TEST.xlsx` has been inspected read-only but has not yet been uploaded through the finished UI in this session; final domain judgement for real labels/curve counts remains a user/manual validation item.
+- The audit probe, desktop evidence, local release gates, GitHub workflows, and public-origin evidence are passing with no remaining automated TODO.
+- A representative workbook outside the repository passed local-only technical import/render/P1/P2 checks. Final judgement for actual labels, warning meaning, comparison ranges, style, report readability, and large-file comfort remains a user/manual validation item.
 - Performance budgets for max file size, row count, specimen count, imported curve count, and rendered curve count remain undecided.
 - Analysis XLSX now reports payload measurements and passes a generated 96-curve by 100-cycle roundtrip, but no hard browser-memory/file-size guard is claimed until UD-02 is decided. SheetJS workbook parse/write peak allocation remains a residual risk.
 - P1/P2 scale presets are user-editable per analysis session and represented in AnalysisState; they can be preserved through explicit Analysis XLSX export/import but not automatic browser-session persistence.
 - Analysis XLSX currently stores restore JSON and visible review sheets, but it does not include a native editable Excel chart or a static chart image workbook.
 - Group style controls are now compact, but individual curve style rows can still become dense when many curves are selected; a broader style overview/editor pattern remains a future UX candidate.
 - Internal analysis tab count warning/hard-cap policy remains undecided.
+- GitHub Actions currently emits a nonblocking Node 20 deprecation annotation for the installed action majors while running them successfully under the forced Node 24 runtime; action-major migration should be evaluated separately from the released product.
 
 ## Important Links
 - Project root: `H:\Vibe Cording\Graph`
@@ -634,6 +637,6 @@ Completed S11 local release-candidate preparation. README, charter, I/O, accepta
 - Local production preview: `http://127.0.0.1:4173/`
 
 ## Next 3 Tasks
-1. Receive the final desktop-UX verdict, stage the verified S11 tree, and create the release-candidate commit.
-2. Push `codex/audit-remediation`, verify branch CI, tag the candidate, and fast-forward it to `main`.
-3. Verify the Pages workflow and public-origin import/render/export/browser-local smoke, then record SHA/run/tag/rollback evidence and close the final QA review.
+1. User manually verifies representative workbooks, intended P1/P2/style choices, report readability, and Windows Chrome/Edge-to-Excel clipboard fidelity.
+2. Record any domain-specific issue with source location, expected curve/scale/style, and exported evidence before changing parser or chart policy.
+3. Decide only when needed on official payload limits, internal tab cap, hosting access control, and GitHub action-major migration.

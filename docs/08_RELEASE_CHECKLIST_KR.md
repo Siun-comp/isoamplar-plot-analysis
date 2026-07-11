@@ -17,6 +17,7 @@ Active release gate
 - [x] local dist tree SHA-256: `1012572727dd66d74763775f828fef165baa24012c61c770db6617e90d6cce46`
 - [x] 1366x768 in-app Pages-path preview: no horizontal overflow, no console warning/error
 - [x] independent release/security and browser/data-integrity GO
+- [x] final product/domain, data/privacy, desktop UX/accessibility, QA/release four-role GO
 - [x] repository 밖 representative workbook의 local-only import, 전체 선택, nonblank canvas, P1/P2 적용, browser error 0
 
 ## 자동 브라우저 범위
@@ -36,8 +37,8 @@ Active release gate
 - [x] deploy job만 `pages: write`, `id-token: write` 사용
 - [x] Pages artifact upload 전 unit/audit/dependency/Chromium/dist equality 통과
 - [x] screenshot, trace, browser console, network evidence failure artifact 보존
-- [ ] release candidate push workflow run 성공
-- [ ] 공개 Pages URL에서 post-deploy smoke 성공
+- [x] release candidate push workflow run 성공: `29156244025`
+- [x] 공개 Pages URL에서 post-deploy smoke 성공: `29156323546`, deployed SHA `eae3281fb8f9bbbd900fab528be3e094b93b555a`
 
 ## 사용자 수동 확인
 - [ ] 실제 업무 Excel에서 검체/시약 label, curve 수, warning이 의도와 일치하는지 확인

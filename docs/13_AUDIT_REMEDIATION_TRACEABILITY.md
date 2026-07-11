@@ -2,13 +2,14 @@
 
 ## Status
 
-- Phase: S9 hover/editor performance remediation in verification
+- Phase: S11 released on GitHub Pages
 - Updated: 2026-07-11
-- Product acceptance state: Target / Known red unless explicitly marked passing baseline
+- Product acceptance state: Passing S11 release; unresolved user-decision items remain outside accepted scope
 - Data policy: synthetic-only fixtures and generated values
 
 ## Status Vocabulary
 
+- `Release passing`: implemented acceptance, CI, deployment, and public smoke evidence are recorded.
 - `Baseline passing`: existing behavior is protected by an active test.
 - `Partial known red`: isolated defect-signature probe reproduces a specified subset of the audit defect; this is not acceptance.
 - `Target TODO`: acceptance wording is frozen but no executable probe is safe or complete yet.
@@ -152,4 +153,6 @@ S1 completes when fixed hashes, passing baseline tests, isolated known-red probe
 - The 16-page Korean first-user guide uses synthetic-only examples and screenshots and has passed PDF text extraction, sensitive-term/path scanning, Poppler rendering, and page-level visual review.
 - Final pre-commit gates passed 32 files / 265 Vitest tests, one audit probe, zero high/critical production dependency vulnerabilities, Pages-base build, and fresh Chromium 11/11. The complete candidate dist tree SHA-256 `1012572727dd66d74763775f828fef165baa24012c61c770db6617e90d6cce46` was byte-identical before/after Playwright.
 - A representative workbook stored outside the repository passed local-only import, all-curve selection, nonblank canvas, P1/P2 applied-state labels, and browser-error checks; no real label, value, workbook path, screenshot, or exported artifact entered repository evidence.
-- S11 completes only after final unit/audit/build/fresh Chromium/exact-dist gates, four-role independent GO review, branch CI, candidate tag, Pages deployment, and public HTTP/import/render/export/browser-local-network smoke are recorded.
+- Final branch CI run `29156244025` and Pages run `29156323546` passed for promoted SHA `eae3281fb8f9bbbd900fab528be3e094b93b555a`, tagged `release-20260711-audit-remediation-r1`. The initial candidate Pages run `29156159533` failed before build on historical Markdown whitespace and did not deploy; the corrected workflow passed the same full-range formatting gate.
+- Public smoke compared all 25 known `dist` files byte-for-byte, imported a synthetic XLSX, rendered a nonblank chart, applied/restored P2/Box zoom, preserved dashed-line/circle-marker legend identity, downloaded an opaque white PNG, restored Analysis XLSX, and observed zero unexpected external requests or browser errors.
+- Remaining actual-workbook label judgement, business P1/P2 range/style choice, Windows clipboard/Excel fidelity, report readability, and large-workbook comfort are explicit user acceptance checks rather than automated release claims.
