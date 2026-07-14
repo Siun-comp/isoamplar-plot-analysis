@@ -118,4 +118,8 @@ Released - post-deploy smoke passed
 - Proportional line-width distinctions and matching Plot + Legend sample geometry: pass
 - Final independent re-audit: all prior P2/P3 findings resolved; no release blocker, GO; original runtime remains Threshold-free
 - 17-page original user guide Export page: Poppler render QA pass
-- Status: local gate complete; commit, Pages deployment, and public smoke pending
+- Product commit: `95c297705632d1bffb4f5b01eae6329872a20538`
+- Pages workflow: `29317061923` - success
+- Public smoke: HTTP 200, correct original title, subpath assets loaded, zero console/page errors
+- T counterpart: `274260b394d6b9af395a60f5d38e759d926a4ffb`, Pages run `29317052614` - success
+- Status: deployed; rollback not required

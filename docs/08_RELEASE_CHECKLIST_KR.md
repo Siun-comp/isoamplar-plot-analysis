@@ -32,7 +32,7 @@ Active release gate
 - [x] proportional line-width distinction and matching Plot + Legend sample geometry
 - [x] 원본판 exact `dist` pre/post Playwright equality: `c9bc77c0be7fa90372c872e949352ac283c74dfbe7232d9aa7896616f3ca9e8f`
 - [x] 원본 사용자 가이드 17-page PDF 재생성과 Export page render QA
-- [ ] 원본판 commit/push/Pages/public smoke
+- [x] 원본판 commit/push/Pages/public smoke: `95c2977`, run `29317061923`
 - [x] repository 밖 representative workbook의 local-only import, 전체 선택, nonblank canvas, P1/P2 적용, browser error 0
 
 ## 자동 브라우저 범위
