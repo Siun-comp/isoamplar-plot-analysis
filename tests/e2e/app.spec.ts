@@ -521,10 +521,29 @@ test("records reusable S9 reference and stress workload measurements", async ({ 
     const exportStarted = performance.now();
     await page.locator(".settings-accordion > details > summary", { hasText: "Export" }).click();
     await expect(page.getByRole("button", { name: "Save PNG" })).toBeVisible();
+    await expect(page.getByLabel("Image export layout")).toHaveValue("plotOnly");
     await page.getByLabel("Image export layout").selectOption("plotOnly");
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Save PNG" }).click();
-    await downloadPromise;
+    const plotDownload = await downloadPromise;
+    if (workload.curveCount === 20) {
+      const plotPath = testInfo.outputPath("report-profile-plot-only.png");
+      await plotDownload.saveAs(plotPath);
+      const raster = await inspectRasterDataUrl(
+        page,
+        `data:image/png;base64,${readFileSync(plotPath).toString("base64")}`
+      );
+      expect(raster.width).toBe(2400);
+      expect(raster.height).toBe(1520);
+      expect(raster.whiteCornerPixels).toBe(4);
+      expect(raster.transparentPixels).toBe(0);
+      expect(raster.nonWhitePixels).toBeGreaterThan(1_000);
+      expect(raster.nonWhiteBounds).not.toBeNull();
+      expect(raster.nonWhiteBounds!.left).toBeGreaterThan(0);
+      expect(raster.nonWhiteBounds!.right).toBeLessThan(raster.width);
+      expect(raster.nonWhiteBounds!.top).toBeGreaterThan(0);
+      expect(raster.nonWhiteBounds!.bottom).toBeLessThan(raster.height);
+    }
     const plotOnlyPngExportMs = performance.now() - exportStarted;
 
     measurements.push({

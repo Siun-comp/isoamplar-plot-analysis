@@ -47,6 +47,7 @@ describe("chart export helpers", () => {
     ];
     const size = calculateLegendImageSize(items, 800);
     const svg = createLegendSvg(items, size.width, size.height);
+    const plotSvg = createLegendSvg(items, size.width, size.height, "plot");
 
     expect(size.height).toBeGreaterThan(58);
     expect(svg).toContain("A &amp; B");
@@ -55,6 +56,8 @@ describe("chart export helpers", () => {
     expect(svg).toContain("<circle");
     expect(svg).toContain("<polygon");
     expect(svg.match(/<(circle|polygon) /gu)).toHaveLength(2);
+    expect(plotSvg).toContain('stroke-width="5.4"');
+    expect(plotSvg).toContain('stroke-width="7.2"');
   });
 
   it("renders every line and marker combination without changing requested width", () => {

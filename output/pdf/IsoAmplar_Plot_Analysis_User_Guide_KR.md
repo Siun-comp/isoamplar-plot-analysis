@@ -170,15 +170,19 @@ Box zoom은 데이터 자체를 자르거나 변환하지 않는다. `Previous s
 
 | 출력 | 용도 | 주요 규칙 |
 | --- | --- | --- |
-| PNG/JPEG | 그래프 이미지 | 흰 배경, `YYMMDD_분석명_plotN.ext` |
-| Clipboard PNG | 문서에 바로 붙여넣기 | 브라우저 clipboard 권한 필요 |
+| PNG/JPEG | 그래프 이미지 | 흰 배경, `YYMMDD_분석명_plotN.ext`, 새 분석의 기본 레이아웃은 Plot only |
+| Clipboard PNG | 문서에 바로 붙여넣기 | 브라우저 clipboard 권한 필요, PNG/JPEG와 동일한 출력 프로필 |
 | Legend Clipboard PNG | 여러 plot과 하나의 legend 조합 | report-readable legend 사용 |
 | Copy for Excel | style sample과 label을 Excel의 별도 cell에 붙여넣기 | Chrome/Edge rich clipboard 권장 |
 | 선택 데이터 XLSX | 현재 선택 curve의 수치와 출처·warning을 Excel에서 정리 | 공통 X축 직사각형 데이터일 때 활성화, 앱 복원 불가 |
 | Plotted CSV | 현재 표시 curve의 공통 X축 데이터 | `기타 형식`의 보조 출력 |
 | Analysis XLSX | 전체 데이터와 설정 저장 | 선택하지 않은 curve도 포함 |
 
+Plot이 포함된 PNG/JPEG/Clipboard PNG는 Excel에서 약 9.5cm 너비로 배치해도 축 숫자와 곡선을 읽기 쉽도록 별도 출력 프로필을 사용한다. 이미지 자체는 2400px 너비를 유지하므로 9.5cm로 축소해도 해상도를 버리지 않는다. 이 프로필은 글자·여백·선 두께와 주요 눈금 밀도만 조정하며 raw fluorescence, 선택 curve, X/Y Scale, 순서와 Style 값은 변경하지 않는다. 웹 미리보기의 크기와 모양도 바뀌지 않는다.
+
 선택 데이터 XLSX에는 `PlottedData`, `CurveInfo`, `Warnings`, `ExportInfo`가 들어간다. 그래프의 Box zoom이나 표시 Scale과 관계없이 공통 X축 전체 행을 저장하며 fluorescence 숫자를 보정하거나 변환하지 않는다. 이 파일은 Excel 후속 정리용이므로 `원본 데이터 열기`, `Excel 추가`, `저장한 분석 열기`에 다시 넣을 수 없다.
+
+아래 화면은 출력 항목의 위치를 설명하기 위해 `Plot + Legend`를 선택한 예시다. 새 분석을 만들었을 때의 실제 기본값은 `Plot only`이며 필요할 때 사용자가 레이아웃을 바꿀 수 있다.
 
 ![Selected Data XLSX export](../../docs/gui_mockups/screenshots/selected_data_export_panel.png)
 

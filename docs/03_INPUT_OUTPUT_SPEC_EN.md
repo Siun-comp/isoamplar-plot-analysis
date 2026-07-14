@@ -308,7 +308,7 @@ This structure may be refined during implementation but must preserve curveId-ba
 | ID | Output | Initial Rule | Related Requirements | Acceptance Criteria |
 | --- | --- | --- | --- | --- |
 | IO-101 | Chart preview | Reflect current dataset, filters, mappings, layout, legend, fixed scales, and Box zoom-applied Fixed X/Y bounds. | FR-006 to FR-010 | AC-004 to AC-008, AC-PCR-044 |
-| IO-102 | Image download | Export the current chart preview as PNG or JPEG with white background. | FR-011 | AC-009, AC-PCR-010 |
+| IO-102 | Image download | Export the current chart projection as PNG or JPEG with white background. Plot-bearing output uses a 1200 x 760 logical export surface at 2x raster density, with enlarged export-only axis text, margins, ticks, curves, and markers so a 2400 px-wide image remains readable near 9.5 cm placement width. | FR-011 | AC-009, AC-PCR-010, AC-PCR-059 |
 | IO-103 | Clipboard output | Copy the selected chart image layout where supported, provide report legend-only PNG clipboard copy, provide rich Excel-cell report legend clipboard copy where supported, and show fallback on failure. | FR-012, FR-019 | AC-010, AC-PCR-031, AC-PCR-041 |
 | IO-104 | Static build | Produce static assets that work on GitHub Pages. | FR-013 | AC-011 |
 | IO-105 | Plotted data export | Export only currently plotted data when the current chart projection is simple and rectangular; otherwise disable with a clear reason. | FR-016 | AC-PCR-021, AC-PCR-022 |
@@ -322,6 +322,8 @@ This structure may be refined during implementation but must preserve curveId-ba
 - The analysis name segment is sanitized by trimming whitespace, replacing invalid filename characters and whitespace with `_`, collapsing repeated `_`, trimming surrounding `_`, and limiting the segment length. Blank or fully invalid names fall back to `analysis`.
 - Export excludes UI controls and includes only the chart output.
 - Export reflects current selected curves, scale, Box zoom-applied Fixed bounds, style, legend/order state, and selected export layout.
+- A new analysis defaults `imageLayout` to `plotOnly`. Analysis XLSX restores an explicitly saved `plotOnly`, `plotWithLegend`, or `legendOnly` value without overriding it.
+- Plot-bearing PNG/JPEG and clipboard rendering uses an export-only 9.5 cm report-readability profile. It does not mutate preview options, raw data, selected curves, Scale bounds, legend order, or saved style settings.
 - Image export layouts:
   - `plotOnly`: exports only the chart canvas with the built-in ECharts legend hidden.
   - `plotWithLegend`: exports the chart plus a custom legend area below the plot so the legend does not obscure plotted data.

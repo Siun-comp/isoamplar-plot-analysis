@@ -35,10 +35,10 @@ describe("GPT-5.6 audit remediation evidence", () => {
   });
 
   it("keeps CI and Pages promotion on fresh base-path-tested dist with least deployment permissions", () => {
-    const playwright = readFileSync(join(projectRoot, "playwright.config.ts"), "utf8");
-    const appE2e = readFileSync(join(projectRoot, "tests", "e2e", "app.spec.ts"), "utf8");
-    const branchCi = readFileSync(join(projectRoot, ".github", "workflows", "s1-ci.yml"), "utf8");
-    const pages = readFileSync(join(projectRoot, ".github", "workflows", "pages.yml"), "utf8");
+    const playwright = readProjectText("playwright.config.ts");
+    const appE2e = readProjectText("tests", "e2e", "app.spec.ts");
+    const branchCi = readProjectText(".github", "workflows", "s1-ci.yml");
+    const pages = readProjectText(".github", "workflows", "pages.yml");
 
     expect(playwright).toContain('"http://127.0.0.1:4174"');
     expect(playwright).toContain("--strictPort");
@@ -65,6 +65,10 @@ describe("GPT-5.6 audit remediation evidence", () => {
     expect(pages).toContain("permissions:\n      pages: write\n      id-token: write");
   });
 });
+
+function readProjectText(...segments: string[]) {
+  return readFileSync(join(projectRoot, ...segments), "utf8").replace(/\r\n?/gu, "\n");
+}
 
 function runIntegrity(root: string, script: string, ...args: string[]) {
   execFileSync(process.execPath, [script, ...args], { cwd: root, stdio: "pipe" });

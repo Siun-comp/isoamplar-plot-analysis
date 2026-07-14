@@ -101,3 +101,21 @@ Released - post-deploy smoke passed
 - Public smoke: 1280x720 synthetic original-data import, one-curve selection, Selection Set creation, Selected Data XLSX download/readback, five-sheet and hidden-role-marker verification, no document horizontal overflow, zero browser errors, zero unexpected external origins
 - Public URL: https://siun-comp.github.io/isoamplar-plot-analysis/
 - Rollback required: no
+
+## M13 원본판 보고서 출력 가독성 패치 - 로컬 후보
+
+- 신규 분석의 Chart image layout 기본값: `Plot only`
+- 기존 Analysis XLSX에 명시된 `plotOnly`, `plotWithLegend`, `legendOnly`: 값 그대로 복원
+- Plot 포함 PNG/JPEG/clipboard: 1200 x 760 논리 캔버스와 2x 래스터(2400px 너비), 9.5 cm 축소 배치를 고려한 축·선·마커·여백 출력 전용 프로필
+- Preview, raw fluorescence, 선택 curve, X/Y bounds, 순서와 스타일: 변경 없음
+- Threshold 기능과 annotation: 원본판에 추가하지 않음
+- `npm run test`: 38 files / 294 tests
+- `npm run test:audit`: 1/1
+- `npm audit --omit=dev --audit-level=high`: 0 vulnerabilities
+- Original Pages base-path build: pass
+- Fresh Chromium: 12/12, including downloaded 2400 x 1520 Plot PNG white/opaque/nonblank bounds
+- Exact `dist` pre/post Playwright SHA-256: `c9bc77c0be7fa90372c872e949352ac283c74dfbe7232d9aa7896616f3ca9e8f`, byte-identical
+- Proportional line-width distinctions and matching Plot + Legend sample geometry: pass
+- Final independent re-audit: all prior P2/P3 findings resolved; no release blocker, GO; original runtime remains Threshold-free
+- 17-page original user guide Export page: Poppler render QA pass
+- Status: local gate complete; commit, Pages deployment, and public smoke pending

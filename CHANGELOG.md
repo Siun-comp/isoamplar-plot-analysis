@@ -1,5 +1,11 @@
 # CHANGELOG.md
 
+## 2026-07-14 - Report-readable plot exports
+
+- Defaulted new analyses to `Plot only` while retaining explicitly saved Analysis XLSX layout choices.
+- Added an export-only 9.5 cm report-readability profile that keeps 2400px output and enlarges axes, ticks, curves, markers, and margins without changing preview geometry, raw fluorescence, selected curves, scales, order, or styles.
+- Preserved relative line-width differences, matched Plot + Legend samples to the plot geometry, and added a downloaded 2400 x 1520 Plot PNG browser regression.
+
 ## 2026-07-12 - Selection Sets and Selected Data XLSX
 
 - Added tab-local named Selection Sets with explicit apply, modified-state indication, update, rename, delete, and one-step return to the selection that existed before applying a set.

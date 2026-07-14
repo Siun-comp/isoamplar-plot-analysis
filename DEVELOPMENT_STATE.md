@@ -7,13 +7,14 @@ Single project state snapshot for resuming work after context compression.
 Active
 
 ## Last Updated
-2026-07-12
+2026-07-14
 
 ## CURRENT TRUTH
 
 - Active branch: `codex/audit-remediation`; it does not trigger the Pages deploy workflow.
 - Current working extension: Selection Sets and Selected Data XLSX are implemented, independently reviewed, and deployed from `docs/16_SELECTION_SETS_AND_SELECTED_DATA_XLSX_PLAN_KR.md` at product source SHA `6c57afbf09a55fbb99d9e7474fb645a21a24ec95`.
 - Current published product artifact source: `6c57afbf09a55fbb99d9e7474fb645a21a24ec95`. The prior tagged release `release-20260711-audit-remediation-r1` at `eae3281fb8f9bbbd900fab528be3e094b93b555a` remains the documented rollback anchor.
+- Pending original-edition release: plot-bearing PNG/JPEG/clipboard output uses a 1200 x 760 logical report profile at 2x raster resolution for readability near 9.5 cm physical width. New analyses default Chart image layout to `Plot only`; explicitly saved Analysis XLSX layout values remain authoritative. Preview and data semantics are unchanged.
 - Pre-release rollback anchor: `9e77ad23ec8e863d3d05e7c8508ceb4729372155`.
 - Pre-remediation checkpoint: commit `319daa901221b4d5811eafb44f82319ddcedf296`, tag `checkpoint/audit-remediation-baseline-20260711`.
 - Phase S0 is complete. Phase S1 evidence foundation was committed as `1e30717` after local verification and expert review.
@@ -62,15 +63,18 @@ Active
 - The audit remediation plan in `docs/12_AUDIT_REMEDIATION_IMPLEMENTATION_PLAN_KR.md` is implemented through S11 and the release is active on GitHub Pages.
 
 ## Current Goal
-Hand the deployed Selection Sets and Selected Data XLSX workflow to the user for representative-workbook acceptance.
+Release the original edition with the shared 9.5 cm report-readable plot export profile and Plot-only default.
 
 ## Current Milestone
-M10 - Repeated-selection workflow and Excel follow-up export.
+M13 - Original-edition export readability patch passes local release gates; commit and deployment remain.
 
 ## Last Completed Step
-Deployed final product source `6c57afb` after branch CI run `29161091055` and Pages run `29161173159` passed the full 293-test/audit/dependency/build/fresh-Chromium/exact-dist gates. Public 1280px synthetic smoke passed original XLSX import, curve selection, Selection Set creation, Selected Data XLSX download/readback, expected five-sheet/role-marker contract, no document overflow, zero browser errors, and zero unexpected external origins. Independent state/data, XLSX, and desktop UX re-audits are GO.
+Completed the original-edition local release gate with no Threshold code: 38 Vitest files / 294 tests, audit probe 1/1, production dependency audit 0 vulnerabilities, original Pages-base build, fresh Chromium 12/12 including a real 2400 x 1520 Plot PNG check, and byte-identical pre/post Playwright `dist` hash `c9bc77c0be7fa90372c872e949352ac283c74dfbe7232d9aa7896616f3ca9e8f`. The regenerated 17-page user guide Export page passed Poppler render review. A Windows CRLF-sensitive workflow evidence test was made line-ending neutral without changing product behavior.
 
 ## Latest Changed Files
+- `src/chart/exportProfile.ts`
+- `src/chart/exportProfile.test.ts`
+- `src/chart/exportChart.ts`
 - `docs/16_SELECTION_SETS_AND_SELECTED_DATA_XLSX_PLAN_KR.md`
 - `src/selection/selectionSets.ts`
 - `src/ui/SelectionSetPanel.tsx`
@@ -653,6 +657,6 @@ Deployed final product source `6c57afb` after branch CI run `29161091055` and Pa
 - Local production preview: `http://127.0.0.1:4173/`
 
 ## Next 3 Tasks
-1. User manually checks Selection Set switching and Selected Data XLSX usability with representative non-sensitive workbooks.
-2. Record any domain-specific issue with source location, intended set membership, and exported workbook evidence before changing parser or export policy.
-3. Decide only when needed on official payload limits, internal tab cap, hosting access control, full Named Views, and GitHub action-major migration.
+1. Complete the independent re-audit and resolve any remaining release blocker.
+2. Commit and push only to original `main`, then wait for the Pages workflow.
+3. Smoke the original and T public URLs with synthetic data only and record final SHAs/run IDs.

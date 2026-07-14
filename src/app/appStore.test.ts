@@ -443,7 +443,7 @@ describe("app store style preset and legend order", () => {
       reportLabelMode: "autoCompact",
       reportNameOverrides: {}
     });
-    expect(useAppStore.getState().exportSettings.imageLayout).toBe("plotWithLegend");
+    expect(useAppStore.getState().exportSettings.imageLayout).toBe("plotOnly");
 
     useAppStore.getState().switchAnalysis(firstTabId);
     expect(useAppStore.getState().legendSettings.previewVisible).toBe(false);
@@ -456,7 +456,7 @@ describe("app store style preset and legend order", () => {
       reportLabelMode: "autoCompact",
       reportNameOverrides: {}
     });
-    expect(useAppStore.getState().exportSettings.imageLayout).toBe("plotWithLegend");
+    expect(useAppStore.getState().exportSettings.imageLayout).toBe("plotOnly");
   });
 
   it("promotes legacy report legend name actions to analysis labels", () => {

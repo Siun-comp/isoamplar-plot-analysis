@@ -187,7 +187,7 @@ describe("analysis state serialization", () => {
     expect(state.dirty).toBe(false);
     expect(state.sourceFiles).toEqual([createSourceFileSummary(dataset)]);
     expect(state.legendSettings).toEqual({ previewVisible: true, reportLabelMode: "autoCompact", reportNameOverrides: {} });
-    expect(state.exportSettings).toEqual({ imageLayout: "plotWithLegend" });
+    expect(state.exportSettings).toEqual({ imageLayout: "plotOnly" });
   });
 
   it("restores default legend/export settings from older serialized payloads", () => {
@@ -208,7 +208,7 @@ describe("analysis state serialization", () => {
     }).styleRules;
 
     expect(restored.legendSettings).toEqual({ previewVisible: true, reportLabelMode: "autoCompact", reportNameOverrides: {} });
-    expect(restored.exportSettings).toEqual({ imageLayout: "plotWithLegend" });
+    expect(restored.exportSettings).toEqual({ imageLayout: "plotOnly" });
     expect(restoredLegacyStyleRules.markerBy).toBe("reagent");
     expect(restoredLegacyStyleRules.specimenMarkerTypes).toEqual({});
     expect(restoredLegacyStyleRules.reagentMarkerTypes).toEqual({});

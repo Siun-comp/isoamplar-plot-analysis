@@ -763,7 +763,7 @@ describe("App PCR workspace", () => {
     await user.click(previewToggle);
     expect(screen.queryByRole("region", { name: "Custom legend" })).not.toBeInTheDocument();
     expect(useAppStore.getState().legendSettings.previewVisible).toBe(false);
-    expect(useAppStore.getState().exportSettings.imageLayout).toBe("plotWithLegend");
+    expect(useAppStore.getState().exportSettings.imageLayout).toBe("plotOnly");
 
     await user.click(screen.getByRole("tab", { name: "Labels" }));
     expect(screen.queryByRole("tabpanel", { name: "Order" })).not.toBeInTheDocument();

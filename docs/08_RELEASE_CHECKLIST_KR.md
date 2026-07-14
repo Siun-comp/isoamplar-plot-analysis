@@ -18,6 +18,21 @@ Active release gate
 - [x] 1366x768 in-app Pages-path preview: no horizontal overflow, no console warning/error
 - [x] independent release/security and browser/data-integrity GO
 - [x] final product/domain, data/privacy, desktop UX/accessibility, QA/release four-role GO
+
+## M13 보고서 출력 가독성 패치
+
+- [x] 신규 분석 Chart image layout 기본값 `Plot only`
+- [x] Analysis XLSX 명시적 기존 layout 값 보존
+- [x] 9.5 cm 축소 배치용 출력 전용 축·선·마커·여백 프로필
+- [x] preview와 source data/scale/selection/order/style 비변이 테스트 추가
+- [x] Threshold 코드가 원본판에 추가되지 않음
+- [x] 원본판 38 files / 294 tests, audit 1/1, dependency vulnerabilities 0
+- [x] 원본 Pages base-path build와 fresh Chromium 12/12
+- [x] downloaded Plot PNG 2400 x 1520/white/opaque/nonblank raster regression
+- [x] proportional line-width distinction and matching Plot + Legend sample geometry
+- [x] 원본판 exact `dist` pre/post Playwright equality: `c9bc77c0be7fa90372c872e949352ac283c74dfbe7232d9aa7896616f3ca9e8f`
+- [x] 원본 사용자 가이드 17-page PDF 재생성과 Export page render QA
+- [ ] 원본판 commit/push/Pages/public smoke
 - [x] repository 밖 representative workbook의 local-only import, 전체 선택, nonblank canvas, P1/P2 적용, browser error 0
 
 ## 자동 브라우저 범위
