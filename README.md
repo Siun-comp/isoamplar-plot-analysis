@@ -7,6 +7,7 @@ This tool is for research and kit-development visualization. It does not perform
 ## Current Capabilities
 
 - Open `.xls` / `.xlsx` files and use the first worksheet only.
+- Enter a specimen once for consecutive reagent columns; later blank specimen cells inherit the nearest specimen to their left within that source.
 - Append another Excel workbook without changing existing selection or settings.
 - Quick Paste Import for tab-separated or single-column comparison data, with read-only preview and warnings.
 - Reagent-first or specimen-first selection, full-dataset search, and stable `curveId` identity.
@@ -26,6 +27,8 @@ Excel columns represent curves:
 1. Row 1: specimen or experimental condition
 2. Row 2: reagent or assay/channel
 3. Row 3 onward: fluorescence values in cycle order
+
+The first usable curve column must contain a specimen label. A truly blank later specimen cell means "same specimen as the nearest explicit label to the left". This shorthand applies only inside the current workbook or full-table paste; reagent labels never inherit.
 
 Quick Paste accepts Excel-style tab-separated ranges and delimiter-free single columns. CSV files, comma-separated tables, in-app source editing, custom X/cycle columns, and worksheet selection are not supported.
 

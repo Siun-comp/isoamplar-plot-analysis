@@ -12,6 +12,7 @@ import type {
   PcrDataset,
   PcrEntity,
   PcrWarning,
+  WarningSourceRef,
   SelectionFilter,
   SelectionSet,
   SelectionState,
@@ -312,11 +313,13 @@ export function validateSerializedAnalysisState(payload: unknown): SerializedAna
   validateLegendSettings(migratedPayload.legendSettings, datasetCurveIds);
   validateExportSettings(migratedPayload.exportSettings);
   validateSourceFiles(migratedPayload.sourceFiles);
-  validateDatasetRelationships(dataset);
+  const relationshipIndex = createDatasetRelationshipIndex(dataset);
+  validateDatasetRelationships(dataset, relationshipIndex);
   validateSourceFileRelationships(
     dataset,
     migratedPayload.sourceFiles as SourceFileSummary[],
-    payload.schemaVersion === PREVIOUS_ANALYSIS_STATE_SCHEMA_VERSION_3 || payload.schemaVersion === ANALYSIS_STATE_SCHEMA_VERSION
+    payload.schemaVersion === PREVIOUS_ANALYSIS_STATE_SCHEMA_VERSION_3 || payload.schemaVersion === ANALYSIS_STATE_SCHEMA_VERSION,
+    relationshipIndex
   );
   validatePersistedReferences(
     dataset,
@@ -978,25 +981,78 @@ function validateSourceFiles(value: unknown): asserts value is SourceFileSummary
   });
 }
 
-function validateDatasetRelationships(dataset: PcrDataset) {
+type InheritedSpecimenEvidence = {
+  warning: PcrWarning;
+  anchorCurveId: string;
+};
+
+type DatasetRelationshipIndex = {
+  curvesById: Map<string, Curve>;
+  curvesBySource: Map<string, Curve[]>;
+  curvesBySourceColumn: Map<string, Curve>;
+  sourceMetadataById: Map<string, CurveSource>;
+  inheritedSpecimenByCurveId: Map<string, InheritedSpecimenEvidence>;
+};
+
+function createSourceColumnKey(sourceInstanceId: string, columnLetter: string) {
+  return `${sourceInstanceId}\u0000${columnLetter}`;
+}
+
+function createDatasetRelationshipIndex(dataset: PcrDataset): DatasetRelationshipIndex {
+  const curvesById = new Map<string, Curve>();
+  const curvesBySource = new Map<string, Curve[]>();
+  const curvesBySourceColumn = new Map<string, Curve>();
+  const sourceMetadataById = new Map<string, CurveSource>();
+
+  for (const curve of dataset.curves) {
+    validateCurveSourceCoordinates(curve);
+    const sourceInstanceId = curve.source.sourceInstanceId!;
+    const sourceColumnKey = createSourceColumnKey(sourceInstanceId, curve.source.columnLetter);
+    if (curvesBySourceColumn.has(sourceColumnKey)) {
+      throw new Error("Curve provenance source and column pairs must be unique.");
+    }
+    curvesById.set(curve.curveId, curve);
+    curvesBySourceColumn.set(sourceColumnKey, curve);
+    sourceMetadataById.set(sourceInstanceId, sourceMetadataById.get(sourceInstanceId) ?? curve.source);
+    const sourceCurves = curvesBySource.get(sourceInstanceId) ?? [];
+    sourceCurves.push(curve);
+    curvesBySource.set(sourceInstanceId, sourceCurves);
+  }
+
+  const inheritedSpecimenByCurveId = validateInheritedSpecimenEvidence(dataset, {
+    curvesById,
+    curvesBySource,
+    curvesBySourceColumn
+  });
+
+  return {
+    curvesById,
+    curvesBySource,
+    curvesBySourceColumn,
+    sourceMetadataById,
+    inheritedSpecimenByCurveId
+  };
+}
+
+function validateDatasetRelationships(dataset: PcrDataset, relationshipIndex: DatasetRelationshipIndex) {
   const expectedCycleCount = dataset.curves.reduce((max, curve) => Math.max(max, curve.x.length), 0);
   if (dataset.cycleCount !== expectedCycleCount) {
     throw new Error("dataset.cycleCount does not match the longest curve.");
   }
 
-  for (const [index, curve] of dataset.curves.entries()) {
+  for (const [curveIndex, curve] of dataset.curves.entries()) {
     for (let pointIndex = 0; pointIndex < curve.x.length; pointIndex += 1) {
       if (curve.x[pointIndex] !== pointIndex + 1) {
-        throw new Error(`dataset.curves[${index}].x must follow Cycle 1..N.`);
+        throw new Error(`dataset.curves[${curveIndex}].x must follow Cycle 1..N.`);
       }
     }
-    validateCurveStatsRelationship(curve, `dataset.curves[${index}]`);
+    validateCurveStatsRelationship(curve, `dataset.curves[${curveIndex}]`);
     if (curve.source.sourceKind === "excel") {
-      if (
-        curve.source.specimenHeader?.displayValue !== curve.specimenLabel ||
-        curve.source.reagentHeader?.displayValue !== curve.reagentLabel
-      ) {
-        throw new Error(`dataset.curves[${index}] header provenance does not match its labels.`);
+      const specimenProvenanceMatches =
+        curve.source.specimenHeader?.displayValue === curve.specimenLabel ||
+        relationshipIndex.inheritedSpecimenByCurveId.has(curve.curveId);
+      if (!specimenProvenanceMatches || curve.source.reagentHeader?.displayValue !== curve.reagentLabel) {
+        throw new Error(`dataset.curves[${curveIndex}] header provenance does not match its labels.`);
       }
     }
   }
@@ -1009,6 +1065,219 @@ function validateDatasetRelationships(dataset: PcrDataset) {
   if (dataset.sourceKind !== expectedSourceKind) {
     throw new Error("dataset.sourceKind does not match curve provenance.");
   }
+}
+
+function validateInheritedSpecimenEvidence(
+  dataset: PcrDataset,
+  index: Pick<DatasetRelationshipIndex, "curvesById" | "curvesBySource" | "curvesBySourceColumn">
+) {
+  const inheritedWarnings = dataset.warnings.filter((warning) => warning.code === "INHERITED_SPECIMEN_LABEL");
+  const inheritedCurveIds = new Set<string>();
+
+  for (const warning of inheritedWarnings) {
+    if (
+      warning.severity !== "info" ||
+      warning.scope !== "header" ||
+      warning.handling !== "kept" ||
+      warning.labels?.length !== 1 ||
+      !warning.labels[0].trim() ||
+      !warning.curveIds?.length ||
+      !warning.sourceRefs?.length
+    ) {
+      throw new Error("Inherited specimen warning metadata is invalid.");
+    }
+    for (const curveId of warning.curveIds) {
+      if (inheritedCurveIds.has(curveId)) {
+        throw new Error("Inherited specimen evidence must identify each target curve exactly once.");
+      }
+      inheritedCurveIds.add(curveId);
+    }
+  }
+
+  const evidenceByCurveId = new Map<string, InheritedSpecimenEvidence>();
+  for (const warning of inheritedWarnings) {
+    const label = warning.labels![0];
+    const targetCurveIds = new Set(warning.curveIds!);
+    const referencedCurves = new Map<string, { curve: Curve; sourceRef: WarningSourceRef }>();
+
+    for (const sourceRef of warning.sourceRefs!) {
+      if (!sourceRef.sourceInstanceId || !sourceRef.columnLetter || !sourceRef.cell) {
+        throw new Error("Inherited specimen evidence requires exact source cells.");
+      }
+      const curve = index.curvesBySourceColumn.get(
+        createSourceColumnKey(sourceRef.sourceInstanceId, sourceRef.columnLetter)
+      );
+      if (
+        !curve ||
+        sourceRef.cell !== curve.source.specimenCell ||
+        sourceRef.sourceName !== curve.source.fileName ||
+        sourceRef.sourceKind !== curve.source.sourceKind ||
+        sourceRef.worksheet !== curve.source.sheetName ||
+        referencedCurves.has(curve.curveId)
+      ) {
+        throw new Error("Inherited specimen source evidence does not match curve provenance.");
+      }
+      referencedCurves.set(curve.curveId, { curve, sourceRef });
+    }
+
+    if (referencedCurves.size !== targetCurveIds.size + 1) {
+      throw new Error("Inherited specimen evidence must contain one anchor and every target cell.");
+    }
+    const anchors = [...referencedCurves.values()].filter(({ curve }) => !targetCurveIds.has(curve.curveId));
+    if (anchors.length !== 1) {
+      throw new Error("Inherited specimen evidence must contain exactly one anchor cell.");
+    }
+    const anchor = anchors[0];
+    if (
+      anchor.curve.specimenLabel !== label ||
+      anchor.sourceRef.displayValue !== label ||
+      isBlankPortableHeaderValue(anchor.sourceRef.rawValue)
+    ) {
+      throw new Error("Inherited specimen anchor does not match the explicit specimen label.");
+    }
+    if (
+      anchor.curve.source.sourceKind === "paste" &&
+      (anchor.sourceRef.rawValue !== label ||
+        Boolean(anchor.sourceRef.formulaText?.trim()) ||
+        (anchor.sourceRef.formulaCacheStatus !== undefined &&
+          anchor.sourceRef.formulaCacheStatus !== "not-formula"))
+    ) {
+      throw new Error("Inherited pasted specimen anchor raw value does not match its label.");
+    }
+    if (
+      anchor.curve.source.sourceKind === "excel" &&
+      !warningRefMatchesHeaderProvenance(anchor.sourceRef, anchor.curve.source.specimenHeader)
+    ) {
+      throw new Error("Inherited specimen anchor does not match Excel header provenance.");
+    }
+
+    for (const curveId of targetCurveIds) {
+      const target = index.curvesById.get(curveId);
+      const referencedTarget = referencedCurves.get(curveId);
+      if (!target || !referencedTarget) {
+        throw new Error("Inherited specimen evidence is missing a target curve or cell.");
+      }
+      if (
+        target.source.sourceInstanceId !== anchor.curve.source.sourceInstanceId ||
+        target.source.sourceKind !== anchor.curve.source.sourceKind ||
+        target.source.columnIndex <= anchor.curve.source.columnIndex ||
+        target.specimenLabel !== label ||
+        !isIntentionalBlankSourceRef(referencedTarget.sourceRef)
+      ) {
+        throw new Error("Inherited specimen target is inconsistent with its anchor.");
+      }
+      if (
+        target.source.sourceKind === "excel" &&
+        (!isIntentionalBlankHeaderProvenance(target.source.specimenHeader) ||
+          !warningRefMatchesHeaderProvenance(referencedTarget.sourceRef, target.source.specimenHeader))
+      ) {
+        throw new Error("Inherited specimen target is not an intentional blank Excel header.");
+      }
+      evidenceByCurveId.set(curveId, { warning, anchorCurveId: anchor.curve.curveId });
+    }
+  }
+
+  for (const sourceCurves of index.curvesBySource.values()) {
+    const orderedCurves = isStrictlyIncreasingByColumn(sourceCurves)
+      ? sourceCurves
+      : [...sourceCurves].sort((left, right) => left.source.columnIndex - right.source.columnIndex);
+    let nearestExplicitCurveId: string | null = null;
+    for (const curve of orderedCurves) {
+      const evidence = evidenceByCurveId.get(curve.curveId);
+      if (evidence) {
+        if (evidence.anchorCurveId !== nearestExplicitCurveId) {
+          throw new Error("Inherited specimen anchor is not the nearest explicit specimen to the left.");
+        }
+      } else if (isExplicitSpecimenCurve(curve)) {
+        nearestExplicitCurveId = curve.curveId;
+      }
+    }
+  }
+
+  return evidenceByCurveId;
+}
+
+function isStrictlyIncreasingByColumn(curves: Curve[]) {
+  for (let index = 1; index < curves.length; index += 1) {
+    if (curves[index - 1].source.columnIndex >= curves[index].source.columnIndex) return false;
+  }
+  return true;
+}
+
+function validateCurveSourceCoordinates(curve: Curve) {
+  const { source } = curve;
+  const decodedColumnIndex = decodeCanonicalColumnLetter(source.columnLetter);
+  if (decodedColumnIndex === null || decodedColumnIndex !== source.columnIndex) {
+    throw new Error("Curve provenance column index, letter, and cell addresses are inconsistent.");
+  }
+
+  const singleSpecimenPaste = source.sourceKind === "paste" && source.inputMode === "singleSpecimen";
+  const expectedSpecimenCell = singleSpecimenPaste ? "Specimen name field" : `${source.columnLetter}1`;
+  const expectedReagentCell = `${source.columnLetter}${singleSpecimenPaste ? 1 : 2}`;
+  const expectedDataStartCell = `${source.columnLetter}${singleSpecimenPaste ? 2 : 3}`;
+  const expectedDataEndCell = `${source.columnLetter}${curve.y.length + (singleSpecimenPaste ? 1 : 2)}`;
+  if (
+    source.specimenCell !== expectedSpecimenCell ||
+    source.reagentCell !== expectedReagentCell ||
+    source.dataStartCell !== expectedDataStartCell ||
+    source.dataEndCell !== expectedDataEndCell
+  ) {
+    throw new Error("Curve provenance column index, letter, and cell addresses are inconsistent.");
+  }
+}
+
+function decodeCanonicalColumnLetter(columnLetter: string) {
+  if (!/^[A-Z]+$/u.test(columnLetter)) return null;
+  let value = 0;
+  for (const character of columnLetter) {
+    value = value * 26 + character.charCodeAt(0) - 64;
+  }
+  return value - 1;
+}
+
+function isExplicitSpecimenCurve(curve: Curve) {
+  if (!curve.specimenLabel.trim()) return false;
+  return curve.source.sourceKind === "excel"
+    ? curve.source.specimenHeader?.displayValue === curve.specimenLabel
+    : true;
+}
+
+function isBlankPortableHeaderValue(value: unknown) {
+  return value === undefined || value === null || (typeof value === "string" && !value.trim());
+}
+
+function isIntentionalBlankSourceRef(sourceRef: WarningSourceRef) {
+  return (
+    !sourceRef.displayValue?.trim() &&
+    isBlankPortableHeaderValue(sourceRef.rawValue) &&
+    !sourceRef.formulaText?.trim() &&
+    (sourceRef.formulaCacheStatus === undefined || sourceRef.formulaCacheStatus === "not-formula")
+  );
+}
+
+function isIntentionalBlankHeaderProvenance(header: CurveSource["specimenHeader"]) {
+  return (
+    Boolean(header) &&
+    !header!.displayValue.trim() &&
+    isBlankPortableHeaderValue(header!.rawValue) &&
+    !header!.formulaText?.trim() &&
+    (header!.formulaCacheStatus === undefined || header!.formulaCacheStatus === "not-formula")
+  );
+}
+
+function warningRefMatchesHeaderProvenance(
+  sourceRef: WarningSourceRef,
+  header: CurveSource["specimenHeader"]
+) {
+  return Boolean(
+    header &&
+      sourceRef.rawValue === header.rawValue &&
+      sourceRef.displayValue === header.displayValue &&
+      sourceRef.cellType === header.cellType &&
+      sourceRef.numberFormat === header.numberFormat &&
+      sourceRef.formulaText === header.formulaText &&
+      sourceRef.formulaCacheStatus === header.formulaCacheStatus
+  );
 }
 
 function validateCurveStatsRelationship(curve: Curve, path: string) {
@@ -1067,7 +1336,8 @@ function validateEntityRelationships(curves: Curve[], entities: PcrEntity[], kin
 function validateSourceFileRelationships(
   dataset: PcrDataset,
   sourceFiles: SourceFileSummary[],
-  requireCurrentPasteInputMode: boolean
+  requireCurrentPasteInputMode: boolean,
+  relationshipIndex: DatasetRelationshipIndex
 ) {
   const sourceIds = new Set<string>();
   for (const sourceFile of sourceFiles) {
@@ -1076,19 +1346,7 @@ function validateSourceFileRelationships(
     sourceIds.add(sourceId);
   }
 
-  const curvesBySource = new Map<string, Curve[]>();
-  const provenanceLocations = new Set<string>();
-  for (const curve of dataset.curves) {
-    const sourceId = curve.source.sourceInstanceId!;
-    const location = `${sourceId}\u0000${curve.source.columnLetter}`;
-    if (provenanceLocations.has(location)) {
-      throw new Error("Curve provenance source and column pairs must be unique.");
-    }
-    provenanceLocations.add(location);
-    const sourceCurves = curvesBySource.get(sourceId) ?? [];
-    sourceCurves.push(curve);
-    curvesBySource.set(sourceId, sourceCurves);
-  }
+  const { curvesBySource } = relationshipIndex;
 
   for (const sourceCurves of curvesBySource.values()) {
     const reference = sourceCurves[0].source;
@@ -1127,7 +1385,7 @@ function validateSourceFileRelationships(
     ) {
       throw new Error("sourceFiles aggregate summary does not match the dataset.");
     }
-    validateWarningRelationships(dataset, curvesBySource);
+    validateWarningRelationships(dataset, relationshipIndex);
     return;
   }
 
@@ -1153,7 +1411,7 @@ function validateSourceFileRelationships(
     throw new Error("sourceFiles does not cover every curve provenance source.");
   }
 
-  validateWarningRelationships(dataset, curvesBySource);
+  validateWarningRelationships(dataset, relationshipIndex);
 }
 
 function validatePersistedReferences(
@@ -1185,9 +1443,8 @@ function validateStyleRecordKeys(value: Record<string, unknown>, entityIds: Set<
   }
 }
 
-function validateWarningRelationships(dataset: PcrDataset, curvesBySource: Map<string, Curve[]>) {
-  const curveIds = new Set(dataset.curves.map((curve) => curve.curveId));
-  const curvesById = new Map(dataset.curves.map((curve) => [curve.curveId, curve]));
+function validateWarningRelationships(dataset: PcrDataset, relationshipIndex: DatasetRelationshipIndex) {
+  const { curvesById, sourceMetadataById } = relationshipIndex;
   const warnings: Array<{ warning: PcrWarning; ownerCurveId?: string }> = [
     ...dataset.warnings.map((warning) => ({ warning })),
     ...dataset.curves.flatMap((curve) =>
@@ -1202,28 +1459,33 @@ function validateWarningRelationships(dataset: PcrDataset, curvesBySource: Map<s
       throw new Error("Curve warning metadata does not reference its owning curve.");
     }
     for (const curveId of warning.curveIds ?? []) {
-      if (!curveIds.has(curveId)) throw new Error("Warning metadata contains an unknown curveId.");
+      if (!curvesById.has(curveId)) throw new Error("Warning metadata contains an unknown curveId.");
     }
+    const broadSourceIds = new Set<string>();
+    const exactSourceColumns = new Set<string>();
     for (const sourceRef of warning.sourceRefs ?? []) {
-      const sourceCurves = sourceRef.sourceInstanceId ? curvesBySource.get(sourceRef.sourceInstanceId) : undefined;
-      if (!sourceCurves) throw new Error("Warning metadata contains an unknown source ID.");
+      const sourceMetadata = sourceRef.sourceInstanceId
+        ? sourceMetadataById.get(sourceRef.sourceInstanceId)
+        : undefined;
+      if (!sourceMetadata) throw new Error("Warning metadata contains an unknown source ID.");
       if (
-        sourceCurves.some(
-          (curve) =>
-            curve.source.fileName !== sourceRef.sourceName ||
-            curve.source.sourceKind !== sourceRef.sourceKind
-        )
+        sourceMetadata.fileName !== sourceRef.sourceName ||
+        sourceMetadata.sourceKind !== sourceRef.sourceKind
       ) {
         throw new Error("Warning source metadata does not match curve provenance.");
+      }
+      if (sourceRef.columnLetter === undefined) {
+        broadSourceIds.add(sourceRef.sourceInstanceId!);
+      } else {
+        exactSourceColumns.add(createSourceColumnKey(sourceRef.sourceInstanceId!, sourceRef.columnLetter));
       }
     }
     for (const curveId of warning.curveIds ?? []) {
       const curve = curvesById.get(curveId)!;
-      const relatedSourceRef = warning.sourceRefs?.some(
-        (sourceRef) =>
-          sourceRef.sourceInstanceId === curve.source.sourceInstanceId &&
-          (sourceRef.columnLetter === undefined || sourceRef.columnLetter === curve.source.columnLetter)
-      );
+      const sourceInstanceId = curve.source.sourceInstanceId!;
+      const relatedSourceRef =
+        broadSourceIds.has(sourceInstanceId) ||
+        exactSourceColumns.has(createSourceColumnKey(sourceInstanceId, curve.source.columnLetter));
       if (!relatedSourceRef) {
         throw new Error("Warning affected curves and source references are inconsistent.");
       }

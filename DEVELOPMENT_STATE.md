@@ -7,14 +7,15 @@ Single project state snapshot for resuming work after context compression.
 Active
 
 ## Last Updated
-2026-07-14
+2026-07-22
 
 ## CURRENT TRUTH
 
-- Active branch: `codex/audit-remediation`; it does not trigger the Pages deploy workflow.
+- Active branch: `codex/report-export-original`; it does not trigger the Pages deploy workflow.
 - Current working extension: Selection Sets and Selected Data XLSX are implemented, independently reviewed, and deployed from `docs/16_SELECTION_SETS_AND_SELECTED_DATA_XLSX_PLAN_KR.md` at product source SHA `6c57afbf09a55fbb99d9e7474fb645a21a24ec95`.
 - Current published product artifact source: `95c297705632d1bffb4f5b01eae6329872a20538`. Pages run `29317061923` succeeded. The prior tagged release `release-20260711-audit-remediation-r1` at `eae3281fb8f9bbbd900fab528be3e094b93b555a` remains the documented rollback anchor.
 - Original-edition M13 release is complete: plot-bearing PNG/JPEG/clipboard output uses a 1200 x 760 logical report profile at 2x raster resolution for readability near 9.5 cm physical width. New analyses default Chart image layout to `Plot only`; explicitly saved Analysis XLSX layout values remain authoritative. Preview and data semantics are unchanged.
+- Source-local specimen-header inheritance is integrated into the original edition. A blank first usable specimen blocks the source; later true blanks inherit only within that Excel workbook or full-table Quick Paste source. Original blank provenance, exact anchor/target evidence, append isolation, merged-header behavior, indexed wide-source restore validation, and Analysis XLSX continuity are covered. Pages promotion is in progress.
 - Pre-release rollback anchor: `9e77ad23ec8e863d3d05e7c8508ceb4729372155`.
 - Pre-remediation checkpoint: commit `319daa901221b4d5811eafb44f82319ddcedf296`, tag `checkpoint/audit-remediation-baseline-20260711`.
 - Phase S0 is complete. Phase S1 evidence foundation was committed as `1e30717` after local verification and expert review.
@@ -54,7 +55,7 @@ Active
 - The latest direct refinement pass adds app-controlled curve hover highlighting, custom-legend hover/focus highlighting, marker-preserving hover behavior, analysis-name-based export filenames, balanced Y-axis spacing, dedicated legend-only clipboard PNG copy, compact group style controls, and native style popover closing.
 - The current pre-use refinement adds slash-safe ` │ ` curve labels, report-readable legend PNG/JPEG/clipboard export, Analysis label editing, rich Excel-cell legend clipboard copy with Malgun Gothic 9 pt formatting, Export control grouping, dirty close/replace confirmation flows, Style-panel preset shortcut removal, line/marker popover auto-close after selection, report legend image text alignment fixes, Excel-friendly colored glyph legend clipboard samples, and raw-point/no-smoothing regression coverage.
 - The latest patch fixes the preview legend visibility Korean label and the pre-import Legend empty-state Korean mojibake, applies Auto compact labels to the chart preview/custom legend and plot/legend image exports, changes the Labels reset control back to an icon-sized button, stacks the Export Legend header to avoid text overlap, adds current Analysis XLSX continuity and parser edge-case regression coverage, removes unused legacy Legend/Report editor code that still referenced the old report-name override model, and changes the app header status badge from internal phase wording to `Browser-local analysis`.
-- A 16-page first-user Korean PDF guide is generated under `output/pdf/`, covering Excel/Quick Paste input, desktop workflow, export, exact Analysis XLSX continuity, privacy, parser edge cases, and troubleshooting. The guide examples and screenshots use only synthetic labels/values; do not use real user-provided labels or disease/test names in guide examples.
+- A 17-page first-user Korean PDF guide is generated under `output/pdf/`, covering Excel/Quick Paste input, desktop workflow, export, exact Analysis XLSX continuity, privacy, parser edge cases, and troubleshooting. The guide examples and screenshots use only synthetic labels/values; do not use real user-provided labels or disease/test names in guide examples.
 - The default chart palette order is `#7030A0`, `#0926FB`, `#00B050`, `#FFC000`, `#FF0000`, `#767171`, `#4ACCE6`, `#EB45BC`.
 - Explicit Box zoom highlights the valid plot area and writes a dragged data-space region into Fixed X/Y scale bounds. `Previous scale` restores prior scale snapshots one step at a time, while `Auto scale` resets both axes and clears return history. It never crops or transforms fluorescence data.
 - The latest UI consistency pass normalizes button/form-control sizing across top tabs, import actions, selection controls, chart tools, scale controls, legend controls, and export controls; status badges remain intentionally smaller. It also scopes settings accordion summary styling so nested Style color/line popover triggers stay compact, tightens reset-icon button padding, and removes an obsolete hidden Export legend button wrapper.
@@ -63,15 +64,39 @@ Active
 - The audit remediation plan in `docs/12_AUDIT_REMEDIATION_IMPLEMENTATION_PLAN_KR.md` is implemented through S11 and the release is active on GitHub Pages.
 
 ## Current Goal
-Release the original edition with the shared 9.5 cm report-readable plot export profile and Plot-only default.
+Release source-local blank specimen-header inheritance in the original edition without changing raw fluorescence or allowing inheritance across import sources.
 
 ## Current Milestone
-M13 - Original-edition export readability patch is independently gated, committed, and deployed.
+M15 - Original-edition specimen-header inheritance implementation and local release verification complete; Pages promotion remains.
 
 ## Last Completed Step
-Deployed original commit `95c297705632d1bffb4f5b01eae6329872a20538` through successful Pages run `29317061923`. Public-origin smoke returned HTTP 200 with the correct original title, loaded subpath assets without failure, and produced zero console/page errors. The release gate passed 38 Vitest files / 294 tests, audit probe 1/1, production dependency audit 0 vulnerabilities, original Pages-base build, fresh Chromium 12/12 including a real 2400 x 1520 Plot PNG check, and byte-identical pre/post Playwright `dist` hash `c9bc77c0be7fa90372c872e949352ac283c74dfbe7232d9aa7896616f3ca9e8f`. Threshold runtime code remains absent.
+Completed the hardened original-edition local M15 gate: 38 files / 307 Vitest tests, audit 1/1, production dependency vulnerabilities 0, Pages-base production build, and fresh Chromium 12/12. The complete `dist` tree remained byte-identical before and after Playwright at SHA-256 `4b0abed0dedd234e9751b5ecdedf776b25afcd34a18daf0cdcdc1bbb0c556fe0`. The regenerated 17-page guide PDF was rendered with Poppler and visually reviewed. Threshold runtime remains absent.
 
 ## Latest Changed Files
+- `src/data/resolveSpecimenHeaders.ts`
+- `src/data/parseExcel.ts`
+- `src/data/parsePastedTable.ts`
+- `src/data/types.ts`
+- `src/data/parseExcel.test.ts`
+- `src/data/parsePastedTable.test.ts`
+- `src/analysis/analysisState.ts`
+- `src/analysis/analysisState.test.ts`
+- `src/analysis/analysisWorkbook.test.ts`
+- `src/app/appStore.test.ts`
+- `src/ui/WarningInspector.tsx`
+- `tests/fixtures/generateFixtures.mjs`
+- `tests/fixtures/source/FX-004-warning-cells.xlsx`
+- `tests/fixtures/expected/FX-004-warning-cells.json`
+- `tests/fixtures/manifest.json`
+- `tests/e2e/app.spec.ts`
+- `README.md`
+- `DECISIONS.md`
+- `CHANGELOG.md`
+- `docs/02_FUNCTIONAL_REQUIREMENTS_EN.md`
+- `docs/03_INPUT_OUTPUT_SPEC_EN.md`
+- `docs/04_TEST_PLAN_ACCEPTANCE_EN.md`
+- `output/pdf/IsoAmplar_Plot_Analysis_User_Guide_KR.md`
+- `output/pdf/IsoAmplar_Plot_Analysis_User_Guide_KR.pdf`
 - `src/chart/exportProfile.ts`
 - `src/chart/exportProfile.test.ts`
 - `src/chart/exportChart.ts`
@@ -657,6 +682,6 @@ Deployed original commit `95c297705632d1bffb4f5b01eae6329872a20538` through succ
 - Local production preview: `http://127.0.0.1:4173/`
 
 ## Next 3 Tasks
-1. Perform user report-placement validation near 9.5 cm width in the target Excel/report workflow.
-2. Continue long-term use and record only reproducible usability or data-integrity defects for future patches.
-3. Re-run the independent release gate before any later shared export-profile change.
+1. Commit the verified M15 changes in both edition worktrees.
+2. Push each verified edition to its own `main` and confirm both Pages workflows.
+3. Run synthetic public-origin import/continuation smoke checks and record final deployment evidence.

@@ -109,7 +109,7 @@ describe("parsePastedTable", () => {
   });
 
   it("represents uneven tab rows as null warnings and ignores trailing blank rows", () => {
-    const result = parsePastedTable("\tSpecimen 2\nA1\t\n0.1\ttext\n\t0.3\n1.1\n\n", {
+    const result = parsePastedTable("Specimen 1\t\nA1\t\n0.1\ttext\n\t0.3\n1.1\n\n", {
       mode: "fullTable",
       sourceName: "Warnings"
     });
@@ -119,24 +119,57 @@ describe("parsePastedTable", () => {
     expect(result.dataset.cycleCount).toBe(3);
     expect(result.dataset.curves[0].y).toEqual([0.1, null, 1.1]);
     expect(result.dataset.curves[1].y).toEqual([null, 0.3, null]);
-    expect(result.dataset.curves[0].warnings.map((warning) => warning.code)).toContain("MISSING_SPECIMEN_LABEL");
+    expect(result.dataset.curves[1].specimenLabel).toBe("Specimen 1");
+    expect(result.dataset.warnings.map((warning) => warning.code)).toContain("INHERITED_SPECIMEN_LABEL");
     expect(result.dataset.curves[1].warnings.map((warning) => warning.code)).toContain("MISSING_REAGENT_LABEL");
     expect(result.dataset.curves[1].warnings.map((warning) => warning.code)).toContain("NON_NUMERIC_FLUORESCENCE");
     expect(result.dataset.curves[0].warnings.map((warning) => warning.code)).toContain("EMPTY_FLUORESCENCE_CELL");
   });
 
-  it("uses source-position fallback identities for whitespace-only headers", () => {
+  it("rejects a whitespace-only specimen in the first usable curve column", () => {
     const result = parsePastedTable("   \t   \nA1\tA2\n0.1\t0.2", {
       mode: "fullTable",
       sourceName: "Whitespace headers"
     });
 
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe("INVALID_PASTED_TABLE");
+    expect(result.error.message).toContain("A1");
+  });
+
+  it("inherits blank full-table specimen headers and retains their source cells", () => {
+    const result = parsePastedTable("S1\t\tS2\t\nA1\tA2\tA1\tA2\n0.1\t0.2\t0.3\t0.4", {
+      mode: "fullTable",
+      sourceName: "Inherited specimens",
+      sourceInstanceId: "paste-inherited"
+    });
+
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.dataset.curves[0].specimenId).toContain("missing_paste0_col_A");
-    expect(result.dataset.curves[1].specimenId).toContain("missing_paste0_col_B");
-    expect(result.dataset.curves[0].specimenId).not.toBe(result.dataset.curves[1].specimenId);
-    expect(result.dataset.curves[0].displayLabel).toContain("Empty specimen A1");
+    expect(result.dataset.curves.map((curve) => curve.specimenLabel)).toEqual(["S1", "S1", "S2", "S2"]);
+    expect(result.dataset.curves.map((curve) => curve.y)).toEqual([[0.1], [0.2], [0.3], [0.4]]);
+    expect(result.dataset.warnings.some((warning) => warning.code === "MISSING_SPECIMEN_LABEL")).toBe(false);
+    const inherited = result.dataset.warnings.filter((warning) => warning.code === "INHERITED_SPECIMEN_LABEL");
+    expect(inherited).toHaveLength(2);
+    expect(inherited.map((warning) => warning.curveIds)).toEqual([["paste0_col_B"], ["paste0_col_D"]]);
+    expect(inherited.flatMap((warning) => warning.sourceRefs?.map((source) => source.cell) ?? [])).toEqual([
+      "A1",
+      "B1",
+      "C1",
+      "D1"
+    ]);
+  });
+
+  it("requires a specimen in the first usable curve column after empty spacer columns", () => {
+    const result = parsePastedTable("\t\n\tR2\n\t0.1", {
+      mode: "fullTable",
+      sourceName: "Missing first active specimen"
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toContain("B1");
   });
 
   it("creates duplicate and similar-label warnings through the normalized dataset pipeline", () => {
@@ -212,7 +245,7 @@ describe("parsePastedTable", () => {
   });
 
   it("keeps physical column positions when an internal column is empty", () => {
-    const parsed = parsePastedTable("S1\t\tS3\nA1\t\tA3\n0.1\t\t0.3", {
+    const parsed = parsePastedTable("S1\t\t\nA1\t\tA3\n0.1\t\t0.3", {
       mode: "fullTable",
       sourceName: "Geometry",
       sourceInstanceId: "paste-fixed"
@@ -222,6 +255,11 @@ describe("parsePastedTable", () => {
     if (!parsed.ok) return;
     expect(parsed.dataset.curves.map((curve) => curve.curveId)).toEqual(["paste0_col_A", "paste0_col_C"]);
     expect(parsed.dataset.curves.map((curve) => curve.sourceId)).toEqual(["paste-fixed!A", "paste-fixed!C"]);
+    expect(parsed.dataset.curves.map((curve) => curve.specimenLabel)).toEqual(["S1", "S1"]);
+    expect(parsed.dataset.warnings.find((warning) => warning.code === "INHERITED_SPECIMEN_LABEL")?.sourceRefs?.map((source) => source.cell)).toEqual([
+      "A1",
+      "C1"
+    ]);
   });
 
   it("classifies large paste previews without blocking their dataset", () => {

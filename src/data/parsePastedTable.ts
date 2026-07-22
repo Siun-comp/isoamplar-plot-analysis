@@ -1,5 +1,6 @@
 import { formatCurveEntityPair } from "./curveLabels";
 import { createEntityId, createPcrDatasetFromCurves, createStats } from "./normalizePcrData";
+import { resolveSpecimenHeaders, type ResolvedSpecimenHeader } from "./resolveSpecimenHeaders";
 import type { Curve, PasteInputMode, PcrDataset, PcrWarning } from "./types";
 
 export type PasteDelimiter = "tab" | "singleColumn";
@@ -116,6 +117,18 @@ function parsePastedTableUnsafe(text: string, options: ParsePastedTableOptions):
     return invalidPaste("붙여넣은 표에 fluorescence 데이터 행이 없습니다.");
   }
 
+  const resolvedSpecimens = resolveSpecimenHeaders(
+    candidateColumns.map((columnIndex) => {
+      const label = fullTableRows[0]?.[columnIndex] ?? "";
+      return { columnIndex, label, canInherit: !label.trim() };
+    })
+  );
+  if (!resolvedSpecimens.ok) {
+    const columnLetter = encodeColumnLetter(resolvedSpecimens.missingColumnIndex);
+    return invalidPaste(`첫 번째 유효 곡선 열(${columnLetter}1)에 검체명을 입력해야 합니다.`);
+  }
+  const resolvedSpecimenByColumn = new Map(resolvedSpecimens.headers.map((header) => [header.columnIndex, header]));
+
   const curves = candidateColumns.map((columnIndex) =>
     createCurveFromColumn({
       rows: fullTableRows,
@@ -123,11 +136,18 @@ function parsePastedTableUnsafe(text: string, options: ParsePastedTableOptions):
       sourceInstanceId,
       inputMode: options.mode,
       columnIndex,
+      specimenLabel: resolvedSpecimenByColumn.get(columnIndex)!.label,
       lastDataRow
     })
   );
-  let warningCount = 0;
-  for (const curve of curves) warningCount += curve.warnings.length;
+  const inheritanceWarnings = createSpecimenInheritanceWarnings(
+    resolvedSpecimens.headers,
+    curves,
+    sourceName,
+    sourceInstanceId
+  );
+  const curveWarnings = curves.flatMap((curve) => curve.warnings);
+  const warningCount = curveWarnings.length + inheritanceWarnings.length;
 
   return {
     ok: true,
@@ -138,7 +158,8 @@ function parsePastedTableUnsafe(text: string, options: ParsePastedTableOptions):
       sheetName: "Paste",
       cycleCount: lastDataRow - 1,
       sourceKind: "paste",
-      importedAtIso: options.importedAtIso
+      importedAtIso: options.importedAtIso,
+      warnings: [...inheritanceWarnings, ...curveWarnings]
     }),
     summary: createPasteTableSummary({
       text,
@@ -251,14 +272,14 @@ function createCurveFromColumn(args: {
   sourceInstanceId: string;
   inputMode: PasteInputMode;
   columnIndex: number;
+  specimenLabel: string;
   lastDataRow: number;
 }): Curve {
-  const { rows, sourceName, sourceInstanceId, inputMode, columnIndex, lastDataRow } = args;
+  const { rows, sourceName, sourceInstanceId, inputMode, columnIndex, specimenLabel, lastDataRow } = args;
   const columnLetter = encodeColumnLetter(columnIndex);
   const curveId = `paste0_col_${columnLetter}`;
   const specimenCell = inputMode === "singleSpecimen" ? "Specimen name field" : `${columnLetter}1`;
   const reagentCell = inputMode === "singleSpecimen" ? `${columnLetter}1` : `${columnLetter}2`;
-  const specimenLabel = rows[0]?.[columnIndex] ?? "";
   const reagentLabel = rows[1]?.[columnIndex] ?? "";
   const warnings: PcrWarning[] = [];
 
@@ -331,6 +352,49 @@ function createCurveFromColumn(args: {
     stats: createStats(y),
     warnings
   };
+}
+
+function createSpecimenInheritanceWarnings(
+  resolvedHeaders: ResolvedSpecimenHeader[],
+  curves: Curve[],
+  sourceName: string,
+  sourceInstanceId: string
+): PcrWarning[] {
+  const curveByColumn = new Map(curves.map((curve) => [curve.source.columnIndex, curve]));
+  const headerByColumn = new Map(resolvedHeaders.map((header) => [header.columnIndex, header]));
+  const groups = new Map<number, ResolvedSpecimenHeader[]>();
+  for (const header of resolvedHeaders) {
+    if (header.inheritedFromColumnIndex === undefined) continue;
+    const group = groups.get(header.inheritedFromColumnIndex) ?? [];
+    group.push(header);
+    groups.set(header.inheritedFromColumnIndex, group);
+  }
+
+  return [...groups.entries()].map(([sourceColumnIndex, headers]) => {
+    const sourceHeader = headerByColumn.get(sourceColumnIndex)!;
+    const sourceCell = `${encodeColumnLetter(sourceColumnIndex)}1`;
+    const sourceCurve = curveByColumn.get(sourceColumnIndex)!;
+    const inheritedCurves = headers.map((header) => curveByColumn.get(header.columnIndex)!).filter(Boolean);
+    return createWarning({
+      code: "INHERITED_SPECIMEN_LABEL",
+      severity: "info",
+      scope: "header",
+      message: `${headers.length} blank specimen header(s) inherited "${sourceHeader.label}" from ${sourceCell}.`,
+      curveIds: inheritedCurves.map((curve) => curve.curveId),
+      labels: [sourceHeader.label],
+      handling: "kept",
+      sourceRefs: [sourceCurve, ...inheritedCurves].map((curve) => ({
+        sourceInstanceId,
+        sourceName,
+        sourceKind: "paste",
+        worksheet: "Paste",
+        cell: curve.source.specimenCell,
+        columnLetter: curve.source.columnLetter,
+        rawValue: curve === sourceCurve ? sourceHeader.label : "",
+        displayValue: curve === sourceCurve ? sourceHeader.label : ""
+      }))
+    });
+  });
 }
 
 function parseFluorescenceText(

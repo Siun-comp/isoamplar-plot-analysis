@@ -6,7 +6,7 @@ describe("parseExcelWorkbook", () => {
   it("parses the first worksheet PCR structure into normalized curves", async () => {
     const buffer = createWorkbookBuffer(
       [
-        ["검체 1", "검체 1", "검체2", "검체 2"],
+        ["검체 1", "", "검체2", ""],
         ["A1", "A2", "A1", "A2"],
         [0.2, 0.25, -0.1, 0.21],
         [1.2, 1.4, 0.8, 0.9],
@@ -24,14 +24,16 @@ describe("parseExcelWorkbook", () => {
     expect(result.dataset.curves[0].curveId).toBe("sheet0_col_A");
     expect(result.dataset.curves[0].x).toEqual([1, 2, 3]);
     expect(result.dataset.curves[2].y[0]).toBe(-0.1);
-    expect(result.dataset.warnings.some((warning) => warning.code === "SIMILAR_SPECIMEN_LABEL")).toBe(true);
+    expect(result.dataset.curves.map((curve) => curve.specimenLabel)).toEqual(["검체 1", "검체 1", "검체2", "검체2"]);
+    expect(result.dataset.warnings.filter((warning) => warning.code === "INHERITED_SPECIMEN_LABEL")).toHaveLength(2);
+    expect(result.dataset.warnings.some((warning) => warning.code === "SIMILAR_SPECIMEN_LABEL")).toBe(false);
     expect(result.dataset.warnings.some((warning) => warning.code === "NON_NUMERIC_FLUORESCENCE")).toBe(false);
   });
 
   it("parses a BIFF .xls workbook with the same normalized shape", async () => {
     const buffer = createWorkbookBuffer(
       [
-        ["검체 1", "검체 1"],
+        ["검체 1", ""],
         ["A1", "A2"],
         [0.2, 0.25],
         [1.2, 1.4]
@@ -45,6 +47,69 @@ describe("parseExcelWorkbook", () => {
     if (!result.ok) return;
     expect(result.dataset.curves.map((curve) => curve.curveId)).toEqual(["sheet0_col_A", "sheet0_col_B"]);
     expect(result.dataset.curves[0].specimenLabel).toBe("검체 1");
+    expect(result.dataset.curves[1].specimenLabel).toBe("검체 1");
+    expect(result.dataset.warnings.map((warning) => warning.code)).toContain("INHERITED_SPECIMEN_LABEL");
+  });
+
+  it("interprets a horizontal merged specimen span using the same inheritance rule", () => {
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ["Specimen 1", ""],
+      ["R1", "R2"],
+      [0.1, 0.2]
+    ]);
+    worksheet["!merges"] = [XLSX.utils.decode_range("A1:B1")];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+
+    const result = parseWorkbook(workbook, "merged-specimen.xlsx", XLSX);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.dataset.curves.map((curve) => curve.specimenLabel)).toEqual(["Specimen 1", "Specimen 1"]);
+    expect(result.dataset.warnings.find((warning) => warning.code === "MERGED_HEADER_CELL")).toMatchObject({
+      severity: "info",
+      sourceRange: "A1:B1"
+    });
+    expect(result.dataset.warnings.map((warning) => warning.code)).toContain("INHERITED_SPECIMEN_LABEL");
+  });
+
+  it("does not inherit a horizontally merged reagent header", () => {
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ["Specimen 1", ""],
+      ["R1", ""],
+      [0.1, 0.2]
+    ]);
+    worksheet["!merges"] = [XLSX.utils.decode_range("A2:B2")];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+
+    const result = parseWorkbook(workbook, "merged-reagent.xlsx", XLSX);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.dataset.curves[1]).toMatchObject({ specimenLabel: "Specimen 1", reagentLabel: "" });
+    expect(result.dataset.curves[1].warnings.map((warning) => warning.code)).toContain("MISSING_REAGENT_LABEL");
+    expect(result.dataset.warnings.find((warning) => warning.code === "MERGED_HEADER_CELL")).toMatchObject({
+      severity: "warning",
+      sourceRange: "A2:B2"
+    });
+  });
+
+  it("does not report specimen merge inheritance when the merged continuation has no active curve", () => {
+    const worksheet = XLSX.utils.aoa_to_sheet([["Specimen 1"], ["R1"], [0.1]]);
+    worksheet["!merges"] = [XLSX.utils.decode_range("A1:B1")];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+
+    const result = parseWorkbook(workbook, "inactive-merged-specimen.xlsx", XLSX);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.dataset.curves).toHaveLength(1);
+    expect(result.dataset.warnings.find((warning) => warning.code === "MERGED_HEADER_CELL")).toMatchObject({
+      severity: "warning",
+      message: "Merged header cells were detected; reagent and cross-row headers are not auto-filled."
+    });
   });
 
   it("uses worksheet index 0 only and warns about ignored later worksheets", async () => {
@@ -278,44 +343,118 @@ describe("parseExcelWorkbook", () => {
     });
   });
 
-  it("imports columns with missing specimen or reagent headers and reports header warnings", () => {
+  it("blocks import when the first usable curve column has no specimen label", () => {
     const worksheet = XLSX.utils.aoa_to_sheet([
-      ["", "Specimen 2", "", "Specimen 4"],
-      ["R1", "", "", "R4"],
-      [0.2, 0.25, 0.3, ""],
-      [1.2, 1.4, 1.6, ""]
+      ["", ""],
+      ["", "R2"],
+      ["", 0.25],
+      ["", 1.4]
     ]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
 
-    const result = parseWorkbook(workbook, "missing-headers.xlsx", XLSX);
+    const result = parseWorkbook(workbook, "missing-first-specimen.xlsx", XLSX);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toMatchObject({
+      code: "MISSING_SPECIMEN_LABEL",
+      severity: "error",
+      handling: "blocked",
+      sourceCell: "B1"
+    });
+    expect(result.error.sourceRefs?.[0]).toMatchObject({ sourceName: "missing-first-specimen.xlsx", cell: "B1" });
+  });
+
+  it("inherits blank specimen headers from the previous explicit specimen without changing raw values", () => {
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ["Specimen 1", "", "Specimen 2", "", ""],
+      ["R1", "R2", "", "R4", ""],
+      [0.2, 0.25, 0.3, 0.35, ""],
+      [1.2, 1.4, 1.6, 1.8, ""]
+    ]);
+    worksheet["!ref"] = "A1:E4";
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+
+    const result = parseWorkbook(workbook, "inherited-specimens.xlsx", XLSX);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.dataset.curves).toHaveLength(4);
-    expect(result.dataset.curves[0]).toMatchObject({
-      specimenLabel: "",
-      reagentLabel: "R1",
-      displayLabel: "Empty specimen A1 │ R1"
-    });
-    expect(result.dataset.curves[1]).toMatchObject({
-      specimenLabel: "Specimen 2",
-      reagentLabel: "",
-      displayLabel: "Specimen 2 │ Empty reagent B2"
-    });
-    expect(result.dataset.curves[2]).toMatchObject({
-      specimenLabel: "",
-      reagentLabel: "",
-      displayLabel: "Empty specimen C1 │ Empty reagent C2"
-    });
-    expect(result.dataset.curves[3].warnings.map((warning) => warning.code)).not.toContain("MISSING_SPECIMEN_LABEL");
-    expect(result.dataset.curves[3].warnings.map((warning) => warning.code)).not.toContain("MISSING_REAGENT_LABEL");
-    expect(result.dataset.curves[0].warnings.map((warning) => warning.code)).toContain("MISSING_SPECIMEN_LABEL");
-    expect(result.dataset.curves[1].warnings.map((warning) => warning.code)).toContain("MISSING_REAGENT_LABEL");
-    expect(result.dataset.curves[2].warnings.map((warning) => warning.code)).toEqual([
-      "MISSING_SPECIMEN_LABEL",
-      "MISSING_REAGENT_LABEL"
+    expect(result.dataset.curves.map((curve) => curve.specimenLabel)).toEqual([
+      "Specimen 1",
+      "Specimen 1",
+      "Specimen 2",
+      "Specimen 2"
     ]);
+    expect(result.dataset.curves.map((curve) => curve.y)).toEqual([
+      [0.2, 1.2],
+      [0.25, 1.4],
+      [0.3, 1.6],
+      [0.35, 1.8]
+    ]);
+    expect(result.dataset.curves[1].source.specimenHeader).toMatchObject({ rawValue: "", displayValue: "" });
+    expect(result.dataset.curves[2].warnings.map((warning) => warning.code)).toContain("MISSING_REAGENT_LABEL");
+    expect(result.dataset.warnings.some((warning) => warning.code === "MISSING_SPECIMEN_LABEL")).toBe(false);
+    const inherited = result.dataset.warnings.filter((warning) => warning.code === "INHERITED_SPECIMEN_LABEL");
+    expect(inherited).toHaveLength(2);
+    expect(inherited.map((warning) => warning.curveIds)).toEqual([["sheet0_col_B"], ["sheet0_col_D"]]);
+    expect(inherited.flatMap((warning) => warning.sourceRefs?.map((source) => source.cell) ?? [])).toEqual([
+      "A1",
+      "B1",
+      "C1",
+      "D1"
+    ]);
+  });
+
+  it("does not treat an empty-display specimen formula as intentional inheritance", () => {
+    const worksheet: XLSX.WorkSheet = {
+      A1: { t: "s", v: "Specimen 1" },
+      A2: { t: "s", v: "R1" },
+      A3: { t: "n", v: 1 },
+      B1: { t: "s", f: '"Specimen 2"' },
+      B2: { t: "s", v: "R2" },
+      B3: { t: "n", v: 2 },
+      "!ref": "A1:B3"
+    };
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+
+    const result = parseWorkbook(workbook, "formula-header.xlsx", XLSX);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.dataset.curves[1].specimenLabel).toBe("");
+    expect(result.dataset.curves[1].warnings.map((warning) => warning.code)).toEqual([
+      "FORMULA_WITHOUT_CACHED_VALUE",
+      "FORMATTED_HEADER_EMPTY",
+      "MISSING_SPECIMEN_LABEL"
+    ]);
+    expect(result.dataset.warnings.some((warning) => warning.code === "INHERITED_SPECIMEN_LABEL")).toBe(false);
+  });
+
+  it("does not inherit a nonblank raw specimen whose number format displays empty", () => {
+    const worksheet: XLSX.WorkSheet = {
+      A1: { t: "s", v: "Specimen 1" },
+      A2: { t: "s", v: "R1" },
+      A3: { t: "n", v: 1 },
+      B1: { t: "n", v: 123, z: ";;;" },
+      B2: { t: "s", v: "R2" },
+      B3: { t: "n", v: 2 },
+      "!ref": "A1:B3"
+    };
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+
+    const result = parseWorkbook(workbook, "formatted-empty-header.xlsx", XLSX);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.dataset.curves[1].specimenLabel).toBe("");
+    expect(result.dataset.curves[1].source.specimenHeader).toMatchObject({ rawValue: 123, displayValue: "" });
+    expect(result.dataset.curves[1].warnings.map((warning) => warning.code)).toContain("FORMATTED_HEADER_EMPTY");
+    expect(result.dataset.warnings.some((warning) => warning.code === "INHERITED_SPECIMEN_LABEL")).toBe(false);
   });
 
   it("normalizes uneven curve lengths to a shared generated cycle range with null gaps", () => {

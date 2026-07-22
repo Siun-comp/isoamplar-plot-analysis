@@ -34,9 +34,9 @@ Update this file when parsing rules, data types, invalid data handling, internal
 
 | ID | Input | Initial Rule | Related Requirements | Acceptance Criteria |
 | --- | --- | --- | --- | --- |
-| IO-001 | Excel workbook | Support `.xls` and `.xlsx` upload through browser file APIs; parse only the first worksheet. The user can replace the current dataset or append another file to the current analysis. If the active analysis is dirty, replace upload requires explicit replace or new-analysis confirmation. | FR-001 | AC-001, AC-002, AC-PCR-001, AC-PCR-015, AC-PCR-016, AC-PCR-025 |
+| IO-001 | Excel workbook | Support `.xls` and `.xlsx` upload through browser file APIs; parse only the first worksheet. Within each workbook, the first usable curve column requires a specimen label and each truly blank later specimen header inherits the nearest previous explicit specimen label. The user can replace the current dataset or append another file to the current analysis. If the active analysis is dirty, replace upload requires explicit replace or new-analysis confirmation. | FR-001 | AC-001, AC-002, AC-PCR-001, AC-PCR-015, AC-PCR-016, AC-PCR-025, AC-PCR-061 |
 | IO-002 | CSV file | Deferred beyond MVP. | FR-002 | TBD |
-| IO-003 | Pasted table | Implemented post-MVP Quick Paste Import. The user pastes a small table into a textarea using either full-table mode, row 1 specimen labels / row 2 reagent labels / row 3+ fluorescence values, or single-specimen mode, one supplied specimen name / pasted row 1 reagent labels / pasted row 2+ fluorescence values. The app generates a read-only preview, source-position warnings, row/column/cell/character/curve/cycle counts, and an approximate minimum working-memory estimate before append/new-analysis import. No in-app cell editing or source-data correction is allowed. | FR-003 | AC-QP-001 through AC-QP-021 |
+| IO-003 | Pasted table | Implemented post-MVP Quick Paste Import. The user pastes a small table into a textarea using either full-table mode, row 1 specimen labels with the same within-source blank-as-previous contract as Excel / row 2 reagent labels / row 3+ fluorescence values, or single-specimen mode, one supplied specimen name / pasted row 1 reagent labels / pasted row 2+ fluorescence values. The app generates a read-only preview, source-position diagnostics, row/column/cell/character/curve/cycle counts, and an approximate minimum working-memory estimate before append/new-analysis import. No in-app cell editing or source-data correction is allowed. | FR-003 | AC-PCR-061, AC-QP-001 through AC-QP-021 |
 | IO-004 | Manual entry / editing | Deferred beyond MVP. Imported data is not editable in MVP. | FR-003 | AC-PCR-017 |
 | IO-005 | Analysis XLSX restore file | Support `.xlsx` files containing the hidden IsoAmplar restore sheet through the dedicated `저장한 분석 열기` command. A valid restore file opens as an independent clean internal analysis tab. `원본 데이터 열기` and `Excel 추가` reject Analysis XLSX with guidance instead of restoring or merging it. | FR-017, FR-018 | AC-PCR-033, AC-PCR-034, AC-PCR-036, AC-PCR-037, AC-PCR-049B |
 | IO-006 | Selected Data XLSX | This is an output-only workbook role. Original open, append, and Analysis restore commands shall detect its hidden marker before state mutation and reject it with guidance that the file is for Excel follow-up analysis only. | FR-001, FR-017, FR-021 | AC-PCR-055 |
@@ -65,7 +65,11 @@ Parser policy:
 - Formula cells are never recalculated in the browser. Use cached finite numeric fluorescence values unchanged and warn that cache was used; otherwise normalize to `null` and warn that no cache was available.
 - Each source import receives an immutable source-instance ID. Every normalized/persisted warning carries one-to-many source references, handling outcome, and affected curve IDs where applicable; same-name repeated imports remain distinct.
 - Extension/content signature mismatch is diagnostic only and does not change the current allow/block policy.
-- Merged headers warn; do not silently infer repeated labels unless implementation later adds tested behavior.
+- The first usable curve column must have a nonblank specimen display label; a missing value blocks that source and cannot borrow a specimen from an already open analysis.
+- A truly blank or whitespace-only later row-1 specimen cell inherits the nearest previous explicit specimen label within the same workbook or full-table paste source. The normalized curve uses the inherited label while the original blank cell remains in provenance and an informational diagnostic records both source and target cells.
+- Formula-without-cache and formatted-display-empty specimen headers are not treated as intentional blanks and do not silently inherit.
+- Reagent headers never inherit. Missing reagent labels retain the existing warning/fallback behavior.
+- Horizontal row-1 specimen merges use the same tested left-to-right inheritance only where a blank continuation actually exists. Reagent or cross-row merges are not auto-filled and continue to warn.
 - Negative numeric fluorescence values are valid raw values and should not warn by default.
 - Maximum file size, maximum row count, and maximum column count remain performance-budget decisions.
 
@@ -183,7 +187,7 @@ MVP rules:
 - Row 2 is always reagent labels.
 - Row 3 onward is fluorescence data.
 - Similar specimen or reagent names warn only; the app does not merge, rename, or correct labels. MVP similar-key rule trims labels, lowercases Latin text, removes whitespace/hyphen/underscore characters, and compares non-empty keys.
-- Missing specimen or reagent labels produce warnings, preserve the empty raw label, and use source-position fallback display/identity. They do not by themselves invalidate the whole worksheet.
+- A missing specimen label in the first usable curve column invalidates the source. Truly blank later specimen labels inherit the nearest previous explicit specimen within that source and retain blank raw provenance plus `INHERITED_SPECIMEN_LABEL` information. Other unresolved specimen blanks and missing reagent labels retain warning/fallback behavior.
 
 ## Internal PCR Dataset Model
 The normalized PCR dataset should be representable as:

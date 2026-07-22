@@ -182,11 +182,12 @@ test("previews and imports full-table and single-specimen pasted data", async ({
   await expect(dialog.getByRole("textbox", { name: "표 데이터" })).toBeFocused();
   await dialog
     .getByRole("textbox", { name: "표 데이터" })
-    .fill("Synthetic Sample\tSynthetic Sample\nAssay 1\tAssay 2\n0.1\t0.2\n1.1\t1.2\n4.1\t4.2");
+    .fill("Synthetic Sample\t\nAssay 1\tAssay 2\n0.1\t0.2\n1.1\t1.2\n4.1\t4.2");
   await dialog.getByRole("button", { name: "미리보기 생성" }).click();
   await expect(dialog.getByText("측정 곡선 2개")).toBeVisible();
   await expect(dialog.getByText("Cycle 3개")).toBeVisible();
   await expect(dialog.getByRole("table")).toBeVisible();
+  await expect(dialog.getByText("검체명 계승")).toBeVisible();
   await expect(page.getByText("가져오기 전")).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("quick-paste-preview.png"), fullPage: false });
   await dialog.getByRole("button", { name: "현재 분석에 추가" }).click();
@@ -366,7 +367,7 @@ test("uploads an xlsx workbook and keeps reagent-first collapsed selection", asy
   expect(after).not.toBeNull();
   expect(Math.abs((after?.height ?? 0) - (before?.height ?? 0))).toBeLessThan(2);
 
-  await page.evaluate(() => window.scrollTo(0, 300));
+  await page.evaluate(() => window.scrollTo(0, 500));
   await expect
     .poll(async () => {
       const box = await page.locator(".chart-panel").boundingBox();
@@ -927,7 +928,7 @@ test("creates and switches internal analysis tabs", async ({ page }, testInfo) =
 function writeWorkbookFixture(filePath: string, specimenLabel: string) {
   const workbook = XLSX.utils.book_new();
   const rows: Array<Array<string | number>> = [
-    [specimenLabel, specimenLabel],
+    [specimenLabel, ""],
     ["A1", "A2"]
   ];
 
@@ -944,7 +945,7 @@ function writeWorkbookFixture(filePath: string, specimenLabel: string) {
 function writeAnalysisRoundtripWorkbookFixture(filePath: string, specimenLabel: string) {
   const workbook = XLSX.utils.book_new();
   const rows: Array<Array<string | number | null>> = [
-    [specimenLabel, specimenLabel],
+    [specimenLabel, ""],
     ["A1", "A2"],
     [-1.25, 0.1],
     [null, 2.5e-7],

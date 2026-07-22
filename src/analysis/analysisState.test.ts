@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import * as XLSX from "xlsx";
 import { createDefaultChartScale } from "../chart/chartScale";
 import { createDefaultStyleRules } from "../chart/chartStyle";
 import { appendPcrDataset } from "../data/mergeDatasets";
+import { parseWorkbook } from "../data/parseExcel";
 import { parsePastedTable } from "../data/parsePastedTable";
 import { createOneSpecimenEightReagentDataset } from "../data/sampleData";
 import { createGroupId } from "../selection/buildTrees";
@@ -59,6 +61,45 @@ function createTestAnalysisState(): AnalysisState {
     activeSelectionSetId: "selection-set-1",
     dirty: true
   });
+}
+
+function createInheritedExcelDataset(
+  headers = ["Specimen 1", "", "Specimen 2", ""],
+  fileName = "inherited-validation.xlsx"
+) {
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet([
+      headers,
+      ["R1", "R2", "R3", "R4"],
+      [0.1, 0.2, 0.3, 0.4],
+      [1.1, 1.2, 1.3, 1.4]
+    ]),
+    "Sheet1"
+  );
+  const parsed = parseWorkbook(workbook, fileName, XLSX);
+  if (!parsed.ok) throw new Error("Expected inherited validation workbook to parse.");
+  return parsed.dataset;
+}
+
+function createInheritedExcelPayload(headers = ["Specimen 1", "", "Specimen 2", ""]) {
+  const dataset = createInheritedExcelDataset(headers);
+  const state = createAnalysisState({
+    analysisId: "inherited-validation",
+    analysisName: "Inherited validation",
+    dataset,
+    selection: createInitialSelectionState(dataset),
+    searchQuery: "",
+    selectionFilter: "all",
+    chartScale: createDefaultChartScale(),
+    styleRules: createDefaultStyleRules(),
+    curveOverrides: {},
+    exportCounter: 1,
+    importFileName: "inherited-validation.xlsx",
+    sourceFiles: [createSourceFileSummary(dataset)]
+  });
+  return JSON.parse(JSON.stringify(serializeAnalysisState(state)));
 }
 
 describe("analysis state serialization", () => {
@@ -472,6 +513,10 @@ describe("analysis state serialization", () => {
     wrongSource.sourceFiles[0].curveCount -= 1;
     expect(() => deserializeAnalysisState(wrongSource)).toThrow("curve count");
 
+    const wrongHeaderProvenance = createPayload();
+    wrongHeaderProvenance.dataset.curves[0].source.specimenHeader.displayValue = "";
+    expect(() => deserializeAnalysisState(wrongHeaderProvenance)).toThrow("header provenance");
+
     const wrongWarning = createPayload();
     wrongWarning.dataset.warnings = [
       {
@@ -499,6 +544,141 @@ describe("analysis state serialization", () => {
     const wrongCollapsedGroup = createPayload();
     wrongCollapsedGroup.selection.collapsedGroupIds.push("group:reagent:unknown");
     expect(() => deserializeAnalysisState(wrongCollapsedGroup)).toThrow("unknown groupId");
+  });
+
+  it("strictly validates inherited specimen anchors, target blanks, and nearest-left semantics", () => {
+    expect(deserializeAnalysisState(createInheritedExcelPayload()).dataset.curves.map((curve) => curve.specimenLabel)).toEqual([
+      "Specimen 1",
+      "Specimen 1",
+      "Specimen 2",
+      "Specimen 2"
+    ]);
+
+    const missingAnchor = createInheritedExcelPayload();
+    missingAnchor.dataset.warnings[0].sourceRefs.shift();
+    expect(() => deserializeAnalysisState(missingAnchor)).toThrow("one anchor");
+
+    const changedAnchorLabel = createInheritedExcelPayload();
+    changedAnchorLabel.dataset.warnings[0].labels = ["Changed specimen"];
+    changedAnchorLabel.dataset.warnings[0].sourceRefs[0].displayValue = "Changed specimen";
+    changedAnchorLabel.dataset.warnings[0].sourceRefs[0].rawValue = "Changed specimen";
+    expect(() => deserializeAnalysisState(changedAnchorLabel)).toThrow("anchor");
+
+    const firstSource = createInheritedExcelDataset(["Specimen 1", ""], "first-source.xlsx");
+    const secondSource = createInheritedExcelDataset(["Specimen 1", ""], "second-source.xlsx");
+    const merged = appendPcrDataset(firstSource, secondSource).dataset;
+    const mergedState = createAnalysisState({
+      analysisId: "cross-source-inheritance",
+      analysisName: "Cross source inheritance",
+      dataset: merged,
+      selection: createInitialSelectionState(merged),
+      searchQuery: "",
+      selectionFilter: "all",
+      chartScale: createDefaultChartScale(),
+      styleRules: createDefaultStyleRules(),
+      curveOverrides: {},
+      exportCounter: 1,
+      importFileName: null,
+      sourceFiles: [createSourceFileSummary(firstSource), createSourceFileSummary(secondSource)]
+    });
+    const crossSourceAnchor = JSON.parse(JSON.stringify(serializeAnalysisState(mergedState)));
+    const inheritanceWarnings = crossSourceAnchor.dataset.warnings.filter(
+      (warning: { code: string }) => warning.code === "INHERITED_SPECIMEN_LABEL"
+    );
+    inheritanceWarnings[0].sourceRefs[0] = { ...inheritanceWarnings[1].sourceRefs[0] };
+    expect(() => deserializeAnalysisState(crossSourceAnchor)).toThrow("target is inconsistent");
+
+    const alteredPhysicalColumn = createInheritedExcelPayload(["Specimen 1", "", "Specimen 1", ""]);
+    const alteredWarning = alteredPhysicalColumn.dataset.warnings.find((warning: { curveIds?: string[] }) =>
+      warning.curveIds?.includes("sheet0_col_D")
+    );
+    alteredWarning.sourceRefs[0] = { ...alteredWarning.sourceRefs[0], cell: "A1", columnLetter: "A" };
+    alteredPhysicalColumn.dataset.curves.find(
+      (curve: { curveId: string }) => curve.curveId === "sheet0_col_C"
+    ).source.columnIndex = 10;
+    expect(() => deserializeAnalysisState(alteredPhysicalColumn)).toThrow("column index, letter, and cell addresses");
+
+    const pasted = parsePastedTable("Specimen 1\t\nR1\tR2\n0.1\t0.2", {
+      mode: "fullTable",
+      sourceName: "Paste raw validation",
+      sourceInstanceId: "paste-raw-validation"
+    });
+    expect(pasted.ok).toBe(true);
+    if (!pasted.ok) return;
+    const pastedState = createAnalysisState({
+      analysisId: "paste-raw-validation",
+      analysisName: "Paste raw validation",
+      dataset: pasted.dataset,
+      selection: createInitialSelectionState(pasted.dataset),
+      searchQuery: "",
+      selectionFilter: "all",
+      chartScale: createDefaultChartScale(),
+      styleRules: createDefaultStyleRules(),
+      curveOverrides: {},
+      exportCounter: 1,
+      importFileName: null,
+      sourceFiles: [createSourceFileSummary(pasted.dataset)]
+    });
+    const changedPasteRaw = JSON.parse(JSON.stringify(serializeAnalysisState(pastedState)));
+    changedPasteRaw.dataset.warnings[0].sourceRefs[0].rawValue = "Different raw value";
+    expect(() => deserializeAnalysisState(changedPasteRaw)).toThrow("pasted specimen anchor raw value");
+
+    const nonBlankTarget = createInheritedExcelPayload();
+    nonBlankTarget.dataset.curves[1].source.specimenHeader.rawValue = "hidden";
+    nonBlankTarget.dataset.warnings[0].sourceRefs[1].rawValue = "hidden";
+    expect(() => deserializeAnalysisState(nonBlankTarget)).toThrow("target");
+
+    const formulaTarget = createInheritedExcelPayload();
+    formulaTarget.dataset.curves[1].source.specimenHeader.formulaText = '"Specimen 1"';
+    formulaTarget.dataset.curves[1].source.specimenHeader.formulaCacheStatus = "missing";
+    formulaTarget.dataset.warnings[0].sourceRefs[1].formulaText = '"Specimen 1"';
+    formulaTarget.dataset.warnings[0].sourceRefs[1].formulaCacheStatus = "missing";
+    expect(() => deserializeAnalysisState(formulaTarget)).toThrow("target");
+
+    const wrongNearestAnchor = createInheritedExcelPayload(["Specimen 1", "", "Specimen 1", ""]);
+    const secondWarning = wrongNearestAnchor.dataset.warnings.find((warning: { curveIds?: string[] }) =>
+      warning.curveIds?.includes("sheet0_col_D")
+    );
+    secondWarning.sourceRefs[0] = {
+      ...secondWarning.sourceRefs[0],
+      cell: "A1",
+      columnLetter: "A"
+    };
+    expect(() => deserializeAnalysisState(wrongNearestAnchor)).toThrow("nearest explicit specimen");
+  });
+
+  it("restores a wide mostly-inherited paste source through indexed validation", () => {
+    const columnCount = 4096;
+    const parsed = parsePastedTable(
+      [
+        ["Specimen 1", ...Array.from({ length: columnCount - 1 }, () => "")].join("\t"),
+        Array.from({ length: columnCount }, (_, index) => `R${index + 1}`).join("\t"),
+        Array.from({ length: columnCount }, () => "0.1").join("\t")
+      ].join("\n"),
+      {
+        mode: "fullTable",
+        sourceName: "Wide inherited paste",
+        sourceInstanceId: "paste-wide-inherited"
+      }
+    );
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const state = createAnalysisState({
+      analysisId: "wide-inherited",
+      analysisName: "Wide inherited",
+      dataset: parsed.dataset,
+      selection: createInitialSelectionState(parsed.dataset),
+      searchQuery: "",
+      selectionFilter: "all",
+      chartScale: createDefaultChartScale(),
+      styleRules: createDefaultStyleRules(),
+      curveOverrides: {},
+      exportCounter: 1,
+      importFileName: null,
+      sourceFiles: [createSourceFileSummary(parsed.dataset)]
+    });
+
+    expect(deserializeAnalysisState(serializeAnalysisState(state)).dataset.curves).toHaveLength(columnCount);
   });
 
   it("validates aggregate mixed-source provenance, paste mode, and warning-to-curve source links", () => {
@@ -532,6 +712,11 @@ describe("analysis state serialization", () => {
     const pasteCurve = conflictingSource.dataset.curves.at(-1);
     pasteCurve.source.sourceInstanceId = excelCurve.source.sourceInstanceId;
     pasteCurve.source.columnLetter = "Z";
+    pasteCurve.source.columnIndex = 25;
+    pasteCurve.source.specimenCell = "Z1";
+    pasteCurve.source.reagentCell = "Z2";
+    pasteCurve.source.dataStartCell = "Z3";
+    pasteCurve.source.dataEndCell = `Z${pasteCurve.y.length + 2}`;
     expect(() => deserializeAnalysisState(conflictingSource)).toThrow("conflicting provenance metadata");
 
     const missingPasteMode = JSON.parse(JSON.stringify(validPayload));

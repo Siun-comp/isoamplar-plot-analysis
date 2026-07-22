@@ -251,6 +251,7 @@ function getWarningTitle(warning: PcrWarning) {
     FORMULA_CACHED_VALUE_USED: "수식 캐시값 사용",
     FORMULA_WITHOUT_CACHED_VALUE: "수식 캐시값 없음",
     MISSING_SPECIMEN_LABEL: "검체명 없음",
+    INHERITED_SPECIMEN_LABEL: "검체명 계승",
     MISSING_REAGENT_LABEL: "시약명 없음",
     DUPLICATE_CURVE_LABEL: "동일 곡선 라벨",
     SIMILAR_SPECIMEN_LABEL: "유사 검체명",

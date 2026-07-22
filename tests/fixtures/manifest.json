@@ -87,9 +87,9 @@
         "AC-PCR-048"
       ],
       "purpose": "Stable warning codes and source locations without user data.",
-      "byteLength": 8941,
+      "byteLength": 8932,
       "magicHex": "504b030414000000",
-      "sha256": "631df84c3c92cfcd3c86e370bfb0c1cf0cb321eb87a2f05623751c6556b09605"
+      "sha256": "6f6704fdf44f7a9aae76196ef05bd1c334d88639d442d4d9a974aea5af4cb902"
     },
     {
       "fixtureId": "FX-005",

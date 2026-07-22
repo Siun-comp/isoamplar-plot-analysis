@@ -786,6 +786,31 @@ describe("app store style preset and legend order", () => {
     ]);
   });
 
+  it("keeps inherited specimen identity and warning provenance inside the appended source", async () => {
+    await useAppStore.getState().importFile(createWorkbookFile("first.xlsx", "Specimen 1", "A1", 0.1));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.aoa_to_sheet([
+        ["Specimen 2", ""],
+        ["A1", "A2"],
+        [0.2, 0.3]
+      ]),
+      "Sheet1"
+    );
+
+    await useAppStore.getState().appendFile(createFileFromWorkbook(workbook, "second.xlsx"));
+
+    const state = useAppStore.getState();
+    const appendedCurves = state.dataset?.curves.slice(1) ?? [];
+    expect(appendedCurves.map((curve) => curve.specimenLabel)).toEqual(["Specimen 2", "Specimen 2"]);
+    expect(appendedCurves.map((curve) => curve.y)).toEqual([[0.2], [0.3]]);
+    const inherited = state.dataset?.warnings.find((warning) => warning.code === "INHERITED_SPECIMEN_LABEL");
+    expect(inherited?.curveIds).toEqual([appendedCurves[1].curveId]);
+    expect(inherited?.sourceRefs?.map((source) => source.cell)).toEqual(["A1", "B1"]);
+    expect(new Set(inherited?.sourceRefs?.map((source) => source.sourceInstanceId)).size).toBe(1);
+  });
+
   it("clears pending preset undo after appending data to avoid stale override restoration", async () => {
     await useAppStore.getState().importFile(createWorkbookFile("first.xlsx", "Specimen 1", "A1", 0.1));
     const firstCurveId = useAppStore.getState().dataset?.curves[0].curveId ?? "";
@@ -973,6 +998,23 @@ describe("app store style preset and legend order", () => {
     expect(useAppStore.getState().sourceFiles.map((sourceFile) => sourceFile.fileName)).toEqual(["first.xlsx"]);
     expect(useAppStore.getState().importError).toContain("Only .xls and .xlsx files are supported");
     expect(useAppStore.getState().importStatus).toBe("ready");
+  });
+
+  it("does not borrow the current analysis specimen when an appended file starts with a blank specimen", async () => {
+    await useAppStore.getState().importFile(createWorkbookFile("first.xlsx", "Specimen 1", "A1", 0.1));
+    const before = useAppStore.getState();
+    const beforeCurveIds = before.dataset?.orderedCurveIds;
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([[""], ["A2"], [0.2]]), "Sheet1");
+
+    await useAppStore.getState().appendFile(createFileFromWorkbook(workbook, "blank-first-specimen.xlsx"));
+
+    const after = useAppStore.getState();
+    expect(after.dataset?.orderedCurveIds).toEqual(beforeCurveIds);
+    expect(after.dataset?.curves[0].specimenLabel).toBe("Specimen 1");
+    expect(after.sourceFiles.map((sourceFile) => sourceFile.fileName)).toEqual(["first.xlsx"]);
+    expect(after.importError).toContain("first usable curve column");
+    expect(after.importStatus).toBe("ready");
   });
 
   it("opens Analysis XLSX in a new clean tab without carrying runtime dirty state", async () => {

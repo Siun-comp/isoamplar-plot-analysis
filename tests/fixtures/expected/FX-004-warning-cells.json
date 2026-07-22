@@ -12,7 +12,6 @@
         0.6
       ],
       "warningCodes": [
-        "MISSING_SPECIMEN_LABEL",
         "NON_NUMERIC_FLUORESCENCE"
       ]
     },
@@ -42,9 +41,8 @@
   ],
   "requiredWarningEvidence": [
     {
-      "code": "MISSING_SPECIMEN_LABEL",
-      "sourceCell": "A1",
-      "curveId": "sheet0_col_A",
+      "code": "INHERITED_SPECIMEN_LABEL",
+      "curveId": "sheet0_col_C",
       "handling": "kept"
     },
     {

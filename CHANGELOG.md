@@ -1,5 +1,13 @@
 # CHANGELOG.md
 
+## 2026-07-22 - Specimen header inheritance
+
+- Added source-local left-to-right specimen inheritance for truly blank later row-1 cells in Excel and full-table Quick Paste, reducing repeated entry for one-specimen/multi-reagent runs.
+- Blocked Excel or paste sources whose first usable curve column has no specimen label; failed append attempts leave the open analysis unchanged and never borrow a specimen from another source.
+- Preserved blank header provenance and added grouped informational evidence with explicit source and target cells; reagent headers, formula-without-cache headers, and formatted-display-empty headers are not inherited.
+- Updated horizontal merged-specimen handling, fixed fixtures, append coverage, and Analysis XLSX semantic validation so inherited labels and original blank cells roundtrip without weakening unrelated header-integrity checks.
+- Hardened Analysis XLSX continuation against missing, cross-source, nonblank, formula-derived, or non-nearest inheritance evidence, and replaced repeated warning/source scans with indexed validation for wide restored datasets.
+
 ## 2026-07-14 - Report-readable plot exports
 
 - Defaulted new analyses to `Plot only` while retaining explicitly saved Analysis XLSX layout choices.

@@ -110,7 +110,7 @@ function writeEquivalentFixture(fixtureId, fileName, bookType) {
 
 function writeWarningFixture() {
   const worksheet = XLSX.utils.aoa_to_sheet([
-    ["", "Merged Synthetic Sample", "Synthetic Sample C"],
+    ["Synthetic Sample A", "Merged Synthetic Sample", ""],
     ["Assay Missing Sample", "", "Assay C"],
     [0.1, 0.2, 0.3],
     ["not-a-number", 0.4, 0.5],
@@ -127,7 +127,7 @@ function writeWarningFixture() {
     result: "ok",
     cycleCount: 3,
     curves: [
-      { curveId: "sheet0_col_A", y: [0.1, null, 0.6], warningCodes: ["MISSING_SPECIMEN_LABEL", "NON_NUMERIC_FLUORESCENCE"] },
+      { curveId: "sheet0_col_A", y: [0.1, null, 0.6], warningCodes: ["NON_NUMERIC_FLUORESCENCE"] },
       { curveId: "sheet0_col_B", y: [0.2, 0.4, 0.7], warningCodes: ["MISSING_REAGENT_LABEL"] },
       {
         curveId: "sheet0_col_C",
@@ -136,7 +136,7 @@ function writeWarningFixture() {
       }
     ],
     requiredWarningEvidence: [
-      { code: "MISSING_SPECIMEN_LABEL", sourceCell: "A1", curveId: "sheet0_col_A", handling: "kept" },
+      { code: "INHERITED_SPECIMEN_LABEL", curveId: "sheet0_col_C", handling: "kept" },
       { code: "MISSING_REAGENT_LABEL", sourceCell: "B2", curveId: "sheet0_col_B", handling: "kept" },
       {
         code: "NON_NUMERIC_FLUORESCENCE",

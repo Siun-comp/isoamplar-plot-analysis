@@ -5,6 +5,7 @@ import { createDefaultChartScale, getAppliedAxisScaleForDraft } from "../chart/c
 import { createDefaultStyleRules } from "../chart/chartStyle";
 import { createOneSpecimenEightReagentDataset, createSyntheticPcrDataset } from "../data/sampleData";
 import { appendPcrDataset } from "../data/mergeDatasets";
+import { parseWorkbook } from "../data/parseExcel";
 import { parsePastedTable } from "../data/parsePastedTable";
 import { createStats } from "../data/normalizePcrData";
 import { createInitialSelectionState } from "../selection/selectionState";
@@ -25,6 +26,7 @@ describe("Analysis XLSX workbook", () => {
     const dataset = createOneSpecimenEightReagentDataset();
     dataset.curves[0].x = [1, 2, 3, 4];
     dataset.curves[0].y = [-1.25, null, 1.2e-9, 950_000_000];
+    dataset.curves[0].source.dataEndCell = `${dataset.curves[0].source.columnLetter}6`;
     dataset.curves[0].stats = createStats(dataset.curves[0].y);
     const selection = createInitialSelectionState(dataset);
     selection.selectedCurveIds.add(dataset.curves[0].curveId);
@@ -298,6 +300,54 @@ describe("Analysis XLSX workbook", () => {
       color: "#123456"
     });
     expect(restored.analysis.sourceFiles.map((source) => source.sourceKind)).toEqual(["excel", "paste"]);
+  });
+
+  it("roundtrips inherited specimen labels while preserving the original blank Excel header", async () => {
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.aoa_to_sheet([
+        ["Specimen 1", ""],
+        ["A1", "A2"],
+        [0.1, 0.2],
+        [1.1, 1.2]
+      ]),
+      "Sheet1"
+    );
+    const parsed = parseWorkbook(workbook, "inherited.xlsx", XLSX);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const state = createAnalysisState({
+      analysisId: "analysis-inherited-specimen",
+      analysisName: "Inherited specimen",
+      dataset: parsed.dataset,
+      selection: createInitialSelectionState(parsed.dataset),
+      searchQuery: "",
+      selectionFilter: "all",
+      chartScale: createDefaultChartScale(),
+      styleRules: createDefaultStyleRules(),
+      curveOverrides: {},
+      exportCounter: 1,
+      importFileName: "inherited.xlsx",
+      sourceFiles: [createSourceFileSummary(parsed.dataset)]
+    });
+
+    const restored = await readAnalysisWorkbookBuffer(await exportAnalysisWorkbookBuffer(state));
+
+    expect(restored.kind).toBe("analysis");
+    if (restored.kind !== "analysis") return;
+    expect(restored.analysis.dataset.curves.map((curve) => curve.specimenLabel)).toEqual(["Specimen 1", "Specimen 1"]);
+    expect(restored.analysis.dataset.curves[1].source.specimenHeader).toMatchObject({ rawValue: "", displayValue: "" });
+    const inherited = restored.analysis.dataset.warnings.find(
+      (warning) => warning.code === "INHERITED_SPECIMEN_LABEL"
+    );
+    expect(inherited).toMatchObject({
+      severity: "info",
+      handling: "kept",
+      curveIds: ["sheet0_col_B"],
+      labels: ["Specimen 1"]
+    });
+    expect(inherited?.sourceRefs?.map((source) => source.cell)).toEqual(["A1", "B1"]);
   });
 
   it("roundtrips current analysis labels and legend/export settings without relying on legacy report names", async () => {
