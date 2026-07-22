@@ -64,13 +64,13 @@ Active
 - The audit remediation plan in `docs/12_AUDIT_REMEDIATION_IMPLEMENTATION_PLAN_KR.md` is implemented through S11 and the release is active on GitHub Pages.
 
 ## Current Goal
-Release source-local blank specimen-header inheritance in the original edition without changing raw fluorescence or allowing inheritance across import sources.
+Maintain the released source-local blank specimen-header inheritance in the original edition and collect only real-use regression findings for later patches.
 
 ## Current Milestone
-M15 - Original-edition specimen-header inheritance implementation and local release verification complete; Pages promotion remains.
+M15 original-edition specimen-header inheritance is complete and active on GitHub Pages.
 
 ## Last Completed Step
-Completed the hardened original-edition local M15 gate: 38 files / 307 Vitest tests, audit 1/1, production dependency vulnerabilities 0, Pages-base production build, and fresh Chromium 12/12. The complete `dist` tree remained byte-identical before and after Playwright at SHA-256 `4b0abed0dedd234e9751b5ecdedf776b25afcd34a18daf0cdcdc1bbb0c556fe0`. The regenerated 17-page guide PDF was rendered with Poppler and visually reviewed. Threshold runtime remains absent.
+Released M15 to the original edition as commit `f158573`. GitHub Pages workflow `29936999462` completed successfully with Chromium 12/12. Public-origin smoke at `https://siun-comp.github.io/isoamplar-plot-analysis/` confirmed the app loads without browser errors and a synthetic full-table preview inherits the second blank specimen header from the first explicit specimen. The hardened local gate passed 38 files / 307 Vitest tests, audit 1/1, production dependency vulnerabilities 0, Pages-base build, and byte-identical pre/post-Playwright `dist` SHA-256 `4b0abed0dedd234e9751b5ecdedf776b25afcd34a18daf0cdcdc1bbb0c556fe0`. Threshold runtime remains absent.
 
 ## Latest Changed Files
 - `src/data/resolveSpecimenHeaders.ts`
@@ -682,6 +682,6 @@ Completed the hardened original-edition local M15 gate: 38 files / 307 Vitest te
 - Local production preview: `http://127.0.0.1:4173/`
 
 ## Next 3 Tasks
-1. Commit the verified M15 changes in both edition worktrees.
-2. Push each verified edition to its own `main` and confirm both Pages workflows.
-3. Run synthetic public-origin import/continuation smoke checks and record final deployment evidence.
+1. Use the released parser with representative non-sensitive workbooks and record any reproducible regression.
+2. Preserve Analysis XLSX continuation files when testing long-running analyses.
+3. Update requirements, tests, guide, and changelog together before the next user-visible release.
